@@ -5,7 +5,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { AppSidebar } from '@/components/app-sidebar'
 import { KanbanBoard } from '@/components/leads/kanban-board'
 import { DataTable } from '@/components/leads/data-table'
-import { AutomationTab } from '@/components/automation/automation-tab'
+import { WorkflowsTab } from '@/components/automation/workflows-tab'
 import { AddLeadButton } from '@/components/leads/add-lead-button'
 import { CleanupButton } from '@/components/leads/cleanup-button'
 import { UserMenu } from '@/components/user-menu'
@@ -72,8 +72,8 @@ export function Dashboard({ leads, user }: DashboardProps) {
                     )}
 
                     {activeTab === 'automation' && (
-                        <div className="max-w-5xl">
-                            <AutomationTab />
+                        <div className="max-w-6xl">
+                            <WorkflowsTab />
                         </div>
                     )}
 

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { getCaretCoordinates } from '@/lib/textarea-utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +40,8 @@ import {
     Plus,
     Info,
     Eye,
-    Signature
+    Signature,
+    Trash2
 } from 'lucide-react'
 
 interface AutomationRule {
@@ -79,7 +81,8 @@ const SAMPLE_LEAD = {
     name: 'John Smith',
     website: 'example.com',
     email: 'john@example.com',
-    phone: '+1-555-0123'
+    phone: '+1-555-0123',
+    audit_link: 'https://mehrana.agency/audit/sample-123'
 }
 
 export function AutomationTab() {
@@ -108,6 +111,20 @@ export function AutomationTab() {
     const [editedRequireApproval, setEditedRequireApproval] = useState(false)
     const [editedCancelOnStatus, setEditedCancelOnStatus] = useState('')
     const [includeSignature, setIncludeSignature] = useState(true)
+
+    // Suggestion state
+    const [suggestionPos, setSuggestionPos] = useState({ top: 0, left: 0 })
+    const [showSuggestions, setShowSuggestions] = useState(false)
+    const [suggestionIndex, setSuggestionIndex] = useState(0)
+    const [activeTextarea, setActiveTextarea] = useState<'email' | 'sms' | null>(null)
+
+    const VARIABLES = [
+        { label: 'Name', value: '{name}' },
+        { label: 'Website', value: '{website}' },
+        { label: 'Audit Link', value: '{audit_link}' },
+        { label: 'Email', value: '{email}' },
+        { label: 'Phone', value: '{phone}' },
+    ]
 
     useEffect(() => {
         fetchData()
@@ -218,6 +235,25 @@ export function AutomationTab() {
         setIncludeSignature(true)
     }
 
+    async function deleteRule(ruleId: number) {
+        if (!confirm('Are you sure you want to delete this rule?')) return
+
+        try {
+            const res = await fetch(`/api/automation/rules?id=${ruleId}`, {
+                method: 'DELETE'
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('Rule deleted!')
+                await fetchData()
+            } else {
+                toast.error('Failed to delete: ' + res.error)
+            }
+        } catch (e) {
+            toast.error('Failed to delete rule')
+        }
+    }
+
     async function saveRule() {
         setSaving(true)
 
@@ -303,27 +339,62 @@ export function AutomationTab() {
                     throw new Error(res.error || 'Failed to save rule')
                 }
 
-                if (selectedRule.emailTemplate && editedEmailBody) {
-                    await fetch('/api/templates', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id: selectedRule.emailTemplate.id,
-                            subject: editedEmailSubject,
-                            body: editedEmailBody
+                // Save email template - update if exists, create if not
+                if (editedEmailBody || editedEmailSubject) {
+                    if (selectedRule.emailTemplate) {
+                        // Update existing template
+                        await fetch('/api/templates', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id: selectedRule.emailTemplate.id,
+                                name: `${editedName} Email`, // Sync name
+                                subject: editedEmailSubject,
+                                body: editedEmailBody
+                            })
                         })
-                    })
+                    } else {
+                        // Create new template for this rule
+                        await fetch('/api/templates', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ruleId: selectedRule.id,
+                                type: 'EMAIL',
+                                name: `${editedName} Email`,
+                                subject: editedEmailSubject,
+                                body: editedEmailBody
+                            })
+                        })
+                    }
                 }
 
-                if (selectedRule.smsTemplate && editedSmsBody) {
-                    await fetch('/api/templates', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            id: selectedRule.smsTemplate.id,
-                            body: editedSmsBody
+                // Save SMS template - update if exists, create if not
+                if (editedSmsBody) {
+                    if (selectedRule.smsTemplate) {
+                        // Update existing template
+                        await fetch('/api/templates', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id: selectedRule.smsTemplate.id,
+                                name: `${editedName} SMS`, // Sync name
+                                body: editedSmsBody
+                            })
                         })
-                    })
+                    } else {
+                        // Create new template for this rule
+                        await fetch('/api/templates', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ruleId: selectedRule.id,
+                                type: 'SMS',
+                                name: `${editedName} SMS`,
+                                body: editedSmsBody
+                            })
+                        })
+                    }
                 }
 
                 toast.success('Saved!')
@@ -377,6 +448,72 @@ export function AutomationTab() {
             .replace(/\{website\}/g, SAMPLE_LEAD.website)
             .replace(/\{email\}/g, SAMPLE_LEAD.email)
             .replace(/\{phone\}/g, SAMPLE_LEAD.phone)
+            .replace(/\{audit_link\}/g, SAMPLE_LEAD.audit_link)
+    }
+
+    function handleInput(e: React.FormEvent<HTMLTextAreaElement>, type: 'email' | 'sms') {
+        const target = e.target as HTMLTextAreaElement
+        const value = target.value
+        const selectionEnd = target.selectionEnd
+
+        if (value[selectionEnd - 1] === '{') {
+            const coords = getCaretCoordinates(target, selectionEnd)
+            setSuggestionPos({ top: coords.top + 20, left: coords.left }) // Offset slightly
+            setShowSuggestions(true)
+            setActiveTextarea(type)
+            setSuggestionIndex(0)
+        } else {
+            setShowSuggestions(false)
+        }
+
+        if (type === 'email') setEditedEmailBody(value)
+        else setEditedSmsBody(value)
+    }
+
+    function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, type: 'email' | 'sms') {
+        if (!showSuggestions) return
+
+        const activeVars = VARIABLES // Filter here if needed
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setSuggestionIndex(i => (i + 1) % activeVars.length)
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setSuggestionIndex(i => (i - 1 + activeVars.length) % activeVars.length)
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault()
+            if (activeVars[suggestionIndex]) {
+                insertVariable(activeVars[suggestionIndex].value, type)
+            }
+        } else if (e.key === 'Escape') {
+            setShowSuggestions(false)
+        }
+    }
+
+    function insertVariable(variable: string, type: 'email' | 'sms') {
+        const isEmail = type === 'email'
+        const value = isEmail ? editedEmailBody : editedSmsBody
+        const textarea = document.getElementById(`${type}-textarea`) as HTMLTextAreaElement
+
+        if (!textarea) return
+
+        const selectionEnd = textarea.selectionEnd
+        // Replace the last `{` with the variable
+        // We assume the cursor is right after `{`
+        const newValue = value.substring(0, selectionEnd - 1) + variable + value.substring(selectionEnd)
+
+        if (isEmail) setEditedEmailBody(newValue)
+        else setEditedSmsBody(newValue)
+
+        setShowSuggestions(false)
+
+        // Restore focus and move cursor
+        setTimeout(() => {
+            textarea.focus()
+            const newPos = selectionEnd - 1 + variable.length
+            textarea.setSelectionRange(newPos, newPos)
+        }, 0)
     }
 
     if (loading) {
@@ -476,6 +613,17 @@ export function AutomationTab() {
                                         onCheckedChange={(checked) => toggleRule(rule.id, checked, event as any)}
                                         onClick={(e) => e.stopPropagation()}
                                     />
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            deleteRule(rule.id)
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                     <ChevronRight className="h-5 w-5 text-slate-300" />
                                 </div>
                             </div>
@@ -735,8 +883,34 @@ export function AutomationTab() {
                                             <Input value={editedEmailSubject} onChange={(e) => setEditedEmailSubject(e.target.value)} placeholder="Email subject" className="mt-1" />
                                         </div>
                                         <div>
-                                            <Label className="text-xs">Body (HTML)</Label>
-                                            <Textarea value={editedEmailBody} onChange={(e) => setEditedEmailBody(e.target.value)} placeholder="Email content..." className="mt-1 h-[200px] max-h-[200px] font-mono text-xs resize-none overflow-y-auto" />
+                                            <Label className="text-xs">Body - Type {'{'} to insert variables</Label>
+                                            <div className="relative">
+                                                <Textarea
+                                                    id="email-textarea"
+                                                    value={editedEmailBody}
+                                                    onChange={(e) => handleInput(e, 'email')}
+                                                    onKeyDown={(e) => handleKeyDown(e, 'email')}
+                                                    placeholder="Email body..."
+                                                    className="mt-1 h-[200px] max-h-[200px] resize-none overflow-y-auto"
+                                                />
+                                                {showSuggestions && activeTextarea === 'email' && (
+                                                    <div
+                                                        className="absolute z-50 w-48 bg-white border rounded-md shadow-lg overflow-hidden"
+                                                        style={{ top: suggestionPos.top, left: suggestionPos.left }}
+                                                    >
+                                                        {VARIABLES.map((v, i) => (
+                                                            <div
+                                                                key={v.value}
+                                                                className={`px-3 py-2 text-sm cursor-pointer hover:bg-slate-100 ${i === suggestionIndex ? 'bg-indigo-50 text-indigo-700' : ''}`}
+                                                                onClick={() => insertVariable(v.value, 'email')}
+                                                            >
+                                                                <span className="font-medium">{v.label}</span>
+                                                                <span className="ml-2 text-xs text-slate-400">{v.value}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </TabsContent>
@@ -766,8 +940,34 @@ export function AutomationTab() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label className="text-xs">Message</Label>
-                                    <Textarea value={editedSmsBody} onChange={(e) => setEditedSmsBody(e.target.value)} placeholder="SMS message..." className="mt-1 h-[150px] max-h-[150px] resize-none overflow-y-auto" />
+                                    <Label className="text-xs">Message - Type {'{'} to insert variables</Label>
+                                    <div className="relative">
+                                        <Textarea
+                                            id="sms-textarea"
+                                            value={editedSmsBody}
+                                            onChange={(e) => handleInput(e, 'sms')}
+                                            onKeyDown={(e) => handleKeyDown(e, 'sms')}
+                                            placeholder="SMS message..."
+                                            className="mt-1 h-[150px] max-h-[150px] resize-none overflow-y-auto"
+                                        />
+                                        {showSuggestions && activeTextarea === 'sms' && (
+                                            <div
+                                                className="absolute z-50 w-48 bg-white border rounded-md shadow-lg overflow-hidden"
+                                                style={{ top: suggestionPos.top, left: suggestionPos.left }}
+                                            >
+                                                {VARIABLES.map((v, i) => (
+                                                    <div
+                                                        key={v.value}
+                                                        className={`px-3 py-2 text-sm cursor-pointer hover:bg-slate-100 ${i === suggestionIndex ? 'bg-indigo-50 text-indigo-700' : ''}`}
+                                                        onClick={() => insertVariable(v.value, 'sms')}
+                                                    >
+                                                        <span className="font-medium">{v.label}</span>
+                                                        <span className="ml-2 text-xs text-slate-400">{v.value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div>
                                     <Label className="text-xs">Preview</Label>
@@ -784,11 +984,12 @@ export function AutomationTab() {
                                 <Info className="h-4 w-4 text-blue-600 mt-0.5" />
                                 <div>
                                     <p className="text-sm font-medium text-blue-800">Available Variables</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
                                         <code className="text-xs bg-white px-2 py-1 rounded">{'{name}'} = Lead name</code>
                                         <code className="text-xs bg-white px-2 py-1 rounded">{'{website}'} = Website</code>
                                         <code className="text-xs bg-white px-2 py-1 rounded">{'{email}'} = Email</code>
                                         <code className="text-xs bg-white px-2 py-1 rounded">{'{phone}'} = Phone</code>
+                                        <code className="text-xs bg-white px-2 py-1 rounded">{'{audit_link}'} = Audit URL</code>
                                     </div>
                                 </div>
                             </div>

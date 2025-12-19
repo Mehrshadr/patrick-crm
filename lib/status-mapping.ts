@@ -21,7 +21,7 @@ export const STAGE_CONFIG: Record<PipelineStage, {
     "Meeting1": {
         label: "Meeting 1 (Data Gathering)",
         color: "bg-indigo-50 border-indigo-200 text-indigo-700",
-        subStatuses: ["Scheduled", "Rescheduled", "Done & Data Received", "Ghosted", "Other"]
+        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Done & Data Received", "Ghosted", "Other"]
     },
     "Audit": {
         label: "Audit Lab",
@@ -31,12 +31,12 @@ export const STAGE_CONFIG: Record<PipelineStage, {
     "Meeting2": {
         label: "Meeting 2 (Reveal)",
         color: "bg-purple-50 border-purple-200 text-purple-700",
-        subStatuses: ["Scheduled", "Rescheduled", "Done", "Ghosted", "Other"]
+        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Done", "Ghosted", "Other"]
     },
     "Meeting3": {
         label: "Meeting 3 (The Deal)",
         color: "bg-orange-50 border-orange-200 text-orange-700",
-        subStatuses: ["Scheduled", "Rescheduled", "Proposal Sent", "Thinking/Reviewing", "Negotiating", "Ghosted", "Other"]
+        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Proposal Sent", "Thinking/Reviewing", "Negotiating", "Ghosted", "Other"]
     },
     "Won": {
         label: "Won",

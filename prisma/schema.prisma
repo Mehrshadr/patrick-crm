@@ -47,7 +47,8 @@ model Lead {
   links           Link[]
   logs            Log[]
   notes           Note[]
-  automationQueue AutomationQueue[]
+  // automationQueue AutomationQueue[]
+  workflowExecutions WorkflowExecution[]
 }
 
 model Link {
@@ -106,71 +107,92 @@ model MessageTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  // Relations to automation rules
-  emailRules  AutomationRule[] @relation("EmailTemplate")
-  smsRules    AutomationRule[] @relation("SmsTemplate")
+  // Relations can be removed or pointed to something else if needed
+  // emailRules  AutomationRule[] @relation("EmailTemplate")
+  // smsRules    AutomationRule[] @relation("SmsTemplate")
+  workflowSteps WorkflowStep[]
 }
 
-// Automation Rules
-model AutomationRule {
+// Workflows (Advanced Automation Sequence)
+model Workflow {
   id              Int       @id @default(autoincrement())
-  name            String    // "Stage 1 - Welcome 1"
+  name            String
   description     String?
+  isActive        Boolean   @default(true)
   
-  // Trigger conditions
-  triggerType     String    // "ON_STATUS_CHANGE", "ON_LEAD_CREATE", "ON_SCHEDULE"
+  // Trigger Settings
+  triggerType     String    // "ON_STATUS_CHANGE"
   triggerStatus   String?   // "New", "Meeting1" - when status changes to this
   triggerSubStatus String?  // "Scheduled", "Ghosted"
   
-  // Timing
-  delayMinutes    Int       @default(0)  // Delay after trigger (0 = immediate)
-  scheduledHour   Int?      // Hour to execute (e.g. 14 = 2 PM)
-  
-  // Templates
-  emailTemplateId Int?
-  emailTemplate   MessageTemplate? @relation("EmailTemplate", fields: [emailTemplateId], references: [id])
-  smsTemplateId   Int?
-  smsTemplate     MessageTemplate? @relation("SmsTemplate", fields: [smsTemplateId], references: [id])
-  
-  // Cancel conditions
-  cancelOnStatus  String?   // Cancel when status changes to this
-  cancelOnSubStatus String?
-  
   // Settings
-  requireApproval Boolean   @default(true)  // Require approval before sending?
-  isActive        Boolean   @default(true)
-  sortOrder       Int       @default(0)     // Execution order
+  requireApproval Boolean   @default(true)  // Require approval before starting sequence?
+  cancelOnStatus  String?   // Global cancel trigger
+  cancelOnSubStatus String?
+
+  steps           WorkflowStep[]
+  executions      WorkflowExecution[]
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Queue items
-  queueItems  AutomationQueue[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
-// Automation Queue
-model AutomationQueue {
+model WorkflowStep {
   id           Int      @id @default(autoincrement())
-  leadId       Int
-  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  ruleId       Int
-  rule         AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  workflowId   Int
+  workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   
-  status       String   @default("PENDING") // PENDING, APPROVED, EXECUTED, CANCELLED, FAILED
-  scheduledAt  DateTime // Scheduled execution time
+  name         String   // "Send Welcome Email"
+  type         String   // "EMAIL", "SMS", "DELAY", "CONDITION", "ACTION"
+  order        Int      // 1, 2, 3...
   
-  // Approval
-  approvedBy   String?  // Email of approver
-  approvedAt   DateTime?
+  // Configuration (stored as JSON string for flexibility)
+  // EMAIL: { templateId: 10, subject: "..." }
+  // DELAY: { duration: 3, unit: "DAYS/HOURS" }
+  // ACTION: { provider: "INSTANTLY", campaignId: "..." }
+  config       String    
   
-  // Execution
-  executedAt   DateTime?
+  parentId     Int?     // For future branching logic
   
-  // Cancellation
-  cancelledAt  DateTime?
-  cancelReason String?
+  // Relations for easy access if needed (optional)
+  templateId   Int?
+  template     MessageTemplate? @relation(fields: [templateId], references: [id])
+}
+
+// Tracks the state of a lead in a workflow
+model WorkflowExecution {
+  id            Int       @id @default(autoincrement())
+  workflowId    Int
+  workflow      Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  leadId        Int
+  lead          Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
   
-  createdAt    DateTime @default(now())
+  status        String    // "PENDING_APPROVAL", "ACTIVE", "COMPLETED", "CANCELLED", "PAUSED"
+  currentStepId Int?      // Which step is NEXT? (null if just starting or finished)
+  
+  startDate     DateTime? // When it actually started running (after approval)
+  scheduledFor  DateTime? // When the NEXT step should run
+  
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?
+  
+  logs          WorkflowLog[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model WorkflowLog {
+  id            Int      @id @default(autoincrement())
+  executionId   Int
+  execution     WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  stepId        Int?     // Which step was executed?
+  status        String   // "SUCCESS", "FAILED"
+  message       String?
+  
+  createdAt     DateTime @default(now())
 }
 
 // App Settings

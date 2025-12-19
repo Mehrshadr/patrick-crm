@@ -6,10 +6,11 @@ const prisma = new PrismaClient()
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const id = parseInt(params.id)
+        const { id: idStr } = await params
+        const id = parseInt(idStr)
         if (isNaN(id)) {
             return NextResponse.json({ success: false, error: 'Invalid ID' }, { status: 400 })
         }
@@ -20,7 +21,7 @@ export async function GET(
                 steps: {
                     orderBy: { order: 'asc' },
                     include: {
-                        template: true // Include template details if step uses one
+                        template: true
                     }
                 }
             }
@@ -39,19 +40,18 @@ export async function GET(
 
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const id = parseInt(params.id)
+        const { id: idStr } = await params
+        const id = parseInt(idStr)
         const data = await request.json()
 
         if (isNaN(id)) {
             return NextResponse.json({ success: false, error: 'Invalid ID' }, { status: 400 })
         }
 
-        // Use transaction to update workflow and optionally replace steps
         const workflow = await prisma.$transaction(async (tx) => {
-            // 1. Update main workflow details
             const updated = await tx.workflow.update({
                 where: { id },
                 data: {
@@ -67,16 +67,11 @@ export async function PUT(
                 }
             })
 
-            // 2. If steps are provided, replace them
-            // This is a simple "full sync" approach. 
-            // In a more complex app, we might diff the steps.
             if (data.steps) {
-                // Delete existing steps
                 await tx.workflowStep.deleteMany({
                     where: { workflowId: id }
                 })
 
-                // Create new steps
                 if (data.steps.length > 0) {
                     await tx.workflowStep.createMany({
                         data: data.steps.map((step: any, index: number) => ({
@@ -85,7 +80,7 @@ export async function PUT(
                             type: step.type,
                             order: index + 1,
                             config: typeof step.config === 'string' ? step.config : JSON.stringify(step.config || {}),
-                            templateId: step.templateId || null // Optional relation
+                            templateId: step.templateId || null
                         }))
                     })
                 }
@@ -103,10 +98,11 @@ export async function PUT(
 
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const id = parseInt(params.id)
+        const { id: idStr } = await params
+        const id = parseInt(idStr)
         if (isNaN(id)) {
             return NextResponse.json({ success: false, error: 'Invalid ID' }, { status: 400 })
         }
@@ -121,3 +117,4 @@ export async function DELETE(
         return NextResponse.json({ success: false, error: 'Failed to delete workflow' }, { status: 500 })
     }
 }
+

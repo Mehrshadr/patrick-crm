@@ -73,16 +73,19 @@ export async function PUT(
                 })
 
                 if (data.steps.length > 0) {
-                    await tx.workflowStep.createMany({
-                        data: data.steps.map((step: any, index: number) => ({
-                            workflowId: id,
-                            name: step.name,
-                            type: step.type,
-                            order: index + 1,
-                            config: typeof step.config === 'string' ? step.config : JSON.stringify(step.config || {}),
-                            templateId: step.templateId || null
-                        }))
-                    })
+                    for (let i = 0; i < data.steps.length; i++) {
+                        const step = data.steps[i]
+                        await tx.workflowStep.create({
+                            data: {
+                                workflowId: id,
+                                name: step.name,
+                                type: step.type,
+                                order: i + 1,
+                                config: typeof step.config === 'string' ? step.config : JSON.stringify(step.config || {}),
+                                templateId: step.templateId || null
+                            }
+                        })
+                    }
                 }
             }
 

@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Lead {
+  id              Int      @id @default(autoincrement())
+  
+  // Contact Info
+  name            String
+  phone           String   // We index this for search usually, but sqlite is simple
+  email           String?
+  website         String?
+  
+  // Status & Pipeline
+  status          String   @default("New")
+  stage           String   @default("New") // We can store stage explicitly or derive it, let's derive for now to match logic
+
+  // Outcomes
+  call1Outcome    String?
+  meeting1Outcome String?
+  meeting2Outcome String?
+  meeting3Outcome String?
+  
+  auditStatus     String?
+  
+  // Meta
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Nurture State
+  nurtureStage    Int       @default(0) // 0=None, 1=Stage1 Sent, 2=Stage2 Sent...
+  nextNurtureAt   DateTime? // When is the next action due?
+  
+  // Tags
+  quality         String?   // Hot, Warm, Cold
+  businessType    String?   // Service, Product
+  subStatus       String?   // Scheduled, Rescheduled, Done, Ghosted, etc.
+  
+  links           Link[]
+  logs            Log[]
+  notes           Note[]
+  automationQueue AutomationQueue[]
+}
+
+model Link {
+  id        Int      @id @default(autoincrement())
+  leadId    Int
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  type      String   // "AUDIT", "PROPOSAL", "RECORDING"
+  title     String   // "Meeting 1", "M2", "Audit Doc"
+  url       String
+  
+  createdAt DateTime @default(now())
+}
+
+model Log {
+  id        Int      @id @default(autoincrement())
+  leadId    Int
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  type      String   // "EMAIL", "SMS", "SYSTEM", "MANUAL", "STATUS_CHANGE"
+  stage     String?  // "Stage 1", "Stage 2"
+  status    String   // "SENT", "PENDING", "FAILED", "COMPLETED"
+  
+  title     String
+  content   String   // The HTML body or SMS text
+  meta      String?  // JSON string for extra data
+  
+  // User tracking
+  userEmail String?  // Email of user who performed the action
+  userName  String?  // Name of user who performed the action
+  
+  createdAt DateTime @default(now())
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  leadId    Int
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  stage     String?  // "Meeting 1", "Meeting 2", "Meeting 3", "Other"
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model MessageTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String   // "Welcome Email 1", "Welcome SMS 1"
+  type        String   // "EMAIL", "SMS"
+  scenario    String   // "welcome_1", "welcome_2", "ghosted_recovery"
+  
+  subject     String?  // For emails
+  body        String   // The template content with {name}, {website}, etc.
+  signature   String?  // HTML signature for emails
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations to automation rules
+  emailRules  AutomationRule[] @relation("EmailTemplate")
+  smsRules    AutomationRule[] @relation("SmsTemplate")
+}
+
+// Automation Rules
+model AutomationRule {
+  id              Int       @id @default(autoincrement())
+  name            String    // "Stage 1 - Welcome 1"
+  description     String?
+  
+  // Trigger conditions
+  triggerType     String    // "ON_STATUS_CHANGE", "ON_LEAD_CREATE", "ON_SCHEDULE"
+  triggerStatus   String?   // "New", "Meeting1" - when status changes to this
+  triggerSubStatus String?  // "Scheduled", "Ghosted"
+  
+  // Timing
+  delayMinutes    Int       @default(0)  // Delay after trigger (0 = immediate)
+  scheduledHour   Int?      // Hour to execute (e.g. 14 = 2 PM)
+  
+  // Templates
+  emailTemplateId Int?
+  emailTemplate   MessageTemplate? @relation("EmailTemplate", fields: [emailTemplateId], references: [id])
+  smsTemplateId   Int?
+  smsTemplate     MessageTemplate? @relation("SmsTemplate", fields: [smsTemplateId], references: [id])
+  
+  // Cancel conditions
+  cancelOnStatus  String?   // Cancel when status changes to this
+  cancelOnSubStatus String?
+  
+  // Settings
+  requireApproval Boolean   @default(true)  // Require approval before sending?
+  isActive        Boolean   @default(true)
+  sortOrder       Int       @default(0)     // Execution order
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Queue items
+  queueItems  AutomationQueue[]
+}
+
+// Automation Queue
+model AutomationQueue {
+  id           Int      @id @default(autoincrement())
+  leadId       Int
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  ruleId       Int
+  rule         AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  status       String   @default("PENDING") // PENDING, APPROVED, EXECUTED, CANCELLED, FAILED
+  scheduledAt  DateTime // Scheduled execution time
+  
+  // Approval
+  approvedBy   String?  // Email of approver
+  approvedAt   DateTime?
+  
+  // Execution
+  executedAt   DateTime?
+  
+  // Cancellation
+  cancelledAt  DateTime?
+  cancelReason String?
+  
+  createdAt    DateTime @default(now())
+}
+
+// App Settings
+model AppSettings {
+  id                  Int      @id @default(autoincrement())
+  key                 String   @unique
+  value               String
+  updatedAt           DateTime @updatedAt
+}

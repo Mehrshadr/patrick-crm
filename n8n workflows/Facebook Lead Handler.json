@@ -1,0 +1,149 @@
+{
+    "name": "Facebook Lead Handler",
+    "nodes": [
+        {
+            "parameters": {
+                "page": {
+                    "__rl": true,
+                    "value": "122923787567917",
+                    "mode": "list",
+                    "cachedResultName": "Mehrana Marketing",
+                    "cachedResultUrl": "https://facebook.com/122923787567917"
+                },
+                "form": {
+                    "__rl": true,
+                    "value": "2679952192343728",
+                    "mode": "list",
+                    "cachedResultName": "General Form-V1"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.facebookLeadAdsTrigger",
+            "typeVersion": 1,
+            "position": [
+                -256,
+                -240
+            ],
+            "id": "25608a5f-333a-4ed8-a5a4-e9ab61dddd89",
+            "name": "Facebook Lead Ads Trigger",
+            "webhookId": "507e971a-07e2-4788-81e3-4e3bc2001e46",
+            "credentials": {
+                "facebookLeadAdsOAuth2Api": {
+                    "id": "EhyNlQo4fPvSXS4n",
+                    "name": "Facebook Lead Ads account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "append",
+                "documentId": {
+                    "__rl": true,
+                    "value": "1n6rlbwxvIXh61WtHL5ktlo9DHKr_b3NiodMhVd-RvDE",
+                    "mode": "list",
+                    "cachedResultName": "Patrick Log Sheet",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n6rlbwxvIXh61WtHL5ktlo9DHKr_b3NiodMhVd-RvDE/edit?usp=drivesdk"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "gid=0",
+                    "mode": "list",
+                    "cachedResultName": "Sheet1",
+                    "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n6rlbwxvIXh61WtHL5ktlo9DHKr_b3NiodMhVd-RvDE/edit#gid=0"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "Name": "={{ $json.full_name }}",
+                        "Email": "={{ $json.email }}",
+                        "Phone": "={{ $json.phone_number }}",
+                        "Status": "New",
+                        "Date Added": "={{ DateTime.fromISO($json.created_time).setZone('America/Toronto').toFormat('yyyy-MM-dd HH:mm:ss') }}"
+                    },
+                    "matchingColumns": [],
+                    "schema": [
+                        {
+                            "id": "Name",
+                            "displayName": "Name",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "Phone",
+                            "displayName": "Phone",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "Email",
+                            "displayName": "Email",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": false
+                        },
+                        {
+                            "id": "Status",
+                            "displayName": "Status",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "fb-lead-add-row",
+            "name": "Add Lead from FB",
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.5,
+            "position": [
+                0,
+                -240
+            ],
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "xb8TCWGG9tfl6cc7",
+                    "name": "mehrshad@mehrana"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Facebook Lead Ads Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Add Lead from FB",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": [
+        {
+            "updatedAt": "2025-11-28T19:15:14.866Z",
+            "createdAt": "2025-11-28T19:15:14.866Z",
+            "id": "0G5KiDyh7tpH7rsu",
+            "name": "Patrick"
+        }
+    ]
+}

@@ -12,7 +12,7 @@ export async function GET() {
                     select: { queueItems: true }
                 }
             },
-            orderBy: { sortOrder: 'asc' }
+            orderBy: { id: 'asc' }
         })
 
         return NextResponse.json({ success: true, rules })

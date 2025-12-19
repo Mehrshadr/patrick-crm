@@ -275,7 +275,7 @@ export function AutomationTab() {
                                 type: 'EMAIL',
                                 name: `${editedName} Email`,
                                 subject: editedEmailSubject,
-                                body: finalEmailBody
+                                body: editedEmailBody
                             })
                         })
                     }
@@ -310,7 +310,7 @@ export function AutomationTab() {
                         body: JSON.stringify({
                             id: selectedRule.emailTemplate.id,
                             subject: editedEmailSubject,
-                            body: finalEmailBody
+                            body: editedEmailBody
                         })
                     })
                 }
@@ -433,6 +433,11 @@ export function AutomationTab() {
                                             <Badge variant={rule.isActive ? 'default' : 'secondary'} className="text-xs">
                                                 {rule.isActive ? 'Active' : 'Off'}
                                             </Badge>
+                                            {rule.triggerStatus && STAGE_CONFIG[rule.triggerStatus as PipelineStage] && (
+                                                <Badge className={`text-xs ${STAGE_CONFIG[rule.triggerStatus as PipelineStage].color}`}>
+                                                    {STAGE_CONFIG[rule.triggerStatus as PipelineStage].label}
+                                                </Badge>
+                                            )}
                                             {rule.requireApproval && (
                                                 <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
                                                     Ask First
@@ -731,7 +736,7 @@ export function AutomationTab() {
                                         </div>
                                         <div>
                                             <Label className="text-xs">Body (HTML)</Label>
-                                            <Textarea value={editedEmailBody} onChange={(e) => setEditedEmailBody(e.target.value)} placeholder="Email content..." className="mt-1 min-h-[200px] font-mono text-xs" />
+                                            <Textarea value={editedEmailBody} onChange={(e) => setEditedEmailBody(e.target.value)} placeholder="Email content..." className="mt-1 h-[200px] max-h-[200px] font-mono text-xs resize-none overflow-y-auto" />
                                         </div>
                                     </div>
                                 </TabsContent>
@@ -762,7 +767,7 @@ export function AutomationTab() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label className="text-xs">Message</Label>
-                                    <Textarea value={editedSmsBody} onChange={(e) => setEditedSmsBody(e.target.value)} placeholder="SMS message..." className="mt-1 min-h-[150px]" />
+                                    <Textarea value={editedSmsBody} onChange={(e) => setEditedSmsBody(e.target.value)} placeholder="SMS message..." className="mt-1 h-[150px] max-h-[150px] resize-none overflow-y-auto" />
                                 </div>
                                 <div>
                                     <Label className="text-xs">Preview</Label>

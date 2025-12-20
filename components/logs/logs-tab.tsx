@@ -197,12 +197,33 @@ export function LogsTab() {
                                                     <div className="text-xs text-slate-400">{new Date(log.createdAt).toLocaleString()}</div>
                                                 </div>
                                             </div>
-                                            {log.details && (
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-500 mb-1">Details:</div>
-                                                    <div className="text-sm text-slate-700 bg-slate-50 rounded p-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: log.details }} />
-                                                </div>
-                                            )}
+                                            {log.details && (() => {
+                                                // Try to parse as JSON for nicer display
+                                                try {
+                                                    const parsed = JSON.parse(log.details)
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            <div className="text-xs font-medium text-slate-500">Details:</div>
+                                                            <div className="bg-slate-50 rounded p-3 space-y-1.5">
+                                                                {Object.entries(parsed).map(([key, value]) => (
+                                                                    <div key={key} className="flex text-sm">
+                                                                        <span className="text-slate-500 w-24 shrink-0 capitalize">{key}:</span>
+                                                                        <span className="text-slate-700 break-all">{String(value)}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                } catch {
+                                                    // Fallback to raw display
+                                                    return (
+                                                        <div>
+                                                            <div className="text-xs font-medium text-slate-500 mb-1">Details:</div>
+                                                            <div className="text-sm text-slate-700 bg-slate-50 rounded p-2 whitespace-pre-wrap">{log.details}</div>
+                                                        </div>
+                                                    )
+                                                }
+                                            })()}
                                             <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
                                                 <div>Category: <span className="font-medium">{log.category}</span></div>
                                                 <div>Action: <span className="font-medium">{log.action}</span></div>

@@ -366,12 +366,22 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     })
 
                     await logActivity({
-                        category: 'COMMUNICATION',
-                        action: res.success ? 'EMAIL_SENT' : 'EMAIL_FAILED',
+                        category: 'EMAIL',
+                        action: res.success ? 'SENT' : 'FAILED',
                         entityType: 'LEAD',
                         entityId: leadId,
                         entityName: lead.name || 'Unknown',
-                        description: res.success ? `Email "${config.subject}" sent to ${lead.email}` : `Email failed: ${res.error}`,
+                        description: res.success
+                            ? `📧 Email "${config.subject}" sent to ${lead.email}`
+                            : `❌ Email failed: ${res.error}`,
+                        details: JSON.stringify({
+                            workflow: workflow.name,
+                            step: step.name,
+                            to: lead.email,
+                            subject: config.subject,
+                            from: fromAddress,
+                            bodyPreview: config.body?.substring(0, 200) + '...'
+                        })
                     })
 
                     // Handle dual SMS if configured
@@ -386,12 +396,20 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                             }
                         })
                         await logActivity({
-                            category: 'COMMUNICATION',
-                            action: smsRes.success ? 'SMS_SENT' : 'SMS_FAILED',
+                            category: 'SMS',
+                            action: smsRes.success ? 'SENT' : 'FAILED',
                             entityType: 'LEAD',
                             entityId: leadId,
                             entityName: lead.name || 'Unknown',
-                            description: smsRes.success ? `Follow-up SMS sent to ${lead.phone}` : `Follow-up SMS failed`,
+                            description: smsRes.success
+                                ? `📱 SMS sent to ${lead.phone}`
+                                : `❌ SMS failed to ${lead.phone}`,
+                            details: JSON.stringify({
+                                workflow: workflow.name,
+                                step: step.name,
+                                to: lead.phone,
+                                message: config.smsBody?.substring(0, 200) + '...'
+                            })
                         })
 
                         // Also log SMS to lead's timeline

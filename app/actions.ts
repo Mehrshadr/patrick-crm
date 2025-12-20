@@ -50,8 +50,6 @@ export async function getLeads() {
     }
 }
 
-import { triggerStage1 } from "@/lib/automation"
-
 export async function createLead(data: any) {
     try {
         const lead = await db.lead.create({
@@ -67,12 +65,11 @@ export async function createLead(data: any) {
             }
         })
 
-        // Trigger Automation
-        // We don't await this to keep UI fast? Or we do to ensure it happens? 
-        // Let's await for now to be safe.
-        await triggerStage1(lead)
+        // Note: Automations are now manually triggered from lead card
+        // Use the "Run Automation" button to start a workflow
 
         revalidatePath("/")
+        revalidatePath("/leads")
         return { success: true, lead }
     } catch (e) {
         return { success: false, error: String(e) }

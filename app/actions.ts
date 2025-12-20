@@ -109,6 +109,28 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
                     }
                 })
 
+                // CANCEL EXISTING AUTOMATIONS on status change
+                // This ensures moving the card cancels running workflows
+                const activeExecutions = await db.workflowExecution.findMany({
+                    where: { leadId: id, status: 'ACTIVE' }
+                })
+                if (activeExecutions.length > 0) {
+                    await db.workflowExecution.updateMany({
+                        where: { leadId: id, status: 'ACTIVE' },
+                        data: {
+                            status: 'CANCELLED',
+                            cancelReason: `Status changed to ${data.status || currentLead.status}`,
+                            cancelledAt: new Date()
+                        }
+                    })
+                    // Also clear any pending nurture timer
+                    await db.lead.update({
+                        where: { id },
+                        data: { nextNurtureAt: null }
+                    })
+                    console.log(`[UpdateLead] Cancelled ${activeExecutions.length} active automations for lead ${id}`)
+                }
+
                 // AUTO-TRIGGER LOGIC
                 const newStatus = data.status || currentLead.status
                 const newSubStatus = data.subStatus || currentLead.subStatus

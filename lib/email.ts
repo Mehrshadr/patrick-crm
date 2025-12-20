@@ -47,14 +47,17 @@ async function sendViaGmailAPI(
         const senderInfo = (options.from || '').trim()
         // Build proper From header: "Sender Name" <email@example.com>
         // If senderInfo contains @, treat as email; otherwise treat as display name
+        // NOTE: When sending via Gmail API with OAuth, if we only provide a display name,
+        // Gmail will automatically use the authenticated account's email. 
+        // We should NOT use <me> literally as it's invalid in raw RFC 2822.
         let fromHeader: string | null = null
         if (senderInfo) {
             if (senderInfo.includes('@')) {
-                // It's an email address
+                // It's an email address (possibly with name already formatted)
                 fromHeader = `From: ${senderInfo}`
             } else {
-                // It's a display name, use with the authenticated account's email
-                fromHeader = `From: "${senderInfo}" <me>`
+                // It's just a display name. Gmail API will append the authenticated email.
+                fromHeader = `From: ${senderInfo}`
             }
         }
 

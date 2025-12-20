@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play } from "lucide-react"
+import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play, Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeadTimeline } from "./lead-timeline"
 import { STAGE_CONFIG, PipelineStage } from "@/lib/status-mapping"
@@ -866,31 +866,57 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
 
                         {/* Section: Automation Suggestions */}
                         {lead && suggestedWorkflows.length > 0 && (
-                            <div className="mt-6 pt-6 border-t">
-                                <h3 className="font-semibold text-lg flex items-center gap-3 mb-4">
-                                    <span className="bg-indigo-100 p-2 rounded-md"><Zap className="h-5 w-5 text-indigo-700" /></span>
-                                    Available Automations
-                                </h3>
-                                <div className="space-y-3">
+                            <div className="mt-10 pt-8 border-t">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-100 p-2.5 rounded-xl">
+                                            <Zap className="h-5 w-5 text-blue-600 fill-blue-500" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-lg text-slate-800">Suggested Sequences</h3>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Available automations for this stage</p>
+                                        </div>
+                                    </div>
+                                    <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-100">{suggestedWorkflows.length} Found</Badge>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3">
                                     {suggestedWorkflows.map((workflow) => (
                                         <div
                                             key={workflow.id}
-                                            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border hover:border-indigo-300 transition-colors"
+                                            className="group flex items-center justify-between p-4 bg-white rounded-2xl border-2 border-slate-50 hover:border-blue-200 transition-all duration-300 shadow-sm hover:shadow-md"
                                         >
-                                            <div>
-                                                <p className="font-medium text-sm">{workflow.name}</p>
-                                                <p className="text-xs text-slate-500">
-                                                    {workflow.pipelineStage || 'General'} • {workflow._count?.steps || 0} steps
-                                                </p>
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-2.5 rounded-xl bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                                    <Play className="h-5 w-5 fill-current" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900 leading-tight mb-0.5">{workflow.name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                                                            {workflow._count?.steps || 0} STEPS
+                                                        </span>
+                                                        <Separator orientation="vertical" className="h-2 bg-slate-200" />
+                                                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-500">
+                                                            {workflow.pipelineStage || 'GENERAL'}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                             <Button
                                                 size="sm"
                                                 onClick={() => runWorkflow(workflow.id)}
                                                 disabled={runningWorkflow === workflow.id}
-                                                className="bg-indigo-600 hover:bg-indigo-700"
+                                                className={`h-9 px-5 rounded-xl shadow-lg shadow-blue-100 border-none transition-all duration-300 ${runningWorkflow === workflow.id
+                                                    ? 'bg-slate-100 text-slate-400'
+                                                    : 'bg-blue-600 hover:bg-black text-white'
+                                                    }`}
                                             >
-                                                <Play className="h-3 w-3 mr-1" />
-                                                {runningWorkflow === workflow.id ? 'Starting...' : 'Run'}
+                                                {runningWorkflow === workflow.id ? (
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                                                ) : (
+                                                    <Zap className="h-3.5 w-3.5 mr-2" />
+                                                )}
+                                                {runningWorkflow === workflow.id ? 'Running...' : 'Run Automation'}
                                             </Button>
                                         </div>
                                     ))}

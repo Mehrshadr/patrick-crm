@@ -1,48 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { db } from '@/lib/db'
+import { auth } from '@/lib/auth'
+import { processWorkflow } from '@/lib/workflow-engine'
 
 // POST - Start a workflow execution for a lead
 export async function POST(request: NextRequest) {
     try {
         const { workflowId, leadId } = await request.json()
+        const session = await auth()
+        const accessToken = (session as any)?.accessToken
+        const refreshToken = (session as any)?.refreshToken
 
         if (!workflowId || !leadId) {
             return NextResponse.json({ success: false, error: 'workflowId and leadId required' }, { status: 400 })
         }
 
-        // Create workflow execution
-        const execution = await prisma.workflowExecution.create({
-            data: {
-                workflowId,
-                leadId,
-                status: 'ACTIVE',
-                startDate: new Date(),
-            },
-            include: {
-                workflow: {
-                    include: { steps: { orderBy: { order: 'asc' } } }
-                }
-            }
+        const res = await processWorkflow({
+            workflowId,
+            leadId,
+            accessToken,
+            refreshToken,
+            triggeredBy: 'MANUAL'
         })
 
-        // Log the start
-        await prisma.workflowLog.create({
-            data: {
-                executionId: execution.id,
-                stepId: null,
-                status: 'INFO',
-                message: `Workflow "${execution.workflow.name}" started manually`,
-            }
-        })
-
-        return NextResponse.json({ success: true, execution })
+        if (res.success) {
+            return NextResponse.json({ success: true, executionId: res.executionId })
+        } else {
+            return NextResponse.json({ success: false, error: res.error }, { status: 500 })
+        }
     } catch (error) {
-        console.error('Error creating workflow execution:', error)
-        return NextResponse.json({ success: false, error: 'Failed to create execution' }, { status: 500 })
+        console.error('Error starting workflow execution:', error)
+        return NextResponse.json({ success: false, error: 'Failed to start execution' }, { status: 500 })
     }
 }
+
 
 // GET - List executions (optionally by leadId)
 export async function GET(request: NextRequest) {
@@ -52,7 +43,7 @@ export async function GET(request: NextRequest) {
 
         const where = leadId ? { leadId: parseInt(leadId) } : {}
 
-        const executions = await prisma.workflowExecution.findMany({
+        const executions = await db.workflowExecution.findMany({
             where,
             include: {
                 workflow: { select: { id: true, name: true } },

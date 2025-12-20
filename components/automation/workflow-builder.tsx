@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
@@ -225,165 +226,196 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
             </div>
 
             {/* Main Builder Area - Now Full Width */}
-            <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-12 bg-[#f8fafc]">
                 {/* Trigger & Settings Card */}
-                <div className="max-w-3xl mx-auto mb-8">
-                    <Card className="border-l-4 border-l-blue-500 shadow-sm">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                    <Zap className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <span className="font-medium text-sm">Workflow Settings</span>
+                <div className="max-w-3xl mx-auto mb-10 relative">
+                    {/* Visual Line Connector */}
+                    <div className="absolute left-1/2 -bottom-10 w-0.5 h-10 bg-blue-200 -translate-x-1/2 z-0" />
+
+                    <div className="relative z-10 bg-white border-2 border-blue-500 rounded-2xl shadow-lg shadow-blue-50 overflow-hidden">
+                        <div className="bg-blue-500 px-6 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3 text-white">
+                                < Zap className="h-5 w-5 fill-white" />
+                                <span className="font-bold tracking-tight uppercase text-xs">Workflow Trigger</span>
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                {/* Execution Mode */}
-                                <div>
-                                    <Label className="text-xs">Execution Mode</Label>
-                                    <Select value={executionMode} onValueChange={setExecutionMode}>
-                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="AUTO">⚡ Auto (runs automatically)</SelectItem>
-                                            <SelectItem value="MANUAL">👆 Manual (suggests to user)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                            <Badge className="bg-blue-400/30 text-white border-none text-[10px]">SYSTEM ENTRY</Badge>
+                        </div>
+                        <div className="p-8">
+                            <div className="grid grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Execution Mode</Label>
+                                        <Select value={executionMode} onValueChange={setExecutionMode}>
+                                            <SelectTrigger className="h-10 font-medium border-slate-200">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="AUTO" className="py-3">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="font-bold flex items-center gap-2">⚡ Automatic</span>
+                                                        <span className="text-[10px] text-slate-500 uppercase tracking-tight">Runs instantly when triggered</span>
+                                                    </div>
+                                                </SelectItem>
+                                                <SelectItem value="MANUAL" className="py-3">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="font-bold flex items-center gap-2">👆 Manual</span>
+                                                        <span className="text-[10px] text-slate-500 uppercase tracking-tight">Shows as suggestion on Lead Card</span>
+                                                    </div>
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Trigger Status</Label>
+                                        <Select value={triggerStatus} onValueChange={setTriggerStatus}>
+                                            <SelectTrigger className="h-10 font-medium border-slate-200"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                                {/* Pipeline Stage */}
-                                <div>
-                                    <Label className="text-xs">Pipeline Stage</Label>
-                                    <Select value={pipelineStage} onValueChange={setPipelineStage}>
-                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="__GENERAL__">🌐 General (all stages)</SelectItem>
-                                            {Object.entries(STAGE_CONFIG).map(([key, config]) => (
-                                                <SelectItem key={key} value={key}>{config.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <Separator className="my-4" />
-
-                            <div className="grid grid-cols-3 gap-4">
-                                {/* Trigger Type */}
-                                <div>
-                                    <Label className="text-xs">Trigger</Label>
-                                    <Select value={triggerType} onValueChange={setTriggerType}>
-                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="ON_STATUS_CHANGE">Status Change</SelectItem>
-                                            <SelectItem value="MANUAL">Manual Only</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                {/* Trigger Status - only show if ON_STATUS_CHANGE */}
-                                {triggerType === 'ON_STATUS_CHANGE' && (
-                                    <>
-                                        <div>
-                                            <Label className="text-xs">When status changes to</Label>
-                                            <Select value={triggerStatus} onValueChange={setTriggerStatus}>
-                                                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pipeline Filter</Label>
+                                        <Select value={pipelineStage} onValueChange={setPipelineStage}>
+                                            <SelectTrigger className="h-10 font-medium border-slate-200"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__GENERAL__">🌐 Apply to all stages</SelectItem>
+                                                {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {subStatuses.length > 0 && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sub-status Filter</Label>
+                                            <Select value={triggerSubStatus || '__NONE__'} onValueChange={setTriggerSubStatus}>
+                                                <SelectTrigger className="h-10 font-medium border-slate-200"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
-                                                    {Object.entries(STAGE_CONFIG).map(([key, config]) => (
-                                                        <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                                    <SelectItem value="__NONE__">Any sub-status</SelectItem>
+                                                    {subStatuses.map(sub => (
+                                                        <SelectItem key={sub} value={sub}>{sub}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        {subStatuses.length > 0 && (
-                                            <div>
-                                                <Label className="text-xs">Sub-status</Label>
-                                                <Select value={triggerSubStatus || '__NONE__'} onValueChange={setTriggerSubStatus}>
-                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__NONE__">Any</SelectItem>
-                                                        {subStatuses.map(sub => (
-                                                            <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
+                                    )}
+                                </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                    <div className="flex justify-center my-2">
-                        <div className="w-0.5 h-8 bg-slate-300"></div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Steps List */}
-                <div className="max-w-2xl mx-auto space-y-4">
+                <div className="max-w-2xl mx-auto space-y-0 flex flex-col items-center">
                     {steps.map((step, index) => {
                         const isEmailSms = step.type === 'EMAIL' && step.config?.sendSmsAlso
                         const isSms = step.type === 'SMS'
+                        const isDelay = step.type === 'DELAY'
                         const Icon = isEmailSms ? Layers : (STEP_TYPES.find(t => t.type === step.type)?.icon || AlertCircle)
                         const typeLabel = isEmailSms ? 'EMAIL + SMS' : step.type
-                        const borderColor = isSms ? 'border-l-green-500' : isEmailSms ? 'border-l-indigo-500' : 'border-l-slate-300'
-                        const iconBg = isSms ? 'bg-green-100' : isEmailSms ? 'bg-indigo-100' : 'bg-slate-100'
-                        const iconColor = isSms ? 'text-green-600' : isEmailSms ? 'text-indigo-600' : 'text-slate-600'
+                        const themeColor = isSms ? 'green' : isEmailSms ? 'indigo' : isDelay ? 'amber' : 'blue'
 
                         return (
-                            <div key={index}>
-                                <Card
-                                    className={`cursor-pointer transition-all border-l-4 ${borderColor} ${editingStepIndex === index ? 'ring-2 ring-indigo-500 shadow-md' : 'hover:border-l-indigo-400'}`}
+                            <div key={index} className="w-full relative flex flex-col items-center group">
+                                {/* Visual Connector Line (Top) */}
+                                {index >= 0 && <div className="w-0.5 h-10 bg-slate-200 group-hover:bg-blue-200 transition-colors" />}
+
+                                <div
+                                    className={`w-full bg-white border-2 rounded-2xl p-6 transition-all duration-200 cursor-pointer relative z-10 ${editingStepIndex === index
+                                        ? `border-blue-500 shadow-xl shadow-blue-100 ring-4 ring-blue-50`
+                                        : `border-slate-100 hover:border-blue-300 hover:shadow-lg`
+                                        }`}
                                     onClick={() => setEditingStepIndex(index)}
                                 >
-                                    <CardContent className="p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded-md ${iconBg}`}>
-                                                <Icon className={`h-5 w-5 ${iconColor}`} />
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-5">
+                                            <div className={`p-4 rounded-xl shadow-sm ${themeColor === 'green' ? 'bg-emerald-50 text-emerald-600' :
+                                                themeColor === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
+                                                    themeColor === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                                                }`}>
+                                                <Icon className="h-6 w-6" />
                                             </div>
                                             <div>
-                                                <div className="font-medium text-sm">{step.name}</div>
-                                                <div className="text-xs text-slate-500">{typeLabel}</div>
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Step {index + 1}</span>
+                                                    <Separator orientation="vertical" className="h-2 bg-slate-200" />
+                                                    <span className={`text-[10px] font-extrabold uppercase tracking-widest ${themeColor === 'green' ? 'text-emerald-500' :
+                                                        themeColor === 'indigo' ? 'text-indigo-500' :
+                                                            themeColor === 'amber' ? 'text-amber-500' : 'text-blue-500'
+                                                        }`}>{typeLabel}</span>
+                                                </div>
+                                                <h4 className="text-lg font-bold text-slate-800">{step.name}</h4>
                                             </div>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                            onClick={(e) => { e.stopPropagation(); removeStep(index); }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                                {index < steps.length && (
-                                    <div className="flex justify-center my-2">
-                                        <div className="w-0.5 h-6 bg-slate-300"></div>
+
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); removeStep(index); }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
-                                )}
+
+                                    {/* Preview logic in card for context */}
+                                    <div className="mt-4 pt-4 border-t border-slate-50">
+                                        {isDelay ? (
+                                            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 rounded-lg py-2 px-3 border border-slate-100">
+                                                <Clock className="h-3.5 w-3.5 text-amber-500" />
+                                                <span>Wait for {step.config.fixedDuration} {step.config.fixedUnit}{step.config.fixedDuration !== 1 ? 's' : ''}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-slate-400 line-clamp-1 italic">
+                                                {step.config.subject || step.config.body || "No content configured yet"}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Visual Connector Line (Bottom) - Only if last */}
+                                {index === steps.length - 1 && <div className="w-0.5 h-10 bg-slate-200 group-hover:bg-blue-200 transition-colors" />}
                             </div>
                         )
                     })}
 
-                    {/* Add Step Buttons */}
-                    <div className="flex justify-center pt-2 pb-12">
-                        <div className="bg-white p-2 rounded-lg border shadow-sm flex gap-2 flex-wrap justify-center">
+                    {/* Add Step Experience */}
+                    <div className="relative z-10 w-full flex flex-col items-center">
+                        <div className="bg-white p-3 rounded-2xl border-2 border-dashed border-slate-200 shadow-sm flex items-center gap-3 hover:border-blue-400 transition-all duration-300">
                             {STEP_TYPES.map(t => (
                                 <Button
                                     key={t.type}
                                     variant="ghost"
                                     size="sm"
-                                    className={`gap-2 text-xs ${t.type === 'SMS' ? 'text-green-600 hover:bg-green-50' : ''}`}
+                                    className={`h-11 px-4 gap-2 text-xs font-bold rounded-xl transition-all ${t.type === 'SMS' ? 'text-emerald-700 hover:bg-emerald-50' :
+                                        t.type === 'DELAY' ? 'text-amber-700 hover:bg-amber-50' : 'text-slate-700 hover:bg-slate-50'
+                                        }`}
                                     onClick={() => addStep(t.type)}
                                 >
-                                    <t.icon className="h-3 w-3" /> {t.label}
+                                    <div className="p-1.5 rounded-lg bg-current/10">
+                                        <t.icon className="h-3.5 w-3.5" />
+                                    </div>
+                                    {t.label}
                                 </Button>
                             ))}
-                            <Separator orientation="vertical" className="h-6" />
+                            <Separator orientation="vertical" className="h-6 bg-slate-200" />
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="gap-2 text-xs text-indigo-600 hover:bg-indigo-50"
+                                className="h-11 px-4 gap-2 text-xs font-bold text-blue-700 hover:bg-blue-50 rounded-xl"
                                 onClick={() => addStep('EMAIL', true)}
                             >
-                                <Layers className="h-3 w-3" /> Email + SMS
+                                <div className="p-1.5 rounded-lg bg-current/10">
+                                    <Layers className="h-3.5 w-3.5" />
+                                </div>
+                                Send Email + SMS
                             </Button>
                         </div>
                     </div>

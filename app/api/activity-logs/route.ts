@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { db } from '@/lib/db'
+import { logActivity } from '@/lib/activity'
 
 // GET - List activity logs with optional filters
 export async function GET(request: NextRequest) {
@@ -15,7 +14,7 @@ export async function GET(request: NextRequest) {
         if (category) where.category = category
         if (entityType) where.entityType = entityType
 
-        const logs = await prisma.activityLog.findMany({
+        const logs = await db.activityLog.findMany({
             where,
             orderBy: { createdAt: 'desc' },
             take: Math.min(limit, 200)
@@ -40,54 +39,11 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const log = await prisma.activityLog.create({
-            data: {
-                category: data.category,
-                action: data.action,
-                entityType: data.entityType,
-                entityId: data.entityId,
-                entityName: data.entityName,
-                description: data.description,
-                details: data.details ? JSON.stringify(data.details) : null,
-                userId: data.userId,
-                userName: data.userName,
-            }
-        })
+        await logActivity(data)
 
-        return NextResponse.json({ success: true, log })
+        return NextResponse.json({ success: true })
     } catch (error) {
         console.error('Error creating activity log:', error)
         return NextResponse.json({ success: false, error: 'Failed to create log' }, { status: 500 })
-    }
-}
-
-// Helper to log activity (exported for use in other routes)
-export async function logActivity(data: {
-    category: string
-    action: string
-    entityType?: string
-    entityId?: number
-    entityName?: string
-    description: string
-    details?: any
-    userId?: string
-    userName?: string
-}) {
-    try {
-        await prisma.activityLog.create({
-            data: {
-                category: data.category,
-                action: data.action,
-                entityType: data.entityType,
-                entityId: data.entityId,
-                entityName: data.entityName,
-                description: data.description,
-                details: data.details ? JSON.stringify(data.details) : null,
-                userId: data.userId,
-                userName: data.userName,
-            }
-        })
-    } catch (e) {
-        console.error('Failed to log activity:', e)
     }
 }

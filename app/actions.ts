@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { Lead } from "@prisma/client"
+import { processWorkflow } from "@/lib/workflow-engine"
+import { auth } from "@/lib/auth"
 
 // We re-export Lead so components can use it
 export type { Lead } from "@prisma/client"
@@ -104,6 +106,38 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
                         userName: user?.name || null,
                     }
                 })
+
+                // AUTO-TRIGGER LOGIC
+                const newStatus = data.status || currentLead.status
+                const newSubStatus = data.subStatus || currentLead.subStatus
+
+                const session = await auth()
+                const accessToken = (session as any)?.accessToken
+                const refreshToken = (session as any)?.refreshToken
+
+                // Find active workflows with trigger ON_STATUS_CHANGE that match
+                const matchingWorkflows = await db.workflow.findMany({
+                    where: {
+                        isActive: true,
+                        triggerType: 'ON_STATUS_CHANGE',
+                        triggerStatus: newStatus,
+                        OR: [
+                            { triggerSubStatus: null },
+                            { triggerSubStatus: newSubStatus || undefined }
+                        ]
+                    }
+                })
+
+                for (const workflow of matchingWorkflows) {
+                    // Start execution
+                    await processWorkflow({
+                        workflowId: workflow.id,
+                        leadId: id,
+                        accessToken,
+                        refreshToken,
+                        triggeredBy: 'AUTO (Status Change)'
+                    })
+                }
             }
         }
 

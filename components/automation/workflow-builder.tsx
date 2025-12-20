@@ -255,7 +255,10 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                     {/* Steps List */}
                     <div className="max-w-2xl mx-auto space-y-4">
                         {steps.map((step, index) => {
-                            const Icon = STEP_TYPES.find(t => t.type === step.type)?.icon || AlertCircle
+                            // Show Layers icon for combined Email+SMS steps
+                            const isEmailSms = step.type === 'EMAIL' && step.config?.sendSmsAlso
+                            const Icon = isEmailSms ? Layers : (STEP_TYPES.find(t => t.type === step.type)?.icon || AlertCircle)
+                            const typeLabel = isEmailSms ? 'EMAIL + SMS' : step.type
                             return (
                                 <div key={index}>
                                     <Card
@@ -264,12 +267,12 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                     >
                                         <CardContent className="p-4 flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="bg-slate-100 p-2 rounded-md">
-                                                    <Icon className="h-5 w-5 text-slate-600" />
+                                                <div className={`p-2 rounded-md ${isEmailSms ? 'bg-indigo-100' : 'bg-slate-100'}`}>
+                                                    <Icon className={`h-5 w-5 ${isEmailSms ? 'text-indigo-600' : 'text-slate-600'}`} />
                                                 </div>
                                                 <div>
                                                     <div className="font-medium text-sm">{step.name}</div>
-                                                    <div className="text-xs text-slate-500">{step.type}</div>
+                                                    <div className="text-xs text-slate-500">{typeLabel}</div>
                                                 </div>
                                             </div>
                                             <Button
@@ -406,38 +409,60 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                             {(steps[editingStepIndex].type === 'EMAIL' || steps[editingStepIndex].type === 'SMS') && (
                                 <>
                                     {steps[editingStepIndex].type === 'EMAIL' && (
-                                        <div>
-                                            <Label>Subject</Label>
-                                            <Input
-                                                value={steps[editingStepIndex].config.subject || ''}
-                                                onChange={(e) => updateStep(editingStepIndex, {
-                                                    config: { ...steps[editingStepIndex].config, subject: e.target.value }
-                                                })}
-                                                placeholder="Email Subject"
-                                            />
-                                        </div>
+                                        <>
+                                            <div>
+                                                <Label>Subject</Label>
+                                                <Input
+                                                    value={steps[editingStepIndex].config.subject || ''}
+                                                    onChange={(e) => updateStep(editingStepIndex, {
+                                                        config: { ...steps[editingStepIndex].config, subject: e.target.value }
+                                                    })}
+                                                    placeholder="Email Subject"
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <Label className="text-xs">Sender Name</Label>
+                                                    <Input
+                                                        value={steps[editingStepIndex].config.senderName || ''}
+                                                        onChange={(e) => updateStep(editingStepIndex, {
+                                                            config: { ...steps[editingStepIndex].config, senderName: e.target.value }
+                                                        })}
+                                                        placeholder="e.g., Mehrdad from Mehrana"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs">Reply-To</Label>
+                                                    <Input
+                                                        value={steps[editingStepIndex].config.replyTo || ''}
+                                                        onChange={(e) => updateStep(editingStepIndex, {
+                                                            config: { ...steps[editingStepIndex].config, replyTo: e.target.value }
+                                                        })}
+                                                        placeholder="e.g., support@mehrana.agency"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
                                     )}
                                     <div>
                                         <div className="flex items-center justify-between mb-1">
                                             <Label>
                                                 {steps[editingStepIndex].type === 'EMAIL' ? 'Body' : 'Message'}
                                             </Label>
-                                            {steps[editingStepIndex].type === 'EMAIL' && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setShowPreview(!showPreview)}
-                                                    className="h-6 text-xs gap-1"
-                                                >
-                                                    {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                                    {showPreview ? 'Edit' : 'Preview'}
-                                                </Button>
-                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setShowPreview(!showPreview)}
+                                                className="h-6 text-xs gap-1"
+                                            >
+                                                {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                {showPreview ? 'Edit' : 'Preview'}
+                                            </Button>
                                         </div>
                                         <p className="text-xs text-muted-foreground mb-2">
                                             Variables: {'{name}'}, {'{website}'}, {'{audit_link}'}, {'{proposal_link}'}, {'{signature}'}
                                         </p>
-                                        {showPreview && steps[editingStepIndex].type === 'EMAIL' ? (
+                                        {showPreview ? (
                                             <div
                                                 className="border rounded-lg p-4 h-[400px] overflow-auto bg-white prose prose-sm max-w-none"
                                                 dangerouslySetInnerHTML={{
@@ -456,7 +481,7 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                                 onChange={(e) => updateStep(editingStepIndex, {
                                                     config: { ...steps[editingStepIndex].config, body: e.target.value }
                                                 })}
-                                                className="h-[400px] font-mono text-sm"
+                                                className={`font-mono text-sm ${steps[editingStepIndex].type === 'SMS' ? 'h-[200px]' : 'h-[400px]'}`}
                                                 placeholder="Write your message here..."
                                             />
                                         )}

@@ -1,5 +1,4 @@
 import { google, calendar_v3 } from 'googleapis'
-import { getServerSession } from 'next-auth'
 
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,

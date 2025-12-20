@@ -206,3 +206,26 @@ model AppSettings {
   value               String
   updatedAt           DateTime @updatedAt
 }
+
+// Activity Logs (Comprehensive System Logging)
+model ActivityLog {
+  id           Int      @id @default(autoincrement())
+  
+  category     String   // "AUTOMATION", "LEAD", "EMAIL", "SMS", "SYSTEM"
+  action       String   // "CREATED", "UPDATED", "DELETED", "SENT", "EXECUTED", "FAILED"
+  
+  // Context
+  entityType   String?  // "Workflow", "Lead", "Email", etc.
+  entityId     Int?
+  entityName   String?  // Human-readable name
+  
+  // Details
+  description  String
+  details      String?  // JSON string for extra data
+  
+  // Actor
+  userId       String?  // Who performed the action
+  userName     String?
+  
+  createdAt    DateTime @default(now())
+}

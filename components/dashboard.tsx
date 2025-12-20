@@ -6,7 +6,7 @@ import { AppSidebar } from '@/components/app-sidebar'
 import { KanbanBoard } from '@/components/leads/kanban-board'
 import { DataTable } from '@/components/leads/data-table'
 import { WorkflowsTab } from '@/components/automation/workflows-tab'
-import { ExecutionsTab } from '@/components/executions/executions-tab'
+import { LogsTab } from '@/components/logs/logs-tab'
 import { AddLeadButton } from '@/components/leads/add-lead-button'
 import { CleanupButton } from '@/components/leads/cleanup-button'
 import { UserMenu } from '@/components/user-menu'
@@ -40,7 +40,7 @@ export function Dashboard({ leads, user }: DashboardProps) {
                     <h1 className="text-lg font-semibold flex-1">
                         {activeTab === 'board' && '📋 Lead Pipeline'}
                         {activeTab === 'automation' && '🤖 Automation Workflows'}
-                        {activeTab === 'executions' && '⚡ Execution History'}
+                        {activeTab === 'logs' && '📋 Activity Logs'}
                         {activeTab === 'calendar' && '📅 Calendar'}
                         {activeTab === 'settings' && '⚙️ Settings'}
                     </h1>
@@ -80,9 +80,9 @@ export function Dashboard({ leads, user }: DashboardProps) {
                         </div>
                     )}
 
-                    {activeTab === 'executions' && (
+                    {activeTab === 'logs' && (
                         <div className="max-w-6xl">
-                            <ExecutionsTab />
+                            <LogsTab />
                         </div>
                     )}
 

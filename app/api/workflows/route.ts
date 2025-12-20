@@ -49,6 +49,8 @@ export async function POST(request: Request) {
                 triggerType: data.triggerType || 'ON_STATUS_CHANGE',
                 triggerStatus: data.triggerStatus,
                 triggerSubStatus: data.triggerSubStatus,
+                executionMode: data.executionMode || 'AUTO',
+                pipelineStage: data.pipelineStage || null,
                 isActive: data.isActive ?? true,
                 requireApproval: data.requireApproval ?? true,
                 // If creating with initial steps (optional)

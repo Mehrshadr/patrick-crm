@@ -18,7 +18,8 @@ import {
     Bot,
     Calendar,
     Settings,
-    Zap
+    Zap,
+    ClipboardList
 } from "lucide-react"
 
 interface AppSidebarProps {
@@ -29,7 +30,7 @@ interface AppSidebarProps {
 const MENU_ITEMS = [
     { id: 'board', label: 'Lead Pipeline', icon: LayoutDashboard },
     { id: 'automation', label: 'Automation', icon: Bot },
-    { id: 'executions', label: 'Executions', icon: Zap },
+    { id: 'logs', label: 'Logs', icon: ClipboardList },
     { id: 'calendar', label: 'Calendar', icon: Calendar, disabled: true, badge: 'Soon' },
     { id: 'settings', label: 'Settings', icon: Settings },
 ]

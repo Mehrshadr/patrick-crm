@@ -60,6 +60,8 @@ export async function PUT(
                     triggerType: data.triggerType,
                     triggerStatus: data.triggerStatus,
                     triggerSubStatus: data.triggerSubStatus,
+                    executionMode: data.executionMode,
+                    pipelineStage: data.pipelineStage,
                     isActive: data.isActive,
                     requireApproval: data.requireApproval,
                     cancelOnStatus: data.cancelOnStatus,

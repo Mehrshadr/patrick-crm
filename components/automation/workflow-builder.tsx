@@ -203,18 +203,19 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                     <Button variant="ghost" size="icon" onClick={onClose}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <div>
+                    <div className="flex-1">
                         <Input
                             value={name}
                             onChange={e => setName(e.target.value)}
                             placeholder="Workflow Name"
-                            className="font-semibold text-lg border-none hover:bg-slate-50 focus:bg-white px-2 -ml-2 h-8 w-[300px]"
+                            className="font-semibold text-lg border-none hover:bg-slate-50 focus:bg-white px-2 -ml-2 h-8 w-[400px]"
                         />
-                        <p className="text-xs text-slate-500 px-2">
-                            {triggerType === 'ON_STATUS_CHANGE'
-                                ? `Triggers when status is ${triggerStatus} ${triggerSubStatus !== '__NONE__' ? `(${triggerSubStatus})` : ''}`
-                                : 'Manual/Scheduled Trigger'}
-                        </p>
+                        <Input
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder="Add a description... (what does this workflow do?)"
+                            className="text-sm text-slate-500 border-none hover:bg-slate-50 focus:bg-white px-2 -ml-2 h-6 w-[400px]"
+                        />
                     </div>
                 </div>
                 <Button onClick={saveWorkflow} disabled={loading}>

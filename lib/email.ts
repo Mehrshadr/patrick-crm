@@ -49,6 +49,7 @@ async function sendViaGmailAPI(
         // Build the email in RFC 2822 format
         const messageParts = [
             senderEmail ? `From: ${senderEmail}` : null,
+            options.replyTo ? `Reply-To: ${options.replyTo}` : null,
             `To: ${recipient}`,
             `Subject: ${options.subject}`,
             'MIME-Version: 1.0',

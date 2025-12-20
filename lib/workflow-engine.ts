@@ -9,6 +9,7 @@ interface ProcessWorkflowOptions {
     accessToken?: string
     refreshToken?: string
     userEmail?: string
+    userName?: string
     triggeredBy?: string
 }
 
@@ -34,6 +35,7 @@ export async function processWorkflow({
     accessToken,
     refreshToken,
     userEmail,
+    userName,
     triggeredBy = 'SYSTEM'
 }: ProcessWorkflowOptions) {
     try {
@@ -187,11 +189,24 @@ export async function processWorkflow({
                         throw new Error(`Recipient email address required or invalid: "${recipientEmail}"`)
                     }
 
+                    // Fetch global signature
+                    const signatureSetting = await db.appSettings.findUnique({ where: { key: 'email_signature' } })
+                    const signature = signatureSetting?.value || ''
+
+                    // Inject signature into body
+                    const bodyWithSignature = config.body.replace(/{signature}/g, signature)
+
+                    // Format sender: "Name <email>"
+                    const fromAddress = userEmail
+                        ? (userName ? `"${userName}" <${userEmail}>` : userEmail)
+                        : undefined
+
                     const res = await sendEmail({
                         to: recipientEmail,
                         subject: config.subject,
-                        html: config.body,
-                        from: userEmail
+                        html: bodyWithSignature,
+                        from: fromAddress,
+                        replyTo: userEmail
                     }, (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined)
 
                     await db.workflowLog.create({

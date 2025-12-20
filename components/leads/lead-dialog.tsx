@@ -95,6 +95,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const [emailIncludeSignature, setEmailIncludeSignature] = useState(true)
     const [emailPreview, setEmailPreview] = useState(false)
     const [signature, setSignature] = useState('')
+    const [isFastForwarding, setIsFastForwarding] = useState(false)
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -323,6 +324,34 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         }
     }
 
+    async function handleFastForward() {
+        if (!lead) return
+        setIsFastForwarding(true)
+        try {
+            // 1. Advance Timer
+            const res = await fetch(`/api/leads/${lead.id}/advance-timer`, { method: 'POST' }).then(r => r.json())
+            if (res.success) {
+                toast.success('Timer advanced! Triggering Cron...')
+
+                // 2. Trigger Cron
+                const cronRes = await fetch('/api/cron').then(r => r.json())
+                if (cronRes.success) {
+                    toast.success(`Cron executed: ${cronRes.processed} processed`)
+                    router.refresh()
+                    // Optional: Close dialog to refresh deeply or refetch logs?
+                    // We can just refetch logs if we stayed open, but router.refresh needs time
+                } else {
+                    toast.error('Cron failed')
+                }
+            } else {
+                toast.error('Failed to advance timer')
+            }
+        } catch (e) {
+            toast.error('Error during fast forward')
+        }
+        setIsFastForwarding(false)
+    }
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col p-0 gap-0">
@@ -340,6 +369,31 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                 <div className="flex-1 overflow-hidden p-8 grid grid-cols-1 lg:grid-cols-12 gap-10">
                     {/* Left Panel: Info + Automation (8 cols) */}
                     <div className="lg:col-span-8 border-r pr-8 overflow-y-auto flex flex-col gap-8">
+
+                        {/* Automation Status - Debug Only */}
+                        {lead?.nextNurtureAt && (
+                            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 animate-in fade-in slide-in-from-top-2">
+                                <h3 className="font-semibold text-sm text-amber-900 flex items-center gap-2 mb-2">
+                                    <Timer className="h-4 w-4" />
+                                    Automation Scheduled
+                                </h3>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-amber-800 text-xs">
+                                        Next action due: <strong>{new Date(lead.nextNurtureAt).toLocaleString()}</strong>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="bg-white hover:bg-amber-100 text-amber-700 h-7 text-xs border-amber-300"
+                                        onClick={handleFastForward}
+                                        disabled={isFastForwarding}
+                                    >
+                                        {isFastForwarding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3 mr-1" />}
+                                        Run Now (Debug)
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
 
                         {/* Section 1: Lead Information */}

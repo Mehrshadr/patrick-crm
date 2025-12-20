@@ -23,9 +23,13 @@ export async function getCalendarEvents(
         timeMin?: Date
         timeMax?: Date
         maxResults?: number
+        refreshToken?: string // Add refresh token support
     }
 ): Promise<CalendarEvent[]> {
-    oauth2Client.setCredentials({ access_token: accessToken })
+    oauth2Client.setCredentials({
+        access_token: accessToken,
+        refresh_token: options?.refreshToken
+    })
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 

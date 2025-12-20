@@ -78,6 +78,21 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
         }
 
         if (!execution) {
+            // CRITICAL: Prevent duplicate executions. Cancel any existing ACTIVE workflows for this lead.
+            const existingActive = await db.workflowExecution.findMany({
+                where: {
+                    leadId,
+                    status: 'ACTIVE'
+                }
+            })
+            if (existingActive.length > 0) {
+                console.log(`[WorkflowEngine] Cancelling ${existingActive.length} existing active executions for lead ${leadId}`)
+                await db.workflowExecution.updateMany({
+                    where: { leadId, status: 'ACTIVE' },
+                    data: { status: 'CANCELLED', cancelReason: 'New workflow started', cancelledAt: new Date() }
+                })
+            }
+
             execution = await db.workflowExecution.create({
                 data: {
                     workflowId,

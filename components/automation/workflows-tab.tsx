@@ -125,13 +125,24 @@ export function WorkflowsTab() {
                                         <h3 className="font-semibold text-lg hover:underline cursor-pointer" onClick={() => setSelectedWorkflowId(workflow.id)}>
                                             {workflow.name}
                                         </h3>
-                                        <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                                            <Badge variant="outline" className="font-normal text-xs">
-                                                {workflow.triggerType === 'ON_STATUS_CHANGE' ? 'Status Change' : 'Scheduled'}
+                                        <p className="text-sm text-slate-500 mb-2">
+                                            {workflow.pipelineStage
+                                                ? `📍 ${workflow.pipelineStage}`
+                                                : '🌐 General'
+                                            }
+                                        </p>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-xs ${workflow.executionMode === 'AUTO' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`}
+                                            >
+                                                {workflow.executionMode === 'AUTO' ? '⚡ Auto' : '👆 Manual'}
                                             </Badge>
-                                            <span className="flex items-center gap-1">
-                                                <MoreVertical className="h-3 w-3" />
-                                                {workflow._count?.steps || 0} Steps
+                                            <Badge variant="outline" className="font-normal text-xs">
+                                                {workflow.triggerType === 'ON_STATUS_CHANGE' ? 'Status Change' : 'Manual Only'}
+                                            </Badge>
+                                            <span className="text-xs text-slate-400">
+                                                {workflow._count?.steps || 0} steps
                                             </span>
                                         </div>
                                     </div>

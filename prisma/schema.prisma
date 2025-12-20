@@ -120,8 +120,12 @@ model Workflow {
   description     String?
   isActive        Boolean   @default(true)
   
+  // Execution Settings
+  executionMode   String    @default("AUTO")   // "AUTO" = runs automatically, "MANUAL" = requires user confirmation
+  pipelineStage   String?   // null = General (applies to all stages), or specific stage like "Meeting 1"
+  
   // Trigger Settings
-  triggerType     String    // "ON_STATUS_CHANGE"
+  triggerType     String    // "ON_STATUS_CHANGE", "MANUAL"
   triggerStatus   String?   // "New", "Meeting1" - when status changes to this
   triggerSubStatus String?  // "Scheduled", "Ghosted"
   

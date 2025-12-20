@@ -40,6 +40,8 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
     const [triggerType, setTriggerType] = useState('ON_STATUS_CHANGE')
     const [triggerStatus, setTriggerStatus] = useState<string>('New')
     const [triggerSubStatus, setTriggerSubStatus] = useState<string>('__NONE__')
+    const [executionMode, setExecutionMode] = useState('AUTO')
+    const [pipelineStage, setPipelineStage] = useState<string>('__GENERAL__')
     const [steps, setSteps] = useState<WorkflowStep[]>([])
 
     // For step editing - now using dialog
@@ -81,6 +83,8 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                 setTriggerType(w.triggerType)
                 setTriggerStatus(w.triggerStatus || '')
                 setTriggerSubStatus(w.triggerSubStatus || '__NONE__')
+                setExecutionMode(w.executionMode || 'AUTO')
+                setPipelineStage(w.pipelineStage || '__GENERAL__')
                 setSteps(w.steps.map((s: any) => ({
                     ...s,
                     config: typeof s.config === 'string' ? JSON.parse(s.config) : s.config
@@ -102,6 +106,8 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
             triggerType,
             triggerStatus,
             triggerSubStatus: triggerSubStatus === '__NONE__' ? null : triggerSubStatus,
+            executionMode,
+            pipelineStage: pipelineStage === '__GENERAL__' ? null : pipelineStage,
             steps: steps.map(s => ({
                 name: s.name,
                 type: s.type,
@@ -219,47 +225,87 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
 
             {/* Main Builder Area - Now Full Width */}
             <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
-                {/* Trigger Card */}
-                <div className="max-w-2xl mx-auto mb-8">
+                {/* Trigger & Settings Card */}
+                <div className="max-w-3xl mx-auto mb-8">
                     <Card className="border-l-4 border-l-blue-500 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-4">
-                            <div className="bg-blue-100 p-2 rounded-full">
-                                <Zap className="h-5 w-5 text-blue-600" />
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="bg-blue-100 p-2 rounded-full">
+                                    <Zap className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <span className="font-medium text-sm">Workflow Settings</span>
                             </div>
-                            <div className="flex-1 grid grid-cols-3 gap-4">
+
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                {/* Execution Mode */}
                                 <div>
-                                    <Label className="text-xs">Trigger</Label>
-                                    <Select value={triggerType} onValueChange={setTriggerType} disabled>
+                                    <Label className="text-xs">Execution Mode</Label>
+                                    <Select value={executionMode} onValueChange={setExecutionMode}>
                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="ON_STATUS_CHANGE">Status Change</SelectItem>
+                                            <SelectItem value="AUTO">⚡ Auto (runs automatically)</SelectItem>
+                                            <SelectItem value="MANUAL">👆 Manual (suggests to user)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {/* Pipeline Stage */}
                                 <div>
-                                    <Label className="text-xs">Stage</Label>
-                                    <Select value={triggerStatus} onValueChange={setTriggerStatus}>
+                                    <Label className="text-xs">Pipeline Stage</Label>
+                                    <Select value={pipelineStage} onValueChange={setPipelineStage}>
                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="__GENERAL__">🌐 General (all stages)</SelectItem>
                                             {Object.entries(STAGE_CONFIG).map(([key, config]) => (
                                                 <SelectItem key={key} value={key}>{config.label}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                {subStatuses.length > 0 && (
-                                    <div>
-                                        <Label className="text-xs">Sub-status</Label>
-                                        <Select value={triggerSubStatus || '__NONE__'} onValueChange={setTriggerSubStatus}>
-                                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__NONE__">Any</SelectItem>
-                                                {subStatuses.map(sub => (
-                                                    <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                            </div>
+
+                            <Separator className="my-4" />
+
+                            <div className="grid grid-cols-3 gap-4">
+                                {/* Trigger Type */}
+                                <div>
+                                    <Label className="text-xs">Trigger</Label>
+                                    <Select value={triggerType} onValueChange={setTriggerType}>
+                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ON_STATUS_CHANGE">Status Change</SelectItem>
+                                            <SelectItem value="MANUAL">Manual Only</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {/* Trigger Status - only show if ON_STATUS_CHANGE */}
+                                {triggerType === 'ON_STATUS_CHANGE' && (
+                                    <>
+                                        <div>
+                                            <Label className="text-xs">When status changes to</Label>
+                                            <Select value={triggerStatus} onValueChange={setTriggerStatus}>
+                                                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                        <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        {subStatuses.length > 0 && (
+                                            <div>
+                                                <Label className="text-xs">Sub-status</Label>
+                                                <Select value={triggerSubStatus || '__NONE__'} onValueChange={setTriggerSubStatus}>
+                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__NONE__">Any</SelectItem>
+                                                        {subStatuses.map(sub => (
+                                                            <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </CardContent>

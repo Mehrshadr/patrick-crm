@@ -196,9 +196,12 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                     {(lead as any).links?.some((l: any) => l.type === 'Proposal Link') && (
                                                                         <span title="Has Proposal" className="text-teal-600"><ClipboardList className="h-3 w-3" /></span>
                                                                     )}
-                                                                    <span className="text-[10px] text-muted-foreground ml-auto">
-                                                                        {lead.updatedAt && format(new Date(lead.updatedAt), "MM/dd")}
-                                                                    </span>
+                                                                    {/* Confirmed Meeting Badge */}
+                                                                    {(lead as any).nextMeetingAt && new Date((lead as any).nextMeetingAt) > new Date() && (
+                                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-red-50 text-red-700 border-red-200 font-medium">
+                                                                            📅 {format(new Date((lead as any).nextMeetingAt), "MMM d, h:mm a")}
+                                                                        </Badge>
+                                                                    )}
                                                                 </div>
                                                                 {/* Last Automation Badge */}
                                                                 {lead.nurtureStage > 0 && (
@@ -209,14 +212,7 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                         </Badge>
                                                                     </div>
                                                                 )}
-                                                                {/* Confirmed Meeting Badge */}
-                                                                {(lead as any).nextMeetingAt && new Date((lead as any).nextMeetingAt) > new Date() && (
-                                                                    <div className="mt-1.5">
-                                                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-red-50 text-red-700 border-red-200 font-medium">
-                                                                            📅 {format(new Date((lead as any).nextMeetingAt), "MMM d, h:mm a")}
-                                                                        </Badge>
-                                                                    </div>
-                                                                )}
+
                                                                 {/* Next Nurture Countdown */}
                                                                 {lead.nextNurtureAt && new Date(lead.nextNurtureAt) > new Date() && (
                                                                     <div className="mt-1.5">

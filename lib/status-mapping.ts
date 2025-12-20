@@ -55,6 +55,9 @@ export function getStageForStatus(status: string): PipelineStage {
     if (status in STAGE_CONFIG) return status as PipelineStage;
 
     // Fallback for old data or if logic needs it (though we plan to migrate)
+    if (status === "Meeting 1") return "Meeting1";
+    if (status === "Meeting 2") return "Meeting2";
+    if (status === "Meeting 3") return "Meeting3";
     if (status.includes("Discovery")) return "Meeting1";
     if (status.includes("Reveal")) return "Meeting2";
     if (status.includes("Closing") || status.includes("Proposal")) return "Meeting3";

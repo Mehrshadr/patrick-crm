@@ -125,7 +125,10 @@ export function WorkflowsTab() {
                                         <h3 className="font-semibold text-lg hover:underline cursor-pointer" onClick={() => setSelectedWorkflowId(workflow.id)}>
                                             {workflow.name}
                                         </h3>
-                                        <p className="text-sm text-slate-500 mb-2">
+                                        {workflow.description && (
+                                            <p className="text-sm text-slate-600 mb-1">{workflow.description}</p>
+                                        )}
+                                        <p className="text-xs text-slate-400 mb-2">
                                             {workflow.pipelineStage
                                                 ? `📍 ${workflow.pipelineStage}`
                                                 : '🌐 General'

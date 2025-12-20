@@ -11,6 +11,22 @@ interface ProcessWorkflowOptions {
     triggeredBy?: string
 }
 
+// Helper to replace template variables with lead data
+function replaceTemplateVariables(text: string, lead: any): string {
+    if (!text) return text
+
+    return text
+        .replace(/\{name\}/gi, lead.name || '')
+        .replace(/\{first_name\}/gi, (lead.name || '').split(' ')[0] || '')
+        .replace(/\{phone\}/gi, lead.phone || '')
+        .replace(/\{email\}/gi, lead.email || '')
+        .replace(/\{website\}/gi, lead.website || '')
+        .replace(/\{status\}/gi, lead.status || '')
+        .replace(/\{stage\}/gi, lead.stage || '')
+        .replace(/\{business_type\}/gi, lead.businessType || '')
+        .replace(/\{quality\}/gi, lead.quality || '')
+}
+
 export async function processWorkflow({
     workflowId,
     leadId,
@@ -66,7 +82,16 @@ export async function processWorkflow({
         // 3. Simple loop to process immediate steps until a DELAY
         for (let i = 0; i < steps.length; i++) {
             const step = steps[i]
-            const config = typeof step.config === 'string' ? JSON.parse(step.config) : step.config
+            const rawConfig = typeof step.config === 'string' ? JSON.parse(step.config) : step.config
+
+            // Replace template variables in config strings
+            const config = {
+                ...rawConfig,
+                body: replaceTemplateVariables(rawConfig.body, lead),
+                subject: replaceTemplateVariables(rawConfig.subject, lead),
+                smsBody: replaceTemplateVariables(rawConfig.smsBody, lead),
+            }
+
 
             if (step.type === 'DELAY') {
                 // Calculate the next nurture time based on delay config

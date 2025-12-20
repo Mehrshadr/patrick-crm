@@ -78,6 +78,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const [noteStage, setNoteStage] = useState("")
     const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
     const [runningWorkflow, setRunningWorkflow] = useState<number | null>(null)
+    const [sendingSms, setSendingSms] = useState(false)
+    const [sendingEmail, setSendingEmail] = useState(false)
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -188,6 +190,59 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         setRunningWorkflow(null)
     }
 
+    async function sendSmsToLead() {
+        if (!lead?.phone) {
+            toast.error('No phone number for this lead')
+            return
+        }
+        setSendingSms(true)
+        try {
+            const message = `Hi ${lead.name || 'there'}! This is a message from Patrick CRM.`
+            const res = await fetch('/api/send-sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: lead.phone, body: message })
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('SMS sent successfully!')
+            } else {
+                toast.error('Failed to send SMS: ' + (res.error || 'Unknown error'))
+            }
+        } catch (e) {
+            toast.error('Error sending SMS')
+        }
+        setSendingSms(false)
+    }
+
+    async function sendEmailToLead() {
+        if (!lead?.email) {
+            toast.error('No email address for this lead')
+            return
+        }
+        setSendingEmail(true)
+        try {
+            const res = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: lead.email,
+                    subject: `Hello from Patrick CRM`,
+                    html: `<p>Hi ${lead.name || 'there'},</p><p>This is a test email from Patrick CRM.</p>`
+                })
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('Email sent successfully!')
+            } else {
+                toast.error('Failed to send email: ' + (res.error || 'Unknown error'))
+            }
+        } catch (e) {
+            toast.error('Error sending email')
+        }
+        setSendingEmail(false)
+    }
+
     // Color Helper
     const getSubStatusColor = (sub: string) => {
         if (!sub) return "bg-white text-slate-600 border-slate-200"
@@ -257,6 +312,32 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                 <div className="flex-1 overflow-hidden p-8 grid grid-cols-1 lg:grid-cols-12 gap-10">
                     {/* Left Panel: Info + Automation (8 cols) */}
                     <div className="lg:col-span-8 border-r pr-8 overflow-y-auto flex flex-col gap-8">
+
+                        {/* Quick Actions */}
+                        {lead && (
+                            <div className="flex gap-2 mb-6 p-4 bg-slate-50 rounded-lg border">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={sendSmsToLead}
+                                    disabled={sendingSms || !lead.phone}
+                                    className="flex-1 bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+                                >
+                                    <MessageSquare className="h-4 w-4 mr-2" />
+                                    {sendingSms ? 'Sending...' : 'Send SMS'}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={sendEmailToLead}
+                                    disabled={sendingEmail || !lead.email}
+                                    className="flex-1 bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100"
+                                >
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    {sendingEmail ? 'Sending...' : 'Send Email'}
+                                </Button>
+                            </div>
+                        )}
 
                         {/* Section 1: Lead Information */}
                         <div>

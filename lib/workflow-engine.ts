@@ -300,12 +300,16 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                         replyTo: finalReplyTo
                     }, (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined)
 
+                    if (!res.success) {
+                        throw new Error(res.error || 'Email sending failed')
+                    }
+
                     await db.workflowLog.create({
                         data: {
                             executionId: execution.id,
                             stepId: step.id,
-                            status: res.success ? 'SUCCESS' : 'FAILED',
-                            message: res.success ? `Email sent to ${lead.email}` : `Email failed: ${res.error}`,
+                            status: 'SUCCESS',
+                            message: `Email sent to ${lead.email}`,
                         }
                     })
                     // Also log to lead's log table for display in lead dialog

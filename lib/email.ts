@@ -48,7 +48,7 @@ async function sendViaGmailAPI(
 
         // Build the email in RFC 2822 format
         const messageParts = [
-            senderEmail ? `From: ${senderEmail}` : '',
+            senderEmail ? `From: ${senderEmail}` : null,
             `To: ${recipient}`,
             `Subject: ${options.subject}`,
             'MIME-Version: 1.0',
@@ -56,7 +56,7 @@ async function sendViaGmailAPI(
             '',
             options.html
         ]
-        const message = messageParts.join('\n')
+        const message = messageParts.filter(part => part !== null).join('\n')
 
         // Encode to base64url
         const encodedMessage = Buffer.from(message)

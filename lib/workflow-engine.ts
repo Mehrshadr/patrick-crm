@@ -209,12 +209,13 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                 const nextStepName = steps[i + 1]?.name || 'Next Step'
 
                 // Update lead with next nurture time
+                // NOTE: We do NOT update automationStatus here. It will keep the last completed action.
+                // The UI checks nextNurtureAt to show "waiting" state.
                 await db.lead.update({
                     where: { id: leadId },
                     data: {
                         nextNurtureAt,
                         nurtureStage: i, // Track this DELAY step as the resume point
-                        automationStatus: `Waiting: ${nextStepName}`
                     }
                 })
 

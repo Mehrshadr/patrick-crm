@@ -45,20 +45,34 @@ async function sendViaGmailAPI(
 
         // Use the provided 'from' which can be a name or email, format properly for RFC 5322
         const senderInfo = (options.from || '').trim()
+
+        // Fetch the authenticated user's email address from Gmail API
+        // This is needed to properly format the From header
+        let authenticatedEmail = ''
+        try {
+            const profile = await gmail.users.getProfile({ userId: 'me' })
+            authenticatedEmail = profile.data.emailAddress || ''
+            console.log(`[Email Service] Authenticated as: ${authenticatedEmail}`)
+        } catch (e) {
+            console.error('[Email Service] Failed to fetch user profile:', e)
+        }
+
         // Build proper From header: "Sender Name" <email@example.com>
-        // If senderInfo contains @, treat as email; otherwise treat as display name
-        // NOTE: When sending via Gmail API with OAuth, if we only provide a display name,
-        // Gmail will automatically use the authenticated account's email. 
-        // We should NOT use <me> literally as it's invalid in raw RFC 2822.
         let fromHeader: string | null = null
         if (senderInfo) {
             if (senderInfo.includes('@')) {
-                // It's an email address (possibly with name already formatted)
+                // It's already an email address (possibly with name)
                 fromHeader = `From: ${senderInfo}`
+            } else if (authenticatedEmail) {
+                // It's a display name - combine with authenticated email
+                fromHeader = `From: "${senderInfo}" <${authenticatedEmail}>`
             } else {
-                // It's just a display name. Gmail API will append the authenticated email.
+                // Fallback: just use the name (Gmail might add email automatically)
                 fromHeader = `From: ${senderInfo}`
             }
+        } else if (authenticatedEmail) {
+            // No sender info provided, use just the authenticated email
+            fromHeader = `From: ${authenticatedEmail}`
         }
 
         // Build the email in RFC 2822 format

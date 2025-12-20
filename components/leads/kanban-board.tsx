@@ -203,32 +203,53 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                         </Badge>
                                                                     )}
                                                                 </div>
-                                                                {/* Last Automation Badge */}
-                                                                {/* Last Automation Badge */}
-                                                                {((lead.nurtureStage > 0) || (lead as any).automationStatus) && (
-                                                                    <div className="mt-1.5 flex flex-wrap gap-1">
-                                                                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 border ${(lead as any).automationStatus?.includes("Done")
-                                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                                            : "bg-amber-50 text-amber-700 border-amber-200"
-                                                                            }`}>
-                                                                            {(lead as any).automationStatus?.includes("Done") ? (
-                                                                                <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
-                                                                            ) : (
-                                                                                <Zap className="h-2.5 w-2.5 mr-0.5" />
-                                                                            )}
-                                                                            {(lead as any).automationStatus || `Seq ${lead.nurtureStage}`}
-                                                                        </Badge>
-                                                                    </div>
-                                                                )}
+                                                                {/* Automation Status Badge */}
+                                                                {(() => {
+                                                                    const hasActiveWait = lead.nextNurtureAt && new Date(lead.nextNurtureAt) > new Date();
+                                                                    const automationStatus = (lead as any).automationStatus;
+                                                                    const hasDone = automationStatus?.includes("Done");
 
-                                                                {/* Next Nurture Countdown */}
-                                                                {lead.nextNurtureAt && new Date(lead.nextNurtureAt) > new Date() && (
-                                                                    <div className="mt-1.5">
-                                                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-indigo-50 text-indigo-700 border-indigo-200">
-                                                                            ⏱️ Next: {format(new Date(lead.nextNurtureAt), "MMM d, h:mm a")}
-                                                                        </Badge>
-                                                                    </div>
-                                                                )}
+                                                                    // Determine what to show
+                                                                    if (hasActiveWait) {
+                                                                        // Waiting for next step
+                                                                        return (
+                                                                            <div className="mt-1.5 flex flex-wrap gap-1">
+                                                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border bg-amber-50 text-amber-700 border-amber-200">
+                                                                                    <Zap className="h-2.5 w-2.5 mr-0.5" />
+                                                                                    ⏳ Next: {format(new Date(lead.nextNurtureAt!), "MMM d, h:mm a")}
+                                                                                </Badge>
+                                                                            </div>
+                                                                        );
+                                                                    } else if (automationStatus) {
+                                                                        // Show last completed action
+                                                                        return (
+                                                                            <div className="mt-1.5 flex flex-wrap gap-1">
+                                                                                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 border ${hasDone
+                                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                                    : "bg-slate-50 text-slate-600 border-slate-200"
+                                                                                    }`}>
+                                                                                    {hasDone ? (
+                                                                                        <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                                                                                    ) : (
+                                                                                        <Zap className="h-2.5 w-2.5 mr-0.5" />
+                                                                                    )}
+                                                                                    {automationStatus}
+                                                                                </Badge>
+                                                                            </div>
+                                                                        );
+                                                                    } else if (lead.nurtureStage > 0) {
+                                                                        // Legacy fallback
+                                                                        return (
+                                                                            <div className="mt-1.5 flex flex-wrap gap-1">
+                                                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border bg-slate-50 text-slate-600 border-slate-200">
+                                                                                    <Zap className="h-2.5 w-2.5 mr-0.5" />
+                                                                                    Seq {lead.nurtureStage}
+                                                                                </Badge>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
 
                                                             </CardContent>
                                                         </Card>

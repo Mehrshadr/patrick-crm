@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from 'react'
@@ -6,13 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { STAGE_CONFIG, PipelineStage } from '@/lib/status-mapping'
-import { ArrowLeft, Save, Plus, Trash2, Mail, MessageSquare, Clock, AlertCircle, Zap, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Mail, MessageSquare, Clock, Zap, Eye, EyeOff, Layers, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { getCaretCoordinates } from '@/lib/textarea-utils'
 
 interface WorkflowBuilderProps {
     workflowId: number | null
@@ -33,9 +33,6 @@ const STEP_TYPES = [
     { type: 'ACTION', label: 'External Action', icon: Zap },
 ]
 
-// Icon for combined Email+SMS step
-import { Layers } from 'lucide-react'
-
 export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
     const [loading, setLoading] = useState(false)
     const [name, setName] = useState('')
@@ -45,21 +42,20 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
     const [triggerSubStatus, setTriggerSubStatus] = useState<string>('__NONE__')
     const [steps, setSteps] = useState<WorkflowStep[]>([])
 
-    // For step editing
+    // For step editing - now using dialog
     const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null)
-    const [showPreview, setShowPreview] = useState(false)
+    const [showEmailPreview, setShowEmailPreview] = useState(false)
+    const [showSmsPreview, setShowSmsPreview] = useState(false)
     const [signature, setSignature] = useState('')
 
     useEffect(() => {
         if (workflowId) {
             fetchWorkflow(workflowId)
         } else {
-            // Default template
             setSteps([
-                { name: 'Initial Email', type: 'EMAIL', config: { subject: '', body: '' } }
+                { name: 'Initial Email', type: 'EMAIL', config: { subject: '', body: '', includeSignature: true } }
             ])
         }
-        // Fetch signature
         fetchSignature()
     }, [workflowId])
 
@@ -85,8 +81,6 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                 setTriggerType(w.triggerType)
                 setTriggerStatus(w.triggerStatus || '')
                 setTriggerSubStatus(w.triggerSubStatus || '__NONE__')
-
-                // Parse step configs
                 setSteps(w.steps.map((s: any) => ({
                     ...s,
                     config: typeof s.config === 'string' ? JSON.parse(s.config) : s.config
@@ -118,7 +112,6 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
         try {
             const url = workflowId ? `/api/workflows/${workflowId}` : '/api/workflows'
             const method = workflowId ? 'PUT' : 'POST'
-
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -137,14 +130,27 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
         setLoading(false)
     }
 
-    function addStep(type: string) {
+    function addStep(type: string, sendSmsAlso = false) {
         const newStep: WorkflowStep = {
-            name: `New ${type} Step`,
+            name: sendSmsAlso ? 'Email + SMS' : `New ${type} Step`,
             type: type as any,
-            config: {}
+            config: type === 'EMAIL' ? {
+                subject: '',
+                body: '',
+                includeSignature: true,
+                sendSmsAlso,
+                smsBody: ''
+            } : type === 'SMS' ? {
+                body: ''
+            } : type === 'DELAY' ? {
+                delayType: 'FIXED',
+                fixedDuration: 1,
+                fixedUnit: 'DAYS',
+                cancelOnStatuses: []
+            } : {}
         }
         setSteps([...steps, newStep])
-        setEditingStepIndex(steps.length) // Open editor for new step
+        setEditingStepIndex(steps.length)
     }
 
     function removeStep(index: number) {
@@ -158,8 +164,30 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
         setSteps(newSteps)
     }
 
-    // Helper to get sub-statuses
+    function toggleCancelStatus(status: string) {
+        if (editingStepIndex === null) return
+        const current = steps[editingStepIndex].config.cancelOnStatuses || []
+        const updated = current.includes(status)
+            ? current.filter((s: string) => s !== status)
+            : [...current, status]
+        updateStep(editingStepIndex, {
+            config: { ...steps[editingStepIndex].config, cancelOnStatuses: updated }
+        })
+    }
+
     const subStatuses = (triggerStatus && STAGE_CONFIG[triggerStatus as PipelineStage]?.subStatuses) || []
+    const editingStep = editingStepIndex !== null ? steps[editingStepIndex] : null
+
+    // Preview helper
+    function renderPreview(text: string) {
+        return (text || '')
+            .replace(/\n/g, '<br/>')
+            .replace(/{name}/g, '<span class="bg-blue-100 px-1 rounded">John Doe</span>')
+            .replace(/{website}/g, '<span class="bg-blue-100 px-1 rounded">example.com</span>')
+            .replace(/{audit_link}/g, '<a href="#" class="text-blue-600 underline">Audit Link</a>')
+            .replace(/{proposal_link}/g, '<a href="#" class="text-blue-600 underline">Proposal Link</a>')
+            .replace(/{signature}/g, signature || '<em class="text-gray-400">[Signature]</em>')
+    }
 
     return (
         <div className="flex flex-col h-full bg-white rounded-lg shadow-sm">
@@ -189,334 +217,407 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                 </Button>
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Visual Builder (Left/Main) */}
-                <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
-
-                    {/* Trigger Card */}
-                    <div className="max-w-2xl mx-auto mb-8">
-                        <Card className="border-l-4 border-l-blue-500 shadow-sm">
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                    <Zap className="h-5 w-5 text-blue-600" />
+            {/* Main Builder Area - Now Full Width */}
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+                {/* Trigger Card */}
+                <div className="max-w-2xl mx-auto mb-8">
+                    <Card className="border-l-4 border-l-blue-500 shadow-sm">
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <div className="bg-blue-100 p-2 rounded-full">
+                                <Zap className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div className="flex-1 grid grid-cols-3 gap-4">
+                                <div>
+                                    <Label className="text-xs">Trigger</Label>
+                                    <Select value={triggerType} onValueChange={setTriggerType} disabled>
+                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ON_STATUS_CHANGE">Status Change</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                                <div className="flex-1 grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label className="text-xs">Stage</Label>
+                                    <Select value={triggerStatus} onValueChange={setTriggerStatus}>
+                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {subStatuses.length > 0 && (
                                     <div>
-                                        <Label className="text-xs">Trigger</Label>
-                                        <Select value={triggerType} onValueChange={setTriggerType} disabled>
-                                            <SelectTrigger className="h-8">
-                                                <SelectValue />
-                                            </SelectTrigger>
+                                        <Label className="text-xs">Sub-status</Label>
+                                        <Select value={triggerSubStatus || '__NONE__'} onValueChange={setTriggerSubStatus}>
+                                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="ON_STATUS_CHANGE">Status Change</SelectItem>
+                                                <SelectItem value="__NONE__">Any</SelectItem>
+                                                {subStatuses.map(sub => (
+                                                    <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <Label className="text-xs">Stage</Label>
-                                            <Select value={triggerStatus} onValueChange={setTriggerStatus}>
-                                                <SelectTrigger className="h-8">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {Object.entries(STAGE_CONFIG).map(([key, config]) => (
-                                                        <SelectItem key={key} value={key}>{config.label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        {subStatuses.length > 0 && (
-                                            <div className="flex-1">
-                                                <Label className="text-xs">Sub-status</Label>
-                                                <Select value={triggerSubStatus || '__NONE__'} onValueChange={setTriggerSubStatus}>
-                                                    <SelectTrigger className="h-8">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="__NONE__">Any</SelectItem>
-                                                        {subStatuses.map(sub => (
-                                                            <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <div className="flex justify-center my-2">
-                            <div className="w-0.5 h-8 bg-slate-300"></div>
-                        </div>
-                    </div>
-
-                    {/* Steps List */}
-                    <div className="max-w-2xl mx-auto space-y-4">
-                        {steps.map((step, index) => {
-                            // Show Layers icon for combined Email+SMS steps
-                            const isEmailSms = step.type === 'EMAIL' && step.config?.sendSmsAlso
-                            const Icon = isEmailSms ? Layers : (STEP_TYPES.find(t => t.type === step.type)?.icon || AlertCircle)
-                            const typeLabel = isEmailSms ? 'EMAIL + SMS' : step.type
-                            return (
-                                <div key={index}>
-                                    <Card
-                                        className={`cursor-pointer transition-all ${editingStepIndex === index ? 'ring-2 ring-indigo-500 shadow-md' : 'hover:border-indigo-300'}`}
-                                        onClick={() => setEditingStepIndex(index)}
-                                    >
-                                        <CardContent className="p-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-md ${isEmailSms ? 'bg-indigo-100' : 'bg-slate-100'}`}>
-                                                    <Icon className={`h-5 w-5 ${isEmailSms ? 'text-indigo-600' : 'text-slate-600'}`} />
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-sm">{step.name}</div>
-                                                    <div className="text-xs text-slate-500">{typeLabel}</div>
-                                                </div>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                onClick={(e) => { e.stopPropagation(); removeStep(index); }}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* Connector Line */}
-                                    {index < steps.length && (
-                                        <div className="flex justify-center my-2">
-                                            <div className="w-0.5 h-6 bg-slate-300"></div>
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
-
-                        {/* Add Function Button */}
-                        <div className="flex justify-center pt-2 pb-12">
-                            <div className="bg-white p-1 rounded-full border shadow-sm flex gap-1 flex-wrap justify-center">
-                                {STEP_TYPES.map(t => (
-                                    <Button
-                                        key={t.type}
-                                        variant="ghost"
-                                        size="sm"
-                                        className="gap-2 text-xs"
-                                        onClick={() => addStep(t.type)}
-                                    >
-                                        <t.icon className="h-3 w-3" /> {t.label}
-                                    </Button>
-                                ))}
-                                <Separator orientation="vertical" className="h-6" />
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="gap-2 text-xs text-indigo-600"
-                                    onClick={() => {
-                                        // Add Email+SMS as a special combined step
-                                        const newStep: WorkflowStep = {
-                                            name: 'Email + SMS',
-                                            type: 'EMAIL',
-                                            config: {
-                                                subject: '',
-                                                body: '',
-                                                sendSmsAlso: true,
-                                                smsBody: ''
-                                            }
-                                        }
-                                        setSteps([...steps, newStep])
-                                        setEditingStepIndex(steps.length)
-                                    }}
-                                >
-                                    <Layers className="h-3 w-3" /> Email + SMS
-                                </Button>
+                                )}
                             </div>
-                        </div>
+                        </CardContent>
+                    </Card>
+                    <div className="flex justify-center my-2">
+                        <div className="w-0.5 h-8 bg-slate-300"></div>
                     </div>
                 </div>
 
-                {/* Right Settings Panel (Editor) */}
-                {editingStepIndex !== null && steps[editingStepIndex] && (
-                    <div className="w-[600px] border-l bg-white p-6 overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-semibold">Edit Step</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setEditingStepIndex(null)}>Close</Button>
-                        </div>
+                {/* Steps List */}
+                <div className="max-w-2xl mx-auto space-y-4">
+                    {steps.map((step, index) => {
+                        const isEmailSms = step.type === 'EMAIL' && step.config?.sendSmsAlso
+                        const isSms = step.type === 'SMS'
+                        const Icon = isEmailSms ? Layers : (STEP_TYPES.find(t => t.type === step.type)?.icon || AlertCircle)
+                        const typeLabel = isEmailSms ? 'EMAIL + SMS' : step.type
+                        const borderColor = isSms ? 'border-l-green-500' : isEmailSms ? 'border-l-indigo-500' : 'border-l-slate-300'
+                        const iconBg = isSms ? 'bg-green-100' : isEmailSms ? 'bg-indigo-100' : 'bg-slate-100'
+                        const iconColor = isSms ? 'text-green-600' : isEmailSms ? 'text-indigo-600' : 'text-slate-600'
 
-                        <div className="space-y-4">
+                        return (
+                            <div key={index}>
+                                <Card
+                                    className={`cursor-pointer transition-all border-l-4 ${borderColor} ${editingStepIndex === index ? 'ring-2 ring-indigo-500 shadow-md' : 'hover:border-l-indigo-400'}`}
+                                    onClick={() => setEditingStepIndex(index)}
+                                >
+                                    <CardContent className="p-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-md ${iconBg}`}>
+                                                <Icon className={`h-5 w-5 ${iconColor}`} />
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-sm">{step.name}</div>
+                                                <div className="text-xs text-slate-500">{typeLabel}</div>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            onClick={(e) => { e.stopPropagation(); removeStep(index); }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                                {index < steps.length && (
+                                    <div className="flex justify-center my-2">
+                                        <div className="w-0.5 h-6 bg-slate-300"></div>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
+
+                    {/* Add Step Buttons */}
+                    <div className="flex justify-center pt-2 pb-12">
+                        <div className="bg-white p-2 rounded-lg border shadow-sm flex gap-2 flex-wrap justify-center">
+                            {STEP_TYPES.map(t => (
+                                <Button
+                                    key={t.type}
+                                    variant="ghost"
+                                    size="sm"
+                                    className={`gap-2 text-xs ${t.type === 'SMS' ? 'text-green-600 hover:bg-green-50' : ''}`}
+                                    onClick={() => addStep(t.type)}
+                                >
+                                    <t.icon className="h-3 w-3" /> {t.label}
+                                </Button>
+                            ))}
+                            <Separator orientation="vertical" className="h-6" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-2 text-xs text-indigo-600 hover:bg-indigo-50"
+                                onClick={() => addStep('EMAIL', true)}
+                            >
+                                <Layers className="h-3 w-3" /> Email + SMS
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Step Editor Dialog */}
+            <Dialog open={editingStepIndex !== null} onOpenChange={(open) => !open && setEditingStepIndex(null)}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            {editingStep?.type === 'SMS' ? (
+                                <MessageSquare className="h-5 w-5 text-green-600" />
+                            ) : editingStep?.config?.sendSmsAlso ? (
+                                <Layers className="h-5 w-5 text-indigo-600" />
+                            ) : (
+                                <Mail className="h-5 w-5" />
+                            )}
+                            Edit Step
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {editingStep && (
+                        <div className="space-y-6 pt-4">
+                            {/* Step Name */}
                             <div>
                                 <Label>Step Name</Label>
                                 <Input
-                                    value={steps[editingStepIndex].name}
-                                    onChange={(e) => updateStep(editingStepIndex, { name: e.target.value })}
+                                    value={editingStep.name}
+                                    onChange={(e) => updateStep(editingStepIndex!, { name: e.target.value })}
                                 />
                             </div>
 
                             <Separator />
 
-                            {/* Conditional Rendering based on Type */}
-                            {steps[editingStepIndex].type === 'DELAY' && (
-                                <div className="grid grid-cols-2 gap-4">
+                            {/* DELAY Step */}
+                            {editingStep.type === 'DELAY' && (
+                                <div className="space-y-4">
                                     <div>
-                                        <Label>Duration</Label>
-                                        <Input
-                                            type="number"
-                                            value={steps[editingStepIndex].config.duration || 1}
-                                            onChange={(e) => updateStep(editingStepIndex, {
-                                                config: { ...steps[editingStepIndex].config, duration: parseInt(e.target.value) }
-                                            })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label>Unit</Label>
+                                        <Label>Delay Type</Label>
                                         <Select
-                                            value={steps[editingStepIndex].config.unit || 'DAYS'}
-                                            onValueChange={(val) => updateStep(editingStepIndex, {
-                                                config: { ...steps[editingStepIndex].config, unit: val }
+                                            value={editingStep.config.delayType || 'FIXED'}
+                                            onValueChange={(val) => updateStep(editingStepIndex!, {
+                                                config: { ...editingStep.config, delayType: val }
                                             })}
                                         >
                                             <SelectTrigger><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="HOURS">Hours</SelectItem>
-                                                <SelectItem value="DAYS">Days</SelectItem>
+                                                <SelectItem value="FIXED">Fixed Duration</SelectItem>
+                                                <SelectItem value="SMART_STAGE_2">Smart: Stage 2 Nurture</SelectItem>
+                                                <SelectItem value="SMART_STAGE_3">Smart: Stage 3 Nurture</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        {editingStep.config.delayType?.startsWith('SMART') && (
+                                            <p className="text-xs text-blue-600 mt-1">
+                                                ⚡ Uses lead creation time to calculate optimal send time
+                                            </p>
+                                        )}
                                     </div>
-                                    <div className="col-span-2 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <Label className="text-xs text-amber-800 font-medium">Cancel Condition (Optional)</Label>
-                                        <p className="text-xs text-amber-700 mb-2">If lead status changes to this, cancel remaining steps:</p>
-                                        <Select
-                                            value={steps[editingStepIndex].config.cancelOnStatus || '__NONE__'}
-                                            onValueChange={(val) => updateStep(editingStepIndex, {
-                                                config: { ...steps[editingStepIndex].config, cancelOnStatus: val === '__NONE__' ? null : val }
-                                            })}
-                                        >
-                                            <SelectTrigger><SelectValue placeholder="Don't cancel" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__NONE__">Don't cancel</SelectItem>
-                                                {Object.entries(STAGE_CONFIG).map(([key, config]) => (
-                                                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+
+                                    {editingStep.config.delayType === 'FIXED' && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label>Duration</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={editingStep.config.fixedDuration || 1}
+                                                    onChange={(e) => updateStep(editingStepIndex!, {
+                                                        config: { ...editingStep.config, fixedDuration: parseInt(e.target.value) }
+                                                    })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Unit</Label>
+                                                <Select
+                                                    value={editingStep.config.fixedUnit || 'DAYS'}
+                                                    onValueChange={(val) => updateStep(editingStepIndex!, {
+                                                        config: { ...editingStep.config, fixedUnit: val }
+                                                    })}
+                                                >
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="HOURS">Hours</SelectItem>
+                                                        <SelectItem value="DAYS">Days</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Multi-Select Cancel Conditions */}
+                                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <Label className="text-amber-800 font-medium">Cancel if status changes to:</Label>
+                                        <p className="text-xs text-amber-700 mb-3">Select any statuses that should cancel remaining steps</p>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                <label key={key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-amber-100 p-1 rounded">
+                                                    <Checkbox
+                                                        checked={(editingStep.config.cancelOnStatuses || []).includes(key)}
+                                                        onCheckedChange={() => toggleCancelStatus(key)}
+                                                    />
+                                                    {config.label}
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
-                            {(steps[editingStepIndex].type === 'EMAIL' || steps[editingStepIndex].type === 'SMS') && (
-                                <>
-                                    {steps[editingStepIndex].type === 'EMAIL' && (
-                                        <>
-                                            <div>
-                                                <Label>Subject</Label>
-                                                <Input
-                                                    value={steps[editingStepIndex].config.subject || ''}
-                                                    onChange={(e) => updateStep(editingStepIndex, {
-                                                        config: { ...steps[editingStepIndex].config, subject: e.target.value }
-                                                    })}
-                                                    placeholder="Email Subject"
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <Label className="text-xs">Sender Name</Label>
-                                                    <Input
-                                                        value={steps[editingStepIndex].config.senderName || ''}
-                                                        onChange={(e) => updateStep(editingStepIndex, {
-                                                            config: { ...steps[editingStepIndex].config, senderName: e.target.value }
-                                                        })}
-                                                        placeholder="e.g., Mehrdad from Mehrana"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <Label className="text-xs">Reply-To</Label>
-                                                    <Input
-                                                        value={steps[editingStepIndex].config.replyTo || ''}
-                                                        onChange={(e) => updateStep(editingStepIndex, {
-                                                            config: { ...steps[editingStepIndex].config, replyTo: e.target.value }
-                                                        })}
-                                                        placeholder="e.g., support@mehrana.agency"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </>
-                                    )}
+                            {/* EMAIL Step */}
+                            {editingStep.type === 'EMAIL' && (
+                                <div className="space-y-4">
                                     <div>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <Label>
-                                                {steps[editingStepIndex].type === 'EMAIL' ? 'Body' : 'Message'}
-                                            </Label>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setShowPreview(!showPreview)}
-                                                className="h-6 text-xs gap-1"
-                                            >
-                                                {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                                {showPreview ? 'Edit' : 'Preview'}
-                                            </Button>
+                                        <Label>Subject</Label>
+                                        <Input
+                                            value={editingStep.config.subject || ''}
+                                            onChange={(e) => updateStep(editingStepIndex!, {
+                                                config: { ...editingStep.config, subject: e.target.value }
+                                            })}
+                                            placeholder="Email Subject"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label className="text-xs">Sender Name</Label>
+                                            <Input
+                                                value={editingStep.config.senderName || ''}
+                                                onChange={(e) => updateStep(editingStepIndex!, {
+                                                    config: { ...editingStep.config, senderName: e.target.value }
+                                                })}
+                                                placeholder="e.g., Mehrdad from Mehrana"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Reply-To</Label>
+                                            <Input
+                                                value={editingStep.config.replyTo || ''}
+                                                onChange={(e) => updateStep(editingStepIndex!, {
+                                                    config: { ...editingStep.config, replyTo: e.target.value }
+                                                })}
+                                                placeholder="e.g., support@mehrana.agency"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Email Body */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <Label>Email Body</Label>
+                                            <div className="flex items-center gap-3">
+                                                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                                                    <Checkbox
+                                                        checked={editingStep.config.includeSignature !== false}
+                                                        onCheckedChange={(checked) => updateStep(editingStepIndex!, {
+                                                            config: { ...editingStep.config, includeSignature: checked }
+                                                        })}
+                                                    />
+                                                    Include Signature
+                                                </label>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setShowEmailPreview(!showEmailPreview)}
+                                                    className="h-6 text-xs gap-1"
+                                                >
+                                                    {showEmailPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                    {showEmailPreview ? 'Edit' : 'Preview'}
+                                                </Button>
+                                            </div>
                                         </div>
                                         <p className="text-xs text-muted-foreground mb-2">
                                             Variables: {'{name}'}, {'{website}'}, {'{audit_link}'}, {'{proposal_link}'}, {'{signature}'}
                                         </p>
-                                        {showPreview ? (
+                                        {showEmailPreview ? (
                                             <div
-                                                className="border rounded-lg p-4 h-[400px] overflow-auto bg-white prose prose-sm max-w-none"
+                                                className="border rounded-lg p-4 min-h-[300px] max-h-[400px] overflow-auto bg-white prose prose-sm max-w-none"
                                                 dangerouslySetInnerHTML={{
-                                                    __html: (steps[editingStepIndex].config.body || '')
-                                                        .replace(/\n/g, '<br/>')
-                                                        .replace(/{name}/g, '<span class="bg-blue-100 px-1 rounded">John Doe</span>')
-                                                        .replace(/{website}/g, '<span class="bg-blue-100 px-1 rounded">example.com</span>')
-                                                        .replace(/{audit_link}/g, '<a href="#" class="text-blue-600 underline">Audit Link</a>')
-                                                        .replace(/{proposal_link}/g, '<a href="#" class="text-blue-600 underline">Proposal Link</a>')
-                                                        .replace(/{signature}/g, signature || '<em class="text-gray-400">[Signature]</em>')
+                                                    __html: renderPreview(editingStep.config.body) +
+                                                        (editingStep.config.includeSignature !== false ? '<br/><br/>' + (signature || '') : '')
                                                 }}
                                             />
                                         ) : (
                                             <Textarea
-                                                value={steps[editingStepIndex].config.body || ''}
-                                                onChange={(e) => updateStep(editingStepIndex, {
-                                                    config: { ...steps[editingStepIndex].config, body: e.target.value }
+                                                value={editingStep.config.body || ''}
+                                                onChange={(e) => updateStep(editingStepIndex!, {
+                                                    config: { ...editingStep.config, body: e.target.value }
                                                 })}
-                                                className={`font-mono text-sm ${steps[editingStepIndex].type === 'SMS' ? 'h-[200px]' : 'h-[400px]'}`}
-                                                placeholder="Write your message here..."
+                                                className="h-[300px] font-mono text-sm"
+                                                placeholder="Write your email here..."
                                             />
                                         )}
                                     </div>
 
-                                    {/* SMS Field for combined Email+SMS steps */}
-                                    {steps[editingStepIndex].type === 'EMAIL' && steps[editingStepIndex].config.sendSmsAlso && (
-                                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <MessageSquare className="h-4 w-4 text-green-600" />
-                                                <Label className="text-green-800 font-medium">SMS Message (Sent Simultaneously)</Label>
+                                    {/* SMS Section for Email+SMS */}
+                                    {editingStep.config.sendSmsAlso && (
+                                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <MessageSquare className="h-4 w-4 text-green-600" />
+                                                    <Label className="text-green-800 font-medium">SMS Message (Sent Simultaneously)</Label>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setShowSmsPreview(!showSmsPreview)}
+                                                    className="h-6 text-xs gap-1 text-green-700 hover:bg-green-100"
+                                                >
+                                                    {showSmsPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                    {showSmsPreview ? 'Edit' : 'Preview'}
+                                                </Button>
                                             </div>
-                                            <p className="text-xs text-green-700 mb-2">
+                                            <p className="text-xs text-green-700">
                                                 Variables: {'{name}'}, {'{website}'}
                                             </p>
-                                            <Textarea
-                                                value={steps[editingStepIndex].config.smsBody || ''}
-                                                onChange={(e) => updateStep(editingStepIndex, {
-                                                    config: { ...steps[editingStepIndex].config, smsBody: e.target.value }
-                                                })}
-                                                className="h-[120px] bg-white"
-                                                placeholder="Write SMS message here (keeps it short!)"
-                                            />
+                                            {showSmsPreview ? (
+                                                <div
+                                                    className="border border-green-300 rounded-lg p-4 min-h-[100px] bg-white"
+                                                    dangerouslySetInnerHTML={{ __html: renderPreview(editingStep.config.smsBody) }}
+                                                />
+                                            ) : (
+                                                <Textarea
+                                                    value={editingStep.config.smsBody || ''}
+                                                    onChange={(e) => updateStep(editingStepIndex!, {
+                                                        config: { ...editingStep.config, smsBody: e.target.value }
+                                                    })}
+                                                    className="h-[120px] bg-white"
+                                                    placeholder="Write SMS message here (keep it short!)"
+                                                />
+                                            )}
                                         </div>
                                     )}
-                                </>
+                                </div>
                             )}
 
-                            {steps[editingStepIndex].type === 'ACTION' && (
+                            {/* SMS Step (standalone) */}
+                            {editingStep.type === 'SMS' && (
+                                <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <MessageSquare className="h-4 w-4 text-green-600" />
+                                            <Label className="text-green-800 font-medium">SMS Message</Label>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowSmsPreview(!showSmsPreview)}
+                                            className="h-6 text-xs gap-1 text-green-700 hover:bg-green-100"
+                                        >
+                                            {showSmsPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                            {showSmsPreview ? 'Edit' : 'Preview'}
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-green-700">
+                                        Variables: {'{name}'}, {'{website}'}
+                                    </p>
+                                    {showSmsPreview ? (
+                                        <div
+                                            className="border border-green-300 rounded-lg p-4 min-h-[100px] bg-white"
+                                            dangerouslySetInnerHTML={{ __html: renderPreview(editingStep.config.body) }}
+                                        />
+                                    ) : (
+                                        <Textarea
+                                            value={editingStep.config.body || ''}
+                                            onChange={(e) => updateStep(editingStepIndex!, {
+                                                config: { ...editingStep.config, body: e.target.value }
+                                            })}
+                                            className="h-[150px] bg-white"
+                                            placeholder="Write SMS message here (keep it short!)"
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ACTION Step */}
+                            {editingStep.type === 'ACTION' && (
                                 <div>
                                     <Label>Action Type</Label>
                                     <Select
-                                        value={steps[editingStepIndex].config.actionType || 'INSTANTLY_ADD_LEAD'}
-                                        onValueChange={(val) => updateStep(editingStepIndex, {
-                                            config: { ...steps[editingStepIndex].config, actionType: val }
+                                        value={editingStep.config.actionType || 'INSTANTLY_ADD_LEAD'}
+                                        onValueChange={(val) => updateStep(editingStepIndex!, {
+                                            config: { ...editingStep.config, actionType: val }
                                         })}
                                     >
                                         <SelectTrigger><SelectValue /></SelectTrigger>
@@ -525,28 +626,24 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                             <SelectItem value="WEBHOOK">Call Webhook</SelectItem>
                                         </SelectContent>
                                     </Select>
-
-                                    {steps[editingStepIndex].config.actionType === 'INSTANTLY_ADD_LEAD' && (
+                                    {editingStep.config.actionType === 'INSTANTLY_ADD_LEAD' && (
                                         <div className="mt-4">
                                             <Label>Campaign ID</Label>
                                             <Input
-                                                value={steps[editingStepIndex].config.campaignId || ''}
-                                                onChange={(e) => updateStep(editingStepIndex, {
-                                                    config: { ...steps[editingStepIndex].config, campaignId: e.target.value }
+                                                value={editingStep.config.campaignId || ''}
+                                                onChange={(e) => updateStep(editingStepIndex!, {
+                                                    config: { ...editingStep.config, campaignId: e.target.value }
                                                 })}
                                                 placeholder="Instantly Campaign ID"
                                             />
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                You can find this in your Instantly campaign URL.
-                                            </p>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

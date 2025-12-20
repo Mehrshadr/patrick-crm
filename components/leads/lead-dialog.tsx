@@ -106,7 +106,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             getLinks(lead.id).then(setLinks)
             fetch(`/api/notes?leadId=${lead.id}`).then(r => r.json()).then(d => setNotes(d.notes || []))
             // Fetch suggested workflows for this lead's status
-            fetchSuggestedWorkflows(lead.status, lead.subStatus)
+            fetchSuggestedWorkflows(lead.status, lead.subStatus ?? undefined)
             setIsEditing(false)
         } else {
             form.reset({

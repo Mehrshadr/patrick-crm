@@ -375,7 +375,28 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                 </FormItem>
                                             )}
                                         />
-                                        {/* Phone */}
+                                        {/* Website */}
+                                        <FormField
+                                            control={form.control}
+                                            name="website"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Website</FormLabel>
+                                                    {isEditing ? (
+                                                        <FormControl>
+                                                            <Input placeholder="example.com" {...field} />
+                                                        </FormControl>
+                                                    ) : (
+                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
+                                                    )}
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6">
+                                        {/* Phone with SMS button */}
                                         <FormField
                                             control={form.control}
                                             name="phone"
@@ -388,7 +409,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                         </FormControl>
                                                     ) : (
                                                         <div className="flex items-center gap-2">
-                                                            <div className="text-sm font-medium py-2 px-1 flex-1">{field.value}</div>
+                                                            <div className="text-sm font-medium py-2 px-1 flex-1">{field.value || "-"}</div>
                                                             {lead?.phone && (
                                                                 <Button
                                                                     type="button"
@@ -407,10 +428,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                 </FormItem>
                                             )}
                                         />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-6">
-                                        {/* Email */}
+                                        {/* Email with Send button */}
                                         <FormField
                                             control={form.control}
                                             name="email"
@@ -437,24 +455,6 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                                 </Button>
                                                             )}
                                                         </div>
-                                                    )}
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        {/* Website */}
-                                        <FormField
-                                            control={form.control}
-                                            name="website"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Website</FormLabel>
-                                                    {isEditing ? (
-                                                        <FormControl>
-                                                            <Input placeholder="example.com" {...field} />
-                                                        </FormControl>
-                                                    ) : (
-                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
                                                     )}
                                                     <FormMessage />
                                                 </FormItem>
@@ -996,7 +996,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                         const res = await fetch('/api/send-sms', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ to: lead.phone, body: smsMessage })
+                                            body: JSON.stringify({ to: lead.phone, body: smsMessage, leadId: lead.id, leadName: lead.name })
                                         }).then(r => r.json());
                                         if (res.success) {
                                             toast.success('SMS sent successfully!');
@@ -1117,7 +1117,9 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                 subject: emailSubject,
                                                 html: finalBody.replace(/\n/g, '<br/>'),
                                                 from: emailSenderName || undefined,
-                                                replyTo: emailReplyTo || undefined
+                                                replyTo: emailReplyTo || undefined,
+                                                leadId: lead.id,
+                                                leadName: lead.name
                                             })
                                         }).then(r => r.json());
                                         if (res.success) {

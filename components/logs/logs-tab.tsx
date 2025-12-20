@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
     Zap, Mail, MessageSquare, User, Settings,
     RefreshCw, Filter, Clock
@@ -157,31 +158,60 @@ export function LogsTab() {
                             }
 
                             return (
-                                <Card key={log.id} className="hover:shadow-sm transition-shadow">
-                                    <CardContent className="p-4 flex items-start gap-4">
-                                        <div className={`p-2 rounded-lg ${iconBg}`}>
-                                            <Icon className={`h-4 w-4 ${iconColor}`} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <Badge variant="outline" className={`text-xs ${categoryConf.color}`}>
-                                                    {categoryConf.label}
-                                                </Badge>
-                                                <Badge variant="outline" className={`text-xs ${ACTION_COLORS[log.action] || ''}`}>
-                                                    {log.action}
-                                                </Badge>
-                                                {log.entityName && (
-                                                    <span className="text-sm font-medium">{log.entityName}</span>
-                                                )}
+                                <Popover key={log.id}>
+                                    <PopoverTrigger asChild>
+                                        <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                                            <CardContent className="p-4 flex items-start gap-4">
+                                                <div className={`p-2 rounded-lg ${iconBg}`}>
+                                                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <Badge variant="outline" className={`text-xs ${categoryConf.color}`}>
+                                                            {categoryConf.label}
+                                                        </Badge>
+                                                        <Badge variant="outline" className={`text-xs ${ACTION_COLORS[log.action] || ''}`}>
+                                                            {log.action}
+                                                        </Badge>
+                                                        {log.entityName && (
+                                                            <span className="text-sm font-medium">{log.entityName}</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-slate-600 mt-1">{log.description}</p>
+                                                    <div className="flex items-center gap-4 text-xs text-slate-400 mt-2">
+                                                        <span>{formatTime(log.createdAt)}</span>
+                                                        {log.userName && <span>by {log.userName}</span>}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[500px] max-h-[400px] overflow-y-auto">
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 border-b pb-2">
+                                                <div className={`p-1.5 rounded-md ${iconBg}`}>
+                                                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                                                </div>
+                                                <div>
+                                                    <div className="font-semibold text-sm">{log.description}</div>
+                                                    <div className="text-xs text-slate-400">{new Date(log.createdAt).toLocaleString()}</div>
+                                                </div>
                                             </div>
-                                            <p className="text-sm text-slate-600 mt-1">{log.description}</p>
-                                            <div className="flex items-center gap-4 text-xs text-slate-400 mt-2">
-                                                <span>{formatTime(log.createdAt)}</span>
-                                                {log.userName && <span>by {log.userName}</span>}
+                                            {log.details && (
+                                                <div>
+                                                    <div className="text-xs font-medium text-slate-500 mb-1">Details:</div>
+                                                    <div className="text-sm text-slate-700 bg-slate-50 rounded p-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: log.details }} />
+                                                </div>
+                                            )}
+                                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                                                <div>Category: <span className="font-medium">{log.category}</span></div>
+                                                <div>Action: <span className="font-medium">{log.action}</span></div>
+                                                {log.entityType && <div>Entity Type: <span className="font-medium">{log.entityType}</span></div>}
+                                                {log.entityId && <div>Entity ID: <span className="font-medium">{log.entityId}</span></div>}
                                             </div>
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    </PopoverContent>
+                                </Popover>
                             )
                         })}
                     </div>

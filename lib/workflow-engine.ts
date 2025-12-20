@@ -303,7 +303,7 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     const customReplyTo = config.replyTo
 
                     // Fallback to System Email if User Email is missing (e.g. Cron)
-                    const baseEmail = userEmail || process.env.GMAIL_USER
+                    const baseEmail = userEmail || process.env.GMAIL_USER || process.env.GMAIL_USER_EMAIL
 
                     // Fallback for Sender Name (Cron has no userName)
                     let defaultSenderName = 'Patrick CRM' // Default

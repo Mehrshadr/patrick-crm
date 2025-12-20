@@ -60,7 +60,7 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
 
         const workflow = await db.workflow.findUnique({
             where: { id: workflowId },
-            include: { steps: { orderBy: { order: 'asc' } } }
+            include: { steps: { orderBy: { order: 'asc' }, include: { template: true } } }
         })
 
         if (!lead || !workflow) {
@@ -123,12 +123,21 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
             const step = steps[i]
             const rawConfig = typeof step.config === 'string' ? JSON.parse(step.config) : step.config
 
+            // Merge actual template content if linked (fixes stale content issue)
+            const template = (step as any).template
+            const effectiveConfig = {
+                ...rawConfig,
+                subject: template?.subject || rawConfig.subject,
+                body: template?.body || rawConfig.body,
+                // For SMS steps, the content is also in 'body'
+            }
+
             // Replace template variables in config strings
             const config = {
-                ...rawConfig,
-                body: replaceTemplateVariables(rawConfig.body, lead),
-                subject: replaceTemplateVariables(rawConfig.subject, lead),
-                smsBody: replaceTemplateVariables(rawConfig.smsBody, lead),
+                ...effectiveConfig,
+                body: replaceTemplateVariables(effectiveConfig.body, lead),
+                subject: replaceTemplateVariables(effectiveConfig.subject, lead),
+                smsBody: replaceTemplateVariables(effectiveConfig.smsBody, lead),
             }
 
 
@@ -350,6 +359,8 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                         message: `Step failed: ${stepError.message}`,
                     }
                 })
+                // Critical: Stop execution on error to prevent cascading failures or duplicate sends
+                return { success: false, error: stepError.message }
             }
         }
 

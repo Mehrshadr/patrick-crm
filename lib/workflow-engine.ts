@@ -297,12 +297,15 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     const customSenderName = config.senderName
                     const customReplyTo = config.replyTo
 
+                    // Fallback to System Email if User Email is missing (e.g. Cron)
+                    const baseEmail = userEmail || process.env.GMAIL_USER
+
                     const finalSenderName = customSenderName || userName;
-                    const finalReplyTo = customReplyTo || userEmail;
+                    const finalReplyTo = customReplyTo || baseEmail;
 
                     // Format sender: "Name <email>"
-                    const fromAddress = userEmail
-                        ? (finalSenderName ? `"${finalSenderName}" <${userEmail}>` : userEmail)
+                    const fromAddress = baseEmail
+                        ? (finalSenderName ? `"${finalSenderName}" <${baseEmail}>` : baseEmail)
                         : undefined
 
                     console.log(`[WorkflowEngine v1.4.2-DEBUG] Sending email. From: ${fromAddress}, Reply-To: ${finalReplyTo}`)

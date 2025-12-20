@@ -56,7 +56,7 @@ export async function createLead(data: any) {
             data: {
                 name: data.name || "",
                 phone: data.phone || "",
-                email: data.email || null,
+                email: data.email ? data.email.toLowerCase().trim() : null,
                 website: data.website || null,
                 quality: data.quality || null,
                 businessType: data.businessType || null,
@@ -80,11 +80,14 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
     try {
         const currentLead = await db.lead.findUnique({ where: { id } });
 
+        const updatedData = { ...data };
+        if (updatedData.email) {
+            updatedData.email = updatedData.email.toLowerCase().trim();
+        }
+
         const updated = await db.lead.update({
             where: { id },
-            data: {
-                ...data,
-            }
+            data: updatedData
         });
 
         // Logging Logic with user tracking

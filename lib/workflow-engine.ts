@@ -47,6 +47,9 @@ export async function processWorkflow({
             return { success: false, error: 'Lead or Workflow not found' }
         }
 
+        console.log(`Executing workflow ${workflow.name} for lead: ${lead.name} (ID: ${lead.id})`)
+        console.log(`Lead Contact Info - Email: ${lead.email}, Phone: ${lead.phone}`)
+
         // 2. Create workflow execution record
         const execution = await db.workflowExecution.create({
             data: {

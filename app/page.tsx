@@ -1,7 +1,5 @@
-import { getLeads } from "./actions"
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { Dashboard } from "@/components/dashboard"
 
 export default async function Home() {
   const session = await auth()
@@ -10,7 +8,6 @@ export default async function Home() {
     redirect("/login")
   }
 
-  const leads = await getLeads()
-
-  return <Dashboard leads={leads} user={session.user} />
+  // Redirect to leads page by default
+  redirect("/leads")
 }

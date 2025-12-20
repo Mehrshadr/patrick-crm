@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
     Sidebar,
     SidebarContent,
@@ -22,31 +24,28 @@ import {
     ClipboardList
 } from "lucide-react"
 
-interface AppSidebarProps {
-    activeTab: string
-    onTabChange: (tab: string) => void
-}
-
 const MENU_ITEMS = [
-    { id: 'board', label: 'Lead Pipeline', icon: LayoutDashboard },
-    { id: 'automation', label: 'Automation', icon: Bot },
-    { id: 'logs', label: 'Logs', icon: ClipboardList },
-    { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'leads', label: 'Lead Pipeline', icon: LayoutDashboard, href: '/leads' },
+    { id: 'automation', label: 'Automation', icon: Bot, href: '/automation' },
+    { id: 'logs', label: 'Logs', icon: ClipboardList, href: '/logs' },
+    { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
+    { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ]
 
-export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
+export function AppSidebar() {
+    const pathname = usePathname()
+
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader className="p-4">
-                <div className="flex items-center gap-2">
+                <Link href="/leads" className="flex items-center gap-2">
                     <div className="bg-indigo-600 text-white rounded-lg p-1.5">
                         <Zap className="h-5 w-5" />
                     </div>
                     <span className="font-bold text-lg group-data-[collapsible=icon]:hidden">
                         Patrick CRM
                     </span>
-                </div>
+                </Link>
             </SidebarHeader>
 
             <SidebarContent>
@@ -57,12 +56,14 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                             {MENU_ITEMS.map((item) => (
                                 <SidebarMenuItem key={item.id}>
                                     <SidebarMenuButton
-                                        isActive={activeTab === item.id}
-                                        onClick={() => onTabChange(item.id)}
+                                        asChild
+                                        isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
                                         tooltip={item.label}
                                     >
-                                        <item.icon className="h-4 w-4" />
-                                        <span>{item.label}</span>
+                                        <Link href={item.href}>
+                                            <item.icon className="h-4 w-4" />
+                                            <span>{item.label}</span>
+                                        </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))}

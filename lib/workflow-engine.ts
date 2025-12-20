@@ -8,6 +8,7 @@ interface ProcessWorkflowOptions {
     leadId: number
     accessToken?: string
     refreshToken?: string
+    userEmail?: string
     triggeredBy?: string
 }
 
@@ -32,6 +33,7 @@ export async function processWorkflow({
     leadId,
     accessToken,
     refreshToken,
+    userEmail,
     triggeredBy = 'SYSTEM'
 }: ProcessWorkflowOptions) {
     try {
@@ -189,6 +191,7 @@ export async function processWorkflow({
                         to: recipientEmail,
                         subject: config.subject,
                         html: config.body,
+                        from: userEmail
                     }, (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined)
 
                     await db.workflowLog.create({

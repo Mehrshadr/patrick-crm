@@ -139,6 +139,7 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
                         leadId: id,
                         accessToken,
                         refreshToken,
+                        userEmail: session?.user?.email || undefined,
                         triggeredBy: `AUTO (${newStatus}${newSubStatus ? ' - ' + newSubStatus : ''})`
                     })
                 }

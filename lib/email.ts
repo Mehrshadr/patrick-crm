@@ -58,6 +58,8 @@ async function sendViaGmailAPI(
         ]
         const message = messageParts.filter(part => part !== null).join('\n')
 
+        console.log('[Email Service] Raw Message Header Preview:\n', message.split('\n\n')[0])
+
         // Encode to base64url
         const encodedMessage = Buffer.from(message)
             .toString('base64')

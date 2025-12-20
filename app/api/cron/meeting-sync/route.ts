@@ -141,7 +141,7 @@ export async function GET() {
                             action: 'MEETING_BOOKED',
                             entityType: 'LEAD',
                             entityId: lead.id,
-                            entityName: lead.name || lead.email,
+                            entityName: (lead.name || lead.email) || undefined,
                             description: `Meeting detected: ${description}. Status -> ${targetStage}`,
                         })
 

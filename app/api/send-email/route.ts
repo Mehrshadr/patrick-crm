@@ -43,14 +43,17 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        // Also log to WorkflowLog for the lead card
+        // Also log to Log for the lead card
         if (leadId) {
-            await db.workflowLog.create({
+            await db.log.create({
                 data: {
                     leadId,
                     type: 'EMAIL',
+                    status: 'SENT',
                     title: `Email: ${subject}`,
                     content: html,
+                    userEmail: session?.user?.email || null,
+                    userName: session?.user?.name || null,
                 }
             })
         }

@@ -30,14 +30,16 @@ export function CalendarTab() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    const accessToken = (session as any)?.accessToken
+
     useEffect(() => {
-        if (session?.accessToken) {
+        if (accessToken) {
             fetchEvents()
         }
     }, [session, currentMonth])
 
     async function fetchEvents() {
-        if (!session?.accessToken) return
+        if (!accessToken) return
 
         setLoading(true)
         setError(null)
@@ -69,7 +71,7 @@ export function CalendarTab() {
     const eventDates = events.map(e => new Date(e.start))
 
     // Check if auth is configured
-    if (!session?.accessToken) {
+    if (!accessToken) {
         return (
             <div className="flex flex-col items-center justify-center h-[400px] text-center">
                 <CalendarDays className="h-16 w-16 text-slate-300 mb-4" />

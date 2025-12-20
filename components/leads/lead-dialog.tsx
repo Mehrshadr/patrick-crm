@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeadTimeline } from "./lead-timeline"
-import { STAGE_CONFIG, PipelineStage } from "@/lib/status-mapping"
+import { STAGE_CONFIG, PipelineStage, getStageForStatus } from "@/lib/status-mapping"
 import {
     Dialog,
     DialogContent,
@@ -116,7 +116,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                 website: lead.website || "",
                 quality: lead.quality || "",
                 businessType: lead.businessType || "",
-                status: lead.status || "New",
+                status: getStageForStatus(lead.status || "New"),
                 subStatus: lead.subStatus || "",
             })
             // Fetch logs, links & notes

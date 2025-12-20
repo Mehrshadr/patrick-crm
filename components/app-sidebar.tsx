@@ -39,11 +39,13 @@ export function AppSidebar() {
         <Sidebar collapsible="icon">
             <SidebarHeader className="p-4">
                 <Link href="/leads" className="flex items-center gap-2">
-                    <div className="bg-indigo-600 text-white rounded-lg p-1.5">
-                        <Zap className="h-5 w-5" />
-                    </div>
+                    <img
+                        src="/mehrana-logo.png"
+                        alt="Mehrana"
+                        className="h-8 w-8 rounded-lg object-cover"
+                    />
                     <span className="font-bold text-lg group-data-[collapsible=icon]:hidden">
-                        Patrick CRM
+                        PCRM
                     </span>
                 </Link>
             </SidebarHeader>
@@ -73,8 +75,10 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter className="p-4">
-                <div className="text-xs text-slate-500 group-data-[collapsible=icon]:hidden">
-                    © 2025 Mehrana Agency
+                <div className="text-xs text-slate-500 group-data-[collapsible=icon]:hidden space-y-1">
+                    <div className="font-medium text-slate-600">PCRM</div>
+                    <div>A product by Mehrana Agency</div>
+                    <div>© {new Date().getFullYear()} All rights reserved</div>
                 </div>
             </SidebarFooter>
 

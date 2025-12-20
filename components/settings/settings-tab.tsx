@@ -116,6 +116,16 @@ Your Title | <a href="https://mehrana.agency">Mehrana Agency</a></p>`}
                     </CardDescription>
                 </CardHeader>
             </Card>
+
+            {/* Easter Egg - Patrick the Star */}
+            <div className="flex justify-center pt-8">
+                <img
+                    src="/patrick-mascot.png"
+                    alt="Patrick"
+                    className="h-24 w-24 opacity-10 hover:opacity-40 transition-opacity duration-500 select-none pointer-events-none"
+                    title="Hi, I'm Patrick! 🌟"
+                />
+            </div>
         </div>
     )
 }

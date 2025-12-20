@@ -5,8 +5,9 @@ import { getCalendarEvents } from '@/lib/calendar'
 export async function GET(request: NextRequest) {
     try {
         const session = await auth()
+        const accessToken = (session as any)?.accessToken
 
-        if (!session?.accessToken) {
+        if (!accessToken) {
             return NextResponse.json(
                 { success: false, error: 'Not authenticated or no calendar access' },
                 { status: 401 }
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
         const timeMin = searchParams.get('timeMin')
         const timeMax = searchParams.get('timeMax')
 
-        const events = await getCalendarEvents(session.accessToken as string, {
+        const events = await getCalendarEvents(accessToken, {
             timeMin: timeMin ? new Date(timeMin) : undefined,
             timeMax: timeMax ? new Date(timeMax) : undefined,
             maxResults: 100

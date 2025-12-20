@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { STAGE_CONFIG, PipelineStage } from '@/lib/status-mapping'
-import { ArrowLeft, Save, Plus, Trash2, Mail, MessageSquare, Clock, AlertCircle, Zap } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, Mail, MessageSquare, Clock, AlertCircle, Zap, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { getCaretCoordinates } from '@/lib/textarea-utils'
 
@@ -33,6 +33,9 @@ const STEP_TYPES = [
     { type: 'ACTION', label: 'External Action', icon: Zap },
 ]
 
+// Icon for combined Email+SMS step
+import { Layers } from 'lucide-react'
+
 export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
     const [loading, setLoading] = useState(false)
     const [name, setName] = useState('')
@@ -44,6 +47,8 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
 
     // For step editing
     const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null)
+    const [showPreview, setShowPreview] = useState(false)
+    const [signature, setSignature] = useState('')
 
     useEffect(() => {
         if (workflowId) {
@@ -54,7 +59,20 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                 { name: 'Initial Email', type: 'EMAIL', config: { subject: '', body: '' } }
             ])
         }
+        // Fetch signature
+        fetchSignature()
     }, [workflowId])
+
+    async function fetchSignature() {
+        try {
+            const res = await fetch('/api/settings?key=email_signature').then(r => r.json())
+            if (res.success && res.setting) {
+                setSignature(res.setting.value)
+            }
+        } catch (e) {
+            console.warn('Failed to load signature')
+        }
+    }
 
     async function fetchWorkflow(id: number) {
         setLoading(true)
@@ -277,7 +295,7 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
 
                         {/* Add Function Button */}
                         <div className="flex justify-center pt-2 pb-12">
-                            <div className="bg-white p-1 rounded-full border shadow-sm flex gap-1">
+                            <div className="bg-white p-1 rounded-full border shadow-sm flex gap-1 flex-wrap justify-center">
                                 {STEP_TYPES.map(t => (
                                     <Button
                                         key={t.type}
@@ -289,6 +307,29 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                         <t.icon className="h-3 w-3" /> {t.label}
                                     </Button>
                                 ))}
+                                <Separator orientation="vertical" className="h-6" />
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2 text-xs text-indigo-600"
+                                    onClick={() => {
+                                        // Add Email+SMS as a special combined step
+                                        const newStep: WorkflowStep = {
+                                            name: 'Email + SMS',
+                                            type: 'EMAIL',
+                                            config: {
+                                                subject: '',
+                                                body: '',
+                                                sendSmsAlso: true,
+                                                smsBody: ''
+                                            }
+                                        }
+                                        setSteps([...steps, newStep])
+                                        setEditingStepIndex(steps.length)
+                                    }}
+                                >
+                                    <Layers className="h-3 w-3" /> Email + SMS
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -296,7 +337,7 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
 
                 {/* Right Settings Panel (Editor) */}
                 {editingStepIndex !== null && steps[editingStepIndex] && (
-                    <div className="w-[400px] border-l bg-white p-6 overflow-y-auto">
+                    <div className="w-[600px] border-l bg-white p-6 overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-semibold">Edit Step</h3>
                             <Button variant="ghost" size="sm" onClick={() => setEditingStepIndex(null)}>Close</Button>
@@ -341,6 +382,24 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                    <div className="col-span-2 mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <Label className="text-xs text-amber-800 font-medium">Cancel Condition (Optional)</Label>
+                                        <p className="text-xs text-amber-700 mb-2">If lead status changes to this, cancel remaining steps:</p>
+                                        <Select
+                                            value={steps[editingStepIndex].config.cancelOnStatus || '__NONE__'}
+                                            onValueChange={(val) => updateStep(editingStepIndex, {
+                                                config: { ...steps[editingStepIndex].config, cancelOnStatus: val === '__NONE__' ? null : val }
+                                            })}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Don't cancel" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="__NONE__">Don't cancel</SelectItem>
+                                                {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                             )}
 
@@ -359,21 +418,70 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                         </div>
                                     )}
                                     <div>
-                                        <Label>
-                                            {steps[editingStepIndex].type === 'EMAIL' ? 'Body' : 'Message'}
-                                            <span className="text-xs text-muted-foreground ml-2 font-normal">
-                                                Use {'{name}'}, {'{website}'}
-                                            </span>
-                                        </Label>
-                                        <Textarea
-                                            value={steps[editingStepIndex].config.body || ''}
-                                            onChange={(e) => updateStep(editingStepIndex, {
-                                                config: { ...steps[editingStepIndex].config, body: e.target.value }
-                                            })}
-                                            className="h-[300px]"
-                                            placeholder="Write your message here..."
-                                        />
+                                        <div className="flex items-center justify-between mb-1">
+                                            <Label>
+                                                {steps[editingStepIndex].type === 'EMAIL' ? 'Body' : 'Message'}
+                                            </Label>
+                                            {steps[editingStepIndex].type === 'EMAIL' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setShowPreview(!showPreview)}
+                                                    className="h-6 text-xs gap-1"
+                                                >
+                                                    {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                    {showPreview ? 'Edit' : 'Preview'}
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mb-2">
+                                            Variables: {'{name}'}, {'{website}'}, {'{audit_link}'}, {'{proposal_link}'}, {'{signature}'}
+                                        </p>
+                                        {showPreview && steps[editingStepIndex].type === 'EMAIL' ? (
+                                            <div
+                                                className="border rounded-lg p-4 h-[400px] overflow-auto bg-white prose prose-sm max-w-none"
+                                                dangerouslySetInnerHTML={{
+                                                    __html: (steps[editingStepIndex].config.body || '')
+                                                        .replace(/\n/g, '<br/>')
+                                                        .replace(/{name}/g, '<span class="bg-blue-100 px-1 rounded">John Doe</span>')
+                                                        .replace(/{website}/g, '<span class="bg-blue-100 px-1 rounded">example.com</span>')
+                                                        .replace(/{audit_link}/g, '<a href="#" class="text-blue-600 underline">Audit Link</a>')
+                                                        .replace(/{proposal_link}/g, '<a href="#" class="text-blue-600 underline">Proposal Link</a>')
+                                                        .replace(/{signature}/g, signature || '<em class="text-gray-400">[Signature]</em>')
+                                                }}
+                                            />
+                                        ) : (
+                                            <Textarea
+                                                value={steps[editingStepIndex].config.body || ''}
+                                                onChange={(e) => updateStep(editingStepIndex, {
+                                                    config: { ...steps[editingStepIndex].config, body: e.target.value }
+                                                })}
+                                                className="h-[400px] font-mono text-sm"
+                                                placeholder="Write your message here..."
+                                            />
+                                        )}
                                     </div>
+
+                                    {/* SMS Field for combined Email+SMS steps */}
+                                    {steps[editingStepIndex].type === 'EMAIL' && steps[editingStepIndex].config.sendSmsAlso && (
+                                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <MessageSquare className="h-4 w-4 text-green-600" />
+                                                <Label className="text-green-800 font-medium">SMS Message (Sent Simultaneously)</Label>
+                                            </div>
+                                            <p className="text-xs text-green-700 mb-2">
+                                                Variables: {'{name}'}, {'{website}'}
+                                            </p>
+                                            <Textarea
+                                                value={steps[editingStepIndex].config.smsBody || ''}
+                                                onChange={(e) => updateStep(editingStepIndex, {
+                                                    config: { ...steps[editingStepIndex].config, smsBody: e.target.value }
+                                                })}
+                                                className="h-[120px] bg-white"
+                                                placeholder="Write SMS message here (keeps it short!)"
+                                            />
+                                        </div>
+                                    )}
                                 </>
                             )}
 

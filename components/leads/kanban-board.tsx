@@ -205,7 +205,15 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                     <div className="mt-1.5">
                                                                         <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-amber-50 text-amber-700 border-amber-200">
                                                                             <Zap className="h-2.5 w-2.5 mr-0.5" />
-                                                                            Welcome {lead.nurtureStage} Sent
+                                                                            Stage {lead.nurtureStage} Done
+                                                                        </Badge>
+                                                                    </div>
+                                                                )}
+                                                                {/* Next Nurture Countdown */}
+                                                                {lead.nextNurtureAt && new Date(lead.nextNurtureAt) > new Date() && (
+                                                                    <div className="mt-1.5">
+                                                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-indigo-50 text-indigo-700 border-indigo-200">
+                                                                            ⏱️ Next: {format(new Date(lead.nextNurtureAt), "MMM d, h:mm a")}
                                                                         </Badge>
                                                                     </div>
                                                                 )}

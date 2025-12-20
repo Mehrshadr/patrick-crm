@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2 } from "lucide-react"
+import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeadTimeline } from "./lead-timeline"
 import { STAGE_CONFIG, PipelineStage } from "@/lib/status-mapping"
@@ -76,6 +76,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const [linkTitle, setLinkTitle] = useState("")
     const [noteContent, setNoteContent] = useState("")
     const [noteStage, setNoteStage] = useState("")
+    const [suggestedWorkflows, setSuggestedWorkflows] = useState<any[]>([])
+    const [runningWorkflow, setRunningWorkflow] = useState<number | null>(null)
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -103,6 +105,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             getLeadLogs(lead.id).then(setLogs)
             getLinks(lead.id).then(setLinks)
             fetch(`/api/notes?leadId=${lead.id}`).then(r => r.json()).then(d => setNotes(d.notes || []))
+            // Fetch suggested workflows for this lead's status
+            fetchSuggestedWorkflows(lead.status, lead.subStatus)
             setIsEditing(false)
         } else {
             form.reset({
@@ -136,6 +140,52 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         } catch (error) {
             toast.error("Something went wrong")
         }
+    }
+
+    async function fetchSuggestedWorkflows(status?: string, subStatus?: string) {
+        if (!status) return
+        try {
+            const res = await fetch('/api/workflows').then(r => r.json())
+            if (res.success) {
+                // Filter workflows that match this lead's status
+                const matching = res.workflows.filter((w: any) => {
+                    if (!w.isActive) return false
+                    // Match by execution mode MANUAL or if trigger matches status
+                    const matchesTrigger = w.triggerType === 'ON_STATUS_CHANGE' &&
+                        w.triggerStatus === status &&
+                        (!w.triggerSubStatus || w.triggerSubStatus === subStatus)
+                    const matchesPipeline = !w.pipelineStage || w.pipelineStage === status
+                    // Show if: MANUAL mode OR matches trigger
+                    return w.executionMode === 'MANUAL' || matchesTrigger || matchesPipeline
+                })
+                setSuggestedWorkflows(matching)
+            }
+        } catch (e) {
+            console.error('Failed to fetch workflows:', e)
+        }
+    }
+
+    async function runWorkflow(workflowId: number) {
+        if (!lead) return
+        setRunningWorkflow(workflowId)
+        try {
+            const res = await fetch('/api/workflow-executions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workflowId, leadId: lead.id })
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('Workflow started!')
+                // Remove from suggestions
+                setSuggestedWorkflows(suggestedWorkflows.filter(w => w.id !== workflowId))
+            } else {
+                toast.error('Failed to start workflow: ' + (res.error || 'Unknown error'))
+            }
+        } catch (e) {
+            toast.error('Error starting workflow')
+        }
+        setRunningWorkflow(null)
     }
 
     // Color Helper
@@ -732,6 +782,40 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Section: Automation Suggestions */}
+                        {lead && suggestedWorkflows.length > 0 && (
+                            <div className="mt-6 pt-6 border-t">
+                                <h3 className="font-semibold text-lg flex items-center gap-3 mb-4">
+                                    <span className="bg-indigo-100 p-2 rounded-md"><Zap className="h-5 w-5 text-indigo-700" /></span>
+                                    Available Automations
+                                </h3>
+                                <div className="space-y-3">
+                                    {suggestedWorkflows.map((workflow) => (
+                                        <div
+                                            key={workflow.id}
+                                            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border hover:border-indigo-300 transition-colors"
+                                        >
+                                            <div>
+                                                <p className="font-medium text-sm">{workflow.name}</p>
+                                                <p className="text-xs text-slate-500">
+                                                    {workflow.pipelineStage || 'General'} • {workflow._count?.steps || 0} steps
+                                                </p>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                onClick={() => runWorkflow(workflow.id)}
+                                                disabled={runningWorkflow === workflow.id}
+                                                className="bg-indigo-600 hover:bg-indigo-700"
+                                            >
+                                                <Play className="h-3 w-3 mr-1" />
+                                                {runningWorkflow === workflow.id ? 'Starting...' : 'Run'}
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                     </div>
 

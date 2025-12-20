@@ -31,7 +31,7 @@ const MENU_ITEMS = [
     { id: 'automation', label: 'Automation', icon: Bot },
     { id: 'executions', label: 'Executions', icon: Zap },
     { id: 'calendar', label: 'Calendar', icon: Calendar, disabled: true, badge: 'Soon' },
-    { id: 'settings', label: 'Settings', icon: Settings, disabled: true },
+    { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {

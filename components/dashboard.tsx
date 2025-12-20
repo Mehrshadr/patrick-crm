@@ -11,6 +11,7 @@ import { AddLeadButton } from '@/components/leads/add-lead-button'
 import { CleanupButton } from '@/components/leads/cleanup-button'
 import { UserMenu } from '@/components/user-menu'
 import { columns } from '@/components/leads/columns'
+import { SettingsTab } from '@/components/settings/settings-tab'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Lead } from '@/app/actions'
@@ -31,10 +32,10 @@ export function Dashboard({ leads, user }: DashboardProps) {
         <SidebarProvider>
             <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-            <SidebarInset>
+            <SidebarInset className="overflow-hidden">
                 {/* Header */}
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
+                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 overflow-hidden">
+                    <SidebarTrigger className="shrink-0" />
                     <Separator orientation="vertical" className="mr-2 h-4" />
                     <h1 className="text-lg font-semibold flex-1">
                         {activeTab === 'board' && '📋 Lead Pipeline'}
@@ -96,13 +97,7 @@ export function Dashboard({ leads, user }: DashboardProps) {
                     )}
 
                     {activeTab === 'settings' && (
-                        <div className="flex items-center justify-center h-64 text-slate-500">
-                            <div className="text-center">
-                                <p className="text-4xl mb-4">⚙️</p>
-                                <p className="font-medium">Settings</p>
-                                <p className="text-sm">API keys, integrations, and preferences</p>
-                            </div>
-                        </div>
+                        <SettingsTab />
                     )}
                 </main>
 

@@ -300,7 +300,14 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     // Fallback to System Email if User Email is missing (e.g. Cron)
                     const baseEmail = userEmail || process.env.GMAIL_USER
 
-                    const finalSenderName = customSenderName || userName;
+                    // Fallback for Sender Name (Cron has no userName)
+                    let defaultSenderName = 'Patrick CRM' // Default
+                    try {
+                        const sName = await db.appSettings.findUnique({ where: { key: 'default_sender_name' } })
+                        if (sName?.value) defaultSenderName = sName.value
+                    } catch (e) { }
+
+                    const finalSenderName = customSenderName || userName || defaultSenderName;
                     const finalReplyTo = customReplyTo || baseEmail;
 
                     // Format sender: "Name <email>"

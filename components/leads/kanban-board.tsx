@@ -208,7 +208,7 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                     <div className="mt-1.5">
                                                                         <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-amber-50 text-amber-700 border-amber-200">
                                                                             <Zap className="h-2.5 w-2.5 mr-0.5" />
-                                                                            Stage {lead.nurtureStage} Done
+                                                                            Seq {lead.nurtureStage}
                                                                         </Badge>
                                                                     </div>
                                                                 )}

@@ -165,13 +165,26 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     }
 
     async function fetchSuggestedWorkflows(status?: string, subStatus?: string) {
-        if (!status) return
+        if (!status || !lead) return
         try {
-            const res = await fetch('/api/workflows').then(r => r.json())
-            if (res.success) {
-                // Filter workflows that match this lead's status
-                const matching = res.workflows.filter((w: any) => {
+            // Fetch workflows AND executions for this lead
+            const [wfRes, execRes] = await Promise.all([
+                fetch('/api/workflows').then(r => r.json()),
+                fetch(`/api/workflow-executions?leadId=${lead.id}`).then(r => r.json())
+            ])
+
+            if (wfRes.success) {
+                // Get IDs of workflows that have already been executed for this lead
+                const executedWorkflowIds = new Set(
+                    (execRes.executions || []).map((e: any) => e.workflowId)
+                )
+
+                // Filter workflows that match this lead's status AND haven't been executed
+                const matching = wfRes.workflows.filter((w: any) => {
                     if (!w.isActive) return false
+                    // Don't suggest if already executed for this lead
+                    if (executedWorkflowIds.has(w.id)) return false
+
                     // Match by execution mode MANUAL or if trigger matches status
                     const matchesTrigger = w.triggerType === 'ON_STATUS_CHANGE' &&
                         w.triggerStatus === status &&

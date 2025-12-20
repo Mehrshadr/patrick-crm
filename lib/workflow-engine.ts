@@ -447,7 +447,6 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                         await db.workflowLog.create({
                             data: {
                                 executionId: execution.id,
-                                stepId: step.id,
                                 status: result.success ? 'SUCCESS' : 'FAILED',
                                 message: result.success
                                     ? `Lead added to Instantly campaign`
@@ -470,6 +469,28 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                                 campaignId: config.campaignId,
                                 email: lead.email
                             })
+                        })
+
+                        // Update automationStatus for visibility on Kanban
+                        if (result.success) {
+                            await db.lead.update({
+                                where: { id: leadId },
+                                data: { automationStatus: `${step.name} Done` }
+                            })
+                        }
+
+                        // Log to lead's timeline for display in lead dialog
+                        await db.log.create({
+                            data: {
+                                leadId,
+                                type: 'AUTOMATION',
+                                status: result.success ? 'COMPLETED' : 'FAILED',
+                                title: result.success
+                                    ? `${workflow.name}: Added to Instantly`
+                                    : `${workflow.name}: Instantly Failed`,
+                                content: `Campaign: ${config.campaignId}`,
+                                stage: workflow.pipelineStage || 'Automation'
+                            }
                         })
 
                         if (!result.success) {

@@ -108,6 +108,26 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     })
 
     useEffect(() => {
+        // Reset form when dialog opens for new lead (no lead prop)
+        if (open && !lead) {
+            form.reset({
+                name: "",
+                phone: "",
+                email: "",
+                website: "",
+                quality: "",
+                businessType: "",
+                status: "New",
+                subStatus: "",
+            })
+            setLogs([])
+            setLinks([])
+            setNotes([])
+            setSuggestedWorkflows([])
+            setIsEditing(true)
+            return
+        }
+
         if (lead) {
             form.reset({
                 name: lead.name || "",
@@ -130,22 +150,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             // Fetch suggested workflows for this lead's status
             fetchSuggestedWorkflows(lead.status, lead.subStatus ?? undefined)
             setIsEditing(false)
-        } else {
-            form.reset({
-                name: "",
-                phone: "",
-                email: "",
-                website: "",
-                quality: "",
-                businessType: "",
-                status: "New",
-                subStatus: "",
-            })
-            setLogs([])
-            setLinks([])
-            setIsEditing(true)
         }
-    }, [lead, form])
+    }, [open, lead, form])
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         try {

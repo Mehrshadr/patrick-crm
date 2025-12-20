@@ -201,19 +201,24 @@ export function LogsTab() {
                                                 // Try to parse as JSON for nicer display
                                                 try {
                                                     const parsed = JSON.parse(log.details)
-                                                    return (
-                                                        <div className="space-y-2">
-                                                            <div className="text-xs font-medium text-slate-500">Details:</div>
-                                                            <div className="bg-slate-50 rounded p-3 space-y-1.5">
-                                                                {Object.entries(parsed).map(([key, value]) => (
-                                                                    <div key={key} className="flex text-sm">
-                                                                        <span className="text-slate-500 w-24 shrink-0 capitalize">{key}:</span>
-                                                                        <span className="text-slate-700 break-all">{String(value)}</span>
-                                                                    </div>
-                                                                ))}
+                                                    // Ensure it's actually an object, not a string or array
+                                                    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+                                                        return (
+                                                            <div className="space-y-2">
+                                                                <div className="text-xs font-medium text-slate-500">Details:</div>
+                                                                <div className="bg-slate-50 rounded p-3 space-y-1.5">
+                                                                    {Object.entries(parsed).map(([key, value]) => (
+                                                                        <div key={key} className="flex text-sm">
+                                                                            <span className="text-slate-500 w-24 shrink-0 capitalize">{key}:</span>
+                                                                            <span className="text-slate-700 break-all">{String(value)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )
+                                                        )
+                                                    }
+                                                    // If parsed but not object, show as string
+                                                    throw new Error('Not an object')
                                                 } catch {
                                                     // Fallback to raw display
                                                     return (

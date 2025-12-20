@@ -137,7 +137,7 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                         <Droppable droppableId={stage}>
                             {(provided) => (
                                 <ScrollArea className="flex-1 h-full">
-                                    <div className="p-2">
+                                    <div className="p-2 pb-16">
                                         <div
                                             {...provided.droppableProps}
                                             ref={provided.innerRef}

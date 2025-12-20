@@ -208,8 +208,8 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                 {((lead.nurtureStage > 0) || (lead as any).automationStatus) && (
                                                                     <div className="mt-1.5 flex flex-wrap gap-1">
                                                                         <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 border ${(lead as any).automationStatus?.includes("Done")
-                                                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                                                : "bg-amber-50 text-amber-700 border-amber-200"
+                                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                            : "bg-amber-50 text-amber-700 border-amber-200"
                                                                             }`}>
                                                                             {(lead as any).automationStatus?.includes("Done") ? (
                                                                                 <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
@@ -230,28 +230,6 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                     </div>
                                                                 )}
 
-                                                                {/* Status Timeline */}
-                                                                {(() => {
-                                                                    const history = (lead as any).logs
-                                                                        ?.filter((l: any) => l.type === 'STATUS_CHANGE')
-                                                                        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                                                                        .map((l: any) => l.stage)
-                                                                        .filter((s: string) => s) || [];
-                                                                    const steps = Array.from(new Set(['New', ...history, lead.status]));
-
-                                                                    if (steps.length <= 1) return null;
-
-                                                                    return (
-                                                                        <div className="mt-2 pt-2 border-t border-slate-50 flex flex-wrap items-center gap-1 text-[8px] text-slate-400 leading-tight">
-                                                                            {steps.map((stage, i) => (
-                                                                                <span key={i} className={`flex items-center ${i === steps.length - 1 ? 'font-bold text-slate-600' : ''}`}>
-                                                                                    {stage}
-                                                                                    {i < steps.length - 1 && <span className="mx-0.5 text-slate-300">→</span>}
-                                                                                </span>
-                                                                            ))}
-                                                                        </div>
-                                                                    )
-                                                                })()}
                                                             </CardContent>
                                                         </Card>
                                                     )}

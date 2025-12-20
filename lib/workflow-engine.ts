@@ -32,20 +32,32 @@ function replaceTemplateVariables(text: string, lead: any): string {
         .replace(/\{quality\}/gi, lead.quality || '')
 }
 
-export async function processWorkflow({
-    workflowId,
-    leadId,
-    accessToken,
-    refreshToken,
-    userEmail,
-    userName,
-    triggeredBy = 'SYSTEM',
-    resumeFromStep,
-    existingExecutionId
-}: ProcessWorkflowOptions) {
+export async function processWorkflow(options: ProcessWorkflowOptions) {
+    let { workflowId, leadId, accessToken, refreshToken, userEmail, userName, triggeredBy = 'SYSTEM', resumeFromStep, existingExecutionId } = options;
+
     try {
         // 1. Get Lead and Workflow Details
         const lead = await db.lead.findUnique({ where: { id: leadId } })
+        if (!lead) {
+            console.error('Lead not found for execution', { leadId, workflowId })
+            return { success: false, error: 'Lead not found' }
+        }
+
+        // Fallback: If no tokens provided (e.g. Cron), try to fetch System Tokens
+        if (!accessToken || !refreshToken) {
+            try {
+                const t1 = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_ACCESS_TOKEN' } })
+                const t2 = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_REFRESH_TOKEN' } })
+                if (t1?.value && t2?.value) {
+                    accessToken = t1.value;
+                    refreshToken = t2.value;
+                    console.log("[WorkflowEngine] Using System Tokens for execution")
+                }
+            } catch (e) {
+                console.error("Failed to fetch system tokens", e)
+            }
+        }
+
         const workflow = await db.workflow.findUnique({
             where: { id: workflowId },
             include: { steps: { orderBy: { order: 'asc' } } }

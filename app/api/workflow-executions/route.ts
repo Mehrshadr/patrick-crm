@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
             leadId,
             accessToken,
             refreshToken,
+            userEmail: session?.user?.email || undefined,
+            userName: session?.user?.name || undefined,
             triggeredBy: 'MANUAL'
         })
 

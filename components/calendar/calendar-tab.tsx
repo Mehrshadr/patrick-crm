@@ -128,17 +128,17 @@ export function CalendarTab() {
                             className="p-6 w-full"
                             classNames={{
                                 months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 w-full",
-                                month: "space-y-6 w-full",
+                                month: "space-y-4 w-full",
                                 caption: "flex justify-center pt-1 relative items-center mb-6",
                                 caption_label: "text-2xl font-bold text-slate-800",
                                 nav: "space-x-1 flex items-center absolute right-0",
                                 nav_button: "h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 border rounded-lg hover:bg-slate-100",
-                                table: "w-full border-collapse space-y-1",
-                                head_row: "flex w-full mb-4",
-                                head_cell: "text-slate-400 rounded-md w-full font-medium text-smUppercase tracking-wider uppercase h-8",
-                                row: "flex w-full mt-2",
-                                cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-slate-50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 h-20 w-full p-1",
-                                day: "h-full w-full p-0 font-normal aria-selected:opacity-100 hover:bg-slate-50 rounded-lg transition-all flex flex-col items-center justify-start pt-2 gap-1 data-[selected]:bg-slate-900 data-[selected]:text-white data-[selected]:hover:bg-slate-800 data-[selected]:shadow-md",
+                                table: "w-full border-collapse",
+                                head_row: "flex justify-between w-full mb-2",
+                                head_cell: "text-slate-400 rounded-md w-full font-medium text-[0.8rem] uppercase tracking-wider text-center",
+                                row: "flex w-full mt-2 justify-between",
+                                cell: "h-16 w-full text-center text-sm p-0 m-0 relative [&:has([aria-selected])]:bg-slate-50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                                day: "h-16 w-full p-0 font-normal aria-selected:opacity-100 hover:bg-slate-50 rounded-lg transition-all flex flex-col items-center justify-center gap-1 data-[selected]:bg-slate-900 data-[selected]:text-white data-[selected]:hover:bg-slate-800 data-[selected]:shadow-md",
                                 day_today: "bg-slate-50 text-slate-900 font-bold border-2 border-slate-200",
                                 day_outside: "text-slate-300 opacity-50",
                                 day_disabled: "text-slate-300 opacity-50",
@@ -146,7 +146,7 @@ export function CalendarTab() {
                             }}
                             modifiers={{ hasEvent: eventDates }}
                             modifiersClassNames={{
-                                hasEvent: "font-bold relative after:content-[''] after:absolute after:bottom-3 after:w-1.5 after:h-1.5 after:bg-indigo-500 after:rounded-full"
+                                hasEvent: "font-bold relative after:content-[''] after:absolute after:bottom-2 after:w-1.5 after:h-1.5 after:bg-indigo-500 after:rounded-full"
                             }}
                         />
                     </CardContent>

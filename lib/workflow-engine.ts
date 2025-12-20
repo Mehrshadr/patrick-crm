@@ -150,6 +150,17 @@ export async function processWorkflow({
                             message: res.success ? `SMS sent to ${lead.phone}` : `SMS failed: ${res.error}`,
                         }
                     })
+                    // Also log to lead's log table for display in lead dialog
+                    await db.log.create({
+                        data: {
+                            leadId,
+                            type: 'SMS',
+                            status: res.success ? 'SENT' : 'FAILED',
+                            title: res.success ? 'SMS Sent (Automation)' : 'SMS Failed',
+                            content: config.body,
+                            stage: workflow.pipelineStage || 'Automation'
+                        }
+                    })
                     await logActivity({
                         category: 'COMMUNICATION',
                         action: res.success ? 'SMS_SENT' : 'SMS_FAILED',
@@ -173,6 +184,17 @@ export async function processWorkflow({
                             stepId: step.id,
                             status: res.success ? 'SUCCESS' : 'FAILED',
                             message: res.success ? `Email sent to ${lead.email}` : `Email failed: ${res.error}`,
+                        }
+                    })
+                    // Also log to lead's log table for display in lead dialog
+                    await db.log.create({
+                        data: {
+                            leadId,
+                            type: 'EMAIL',
+                            status: res.success ? 'SENT' : 'FAILED',
+                            title: res.success ? `Email: ${config.subject}` : 'Email Failed',
+                            content: config.body,
+                            stage: workflow.pipelineStage || 'Automation'
                         }
                     })
                     await logActivity({

@@ -34,13 +34,22 @@ async function sendViaGmailAPI(
 
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
+        // Hardened Recipient Validation
+        const recipient = (options.to || '').trim()
+        if (!recipient) {
+            console.error('[Email Service] Error: Recipient email is empty or invalid.')
+            return { success: false, error: 'Recipient address required (Hardened Check)' }
+        }
+
+        console.log(`[Email Service] Preparing to send email to: "${recipient}"`)
+
         // Use the provided 'from' email or fallback to empty (Gmail will fill it)
-        const senderEmail = options.from || ''
+        const senderEmail = (options.from || '').trim()
 
         // Build the email in RFC 2822 format
         const messageParts = [
             senderEmail ? `From: ${senderEmail}` : '',
-            `To: ${options.to}`,
+            `To: ${recipient}`,
             `Subject: ${options.subject}`,
             'MIME-Version: 1.0',
             'Content-Type: text/html; charset=utf-8',

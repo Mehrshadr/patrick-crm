@@ -178,12 +178,15 @@ export async function processWorkflow({
                 }
 
                 if (step.type === 'EMAIL') {
-                    if (!lead.email) {
-                        throw new Error(`Recipient email address required for step: ${step.name}`)
+                    const recipientEmail = (lead.email || '').trim()
+                    console.log(`[WorkflowEngine v1.4.1-DEBUG] Step: ${step.name}, Recipient Email: "${recipientEmail}"`)
+
+                    if (!recipientEmail || recipientEmail.length < 5) {
+                        throw new Error(`Recipient email address required or invalid: "${recipientEmail}"`)
                     }
 
                     const res = await sendEmail({
-                        to: lead.email,
+                        to: recipientEmail,
                         subject: config.subject,
                         html: config.body,
                     }, (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined)

@@ -102,7 +102,9 @@ export async function GET() {
                 // Determine if we need to log a major status change
                 const isStatusChange = lead.status !== targetStage
 
-                if (isStatusChange || !lead.nextMeetingAt) {
+                // Cast lead to any to avoid TS error on server where Prisma client isn't updated yet
+                const leadAny = lead as any;
+                if (isStatusChange || !leadAny.nextMeetingAt) {
                     console.log(`[MeetingSync] Updating lead ${lead.email} to ${targetStage} (${description})`)
 
                     // Update Lead

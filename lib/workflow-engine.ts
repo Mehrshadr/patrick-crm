@@ -166,7 +166,7 @@ export async function processWorkflow({
                             leadId,
                             type: 'SMS',
                             status: res.success ? 'SENT' : 'FAILED',
-                            title: res.success ? 'SMS Sent (Automation)' : 'SMS Failed',
+                            title: res.success ? `${workflow.name}: SMS Sent` : `${workflow.name}: SMS Failed`,
                             content: config.body,
                             stage: workflow.pipelineStage || 'Automation'
                         }
@@ -238,7 +238,7 @@ export async function processWorkflow({
                             leadId,
                             type: 'EMAIL',
                             status: res.success ? 'SENT' : 'FAILED',
-                            title: res.success ? `Email: ${config.subject}` : 'Email Failed',
+                            title: res.success ? `${workflow.name}: ${config.subject}` : `${workflow.name}: Email Failed`,
                             content: config.body,
                             stage: workflow.pipelineStage || 'Automation'
                         }

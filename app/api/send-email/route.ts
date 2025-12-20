@@ -18,13 +18,20 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Try OAuth first, then fall back to app password
+        // Construct From header
+        let fromHeader = from;
+        if (from && !from.includes('@') && session?.user?.email) {
+            fromHeader = `"${from}" <${session.user.email}>`
+        } else if (!from && session?.user?.email) {
+            fromHeader = session.user.email
+        }
+
         const tokens = (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined
         const result = await sendEmail({
             to,
             subject,
             html,
-            from: from || session?.user?.email || undefined,
+            from: fromHeader,
             replyTo
         }, tokens)
 

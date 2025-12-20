@@ -410,6 +410,25 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-6">
+                                        {/* Website */}
+                                        <FormField
+                                            control={form.control}
+                                            name="website"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Website</FormLabel>
+                                                    {isEditing ? (
+                                                        <FormControl>
+                                                            <Input placeholder="example.com" {...field} />
+                                                        </FormControl>
+                                                    ) : (
+                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
+                                                    )}
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
                                         {/* Phone with SMS button */}
                                         <FormField
                                             control={form.control}
@@ -437,24 +456,6 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                                 </Button>
                                                             )}
                                                         </div>
-                                                    )}
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        {/* Website */}
-                                        <FormField
-                                            control={form.control}
-                                            name="website"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Website</FormLabel>
-                                                    {isEditing ? (
-                                                        <FormControl>
-                                                            <Input placeholder="example.com" {...field} />
-                                                        </FormControl>
-                                                    ) : (
-                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
                                                     )}
                                                     <FormMessage />
                                                 </FormItem>

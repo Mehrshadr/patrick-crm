@@ -2,7 +2,7 @@ import { Lead } from "@/app/actions"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Check, Mail, Phone, Calendar, Search, FileText, X, MessageSquare } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 interface LeadTimelineProps {
     lead: Lead
@@ -34,8 +34,10 @@ export function LeadTimeline({ lead, logs = [] }: LeadTimelineProps) {
             timestamp: new Date(log.createdAt).getTime(),
             icon: icon,
             color: color,
-            desc: log.content.replace(/<[^>]*>?/gm, ''), // Strip HTML for preview
-            fullContent: log.content
+            desc: log.content.replace(/<[^>]*>?/gm, '').substring(0, 50) + '...',
+            fullContent: log.content,
+            type: log.type,
+            user: log.userName
         })
     })
 
@@ -47,7 +49,9 @@ export function LeadTimeline({ lead, logs = [] }: LeadTimelineProps) {
         icon: Check,
         color: "bg-green-100 text-green-600",
         desc: `Added to system`,
-        fullContent: `Lead initialized.`
+        fullContent: `Lead initialized.`,
+        type: 'SYSTEM',
+        user: null
     })
 
     // Sort by date desc
@@ -55,32 +59,50 @@ export function LeadTimeline({ lead, logs = [] }: LeadTimelineProps) {
 
     return (
         <div className="relative border-l border-slate-200 ml-3 space-y-6 pb-4">
-            <TooltipProvider>
-                {events.map((event, i) => (
-                    <div key={i} className="mb-6 relative pl-6 group">
-                        <span className={`absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full ${event.color} ring-4 ring-white`}>
-                            <event.icon className="h-3 w-3" />
-                        </span>
+            {events.map((event, i) => (
+                <div key={i} className="mb-6 relative pl-6 group">
+                    <span className={`absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full ${event.color} ring-4 ring-white`}>
+                        <event.icon className="h-3 w-3" />
+                    </span>
 
-                        <div className="flex flex-col">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="cursor-help">
-                                        <span className="text-sm font-semibold hover:text-indigo-600 transition-colors">{event.title}</span>
-                                        <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{event.desc}</div>
-                                        {event.date && <span className="text-[10px] text-slate-400 mt-1 block">{event.date}</span>}
+                    <div className="flex flex-col">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <div className="cursor-pointer hover:bg-slate-50 p-2 -ml-2 rounded-md transition-colors">
+                                    <span className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{event.title}</span>
+                                    <div className="text-xs text-slate-500 line-clamp-1 mt-0.5">{event.desc}</div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-[10px] text-slate-400">{event.date}</span>
+                                        {event.user && <span className="text-[10px] text-slate-400">• by {event.user}</span>}
                                     </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="max-w-[300px]">
-                                    <p className="font-semibold mb-1">{event.title}</p>
-                                    <div className="text-xs opacity-90" dangerouslySetInnerHTML={{ __html: event.fullContent }} />
-                                    <div className="text-[10px] text-slate-400 mt-2 border-t pt-1">{event.date}</div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </div>
+                                </div>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="w-[400px] max-h-[400px] overflow-y-auto shadow-lg">
+                                <div className="space-y-4">
+                                    <div className="border-b pb-2">
+                                        <div className="font-semibold text-base">{event.title}</div>
+                                        <div className="text-xs text-slate-400 mt-1">{event.date}</div>
+                                    </div>
+
+                                    <div>
+                                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Message Content</div>
+                                        <div className="text-sm bg-slate-50 p-3 rounded-md border text-slate-700 whitespace-pre-wrap font-mono prose prose-sm max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: event.fullContent }}
+                                        />
+                                    </div>
+
+                                    {(event.type === 'EMAIL' || event.type === 'SMS') && (
+                                        <div className="flex gap-2">
+                                            <Badge variant="outline">{event.type}</Badge>
+                                            {event.user && <Badge variant="secondary">Sent by {event.user}</Badge>}
+                                        </div>
+                                    )}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     </div>
-                ))}
-            </TooltipProvider>
+                </div>
+            ))}
         </div>
     )
 }

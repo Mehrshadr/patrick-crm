@@ -51,10 +51,11 @@ export async function getLeads() {
 }
 
 export async function createLead(data: any) {
+    console.log('[createLead] Triggered with data:', data)
     try {
         const lead = await db.lead.create({
             data: {
-                name: data.name || "",
+                name: data.name || "Unnamed Lead",
                 phone: data.phone || "",
                 email: data.email ? data.email.toLowerCase().trim() : null,
                 website: data.website || null,
@@ -64,6 +65,7 @@ export async function createLead(data: any) {
                 stage: data.stage || "New"
             }
         })
+        console.log('[createLead] Success:', lead.id)
 
         // Note: Automations are now manually triggered from lead card
         // Use the "Run Automation" button to start a workflow

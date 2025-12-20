@@ -1,12 +1,4 @@
-import nodemailer from 'nodemailer'
 import { google } from 'googleapis'
-
-// For OAuth2 with Gmail
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.NEXTAUTH_URL
-)
 
 interface SendEmailOptions {
     to: string
@@ -22,81 +14,82 @@ interface SendEmailResult {
     error?: string
 }
 
-// Create OAuth2 transporter for Gmail
-async function createGmailTransporter(accessToken: string, refreshToken: string) {
-    oauth2Client.setCredentials({
-        access_token: accessToken,
-        refresh_token: refreshToken
-    })
+// Send email using Gmail API directly (like n8n does)
+async function sendViaGmailAPI(
+    options: SendEmailOptions,
+    accessToken: string,
+    refreshToken: string
+): Promise<SendEmailResult> {
+    try {
+        const oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.NEXTAUTH_URL
+        )
 
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            type: 'OAuth2',
-            user: process.env.GMAIL_USER_EMAIL,
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            refreshToken: refreshToken,
-            accessToken: accessToken
-        }
-    })
-}
+        oauth2Client.setCredentials({
+            access_token: accessToken,
+            refresh_token: refreshToken
+        })
 
-// Simple SMTP transporter (for app password approach)
-function createSmtpTransporter() {
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.GMAIL_USER_EMAIL,
-            pass: process.env.GMAIL_APP_PASSWORD
-        }
-    })
+        const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+
+        // Get the sender email from the token
+        const profile = await gmail.users.getProfile({ userId: 'me' })
+        const senderEmail = profile.data.emailAddress || options.from
+
+        // Build the email in RFC 2822 format
+        const messageParts = [
+            `From: ${senderEmail}`,
+            `To: ${options.to}`,
+            `Subject: ${options.subject}`,
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=utf-8',
+            '',
+            options.html
+        ]
+        const message = messageParts.join('\n')
+
+        // Encode to base64url
+        const encodedMessage = Buffer.from(message)
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '')
+
+        // Send via Gmail API
+        const res = await gmail.users.messages.send({
+            userId: 'me',
+            requestBody: {
+                raw: encodedMessage
+            }
+        })
+
+        console.log(`Email sent via Gmail API: ${res.data.id} to ${options.to}`)
+        return { success: true, messageId: res.data.id || undefined }
+    } catch (error: any) {
+        console.error('Gmail API error:', error.message)
+        return { success: false, error: error.message }
+    }
 }
 
 export async function sendEmail(
     options: SendEmailOptions,
     tokens?: { accessToken: string; refreshToken: string }
 ): Promise<SendEmailResult> {
-    try {
-        let transporter: nodemailer.Transporter
-
-        if (tokens?.accessToken && tokens?.refreshToken) {
-            // Use OAuth2
-            transporter = await createGmailTransporter(tokens.accessToken, tokens.refreshToken)
-        } else if (process.env.GMAIL_APP_PASSWORD) {
-            // Use app password
-            transporter = createSmtpTransporter()
-        } else {
-            return { success: false, error: 'No email credentials configured' }
-        }
-
-        const mailOptions = {
-            from: options.from || process.env.GMAIL_USER_EMAIL,
-            to: options.to,
-            subject: options.subject,
-            html: options.html,
-            replyTo: options.replyTo
-        }
-
-        const info = await transporter.sendMail(mailOptions)
-        console.log(`Email sent: ${info.messageId} to ${options.to}`)
-        return { success: true, messageId: info.messageId }
-    } catch (error: any) {
-        console.error('Failed to send email:', error.message)
-        return { success: false, error: error.message }
+    // Try Gmail API first (like n8n)
+    if (tokens?.accessToken && tokens?.refreshToken) {
+        console.log('Attempting to send via Gmail API with OAuth...')
+        return await sendViaGmailAPI(options, tokens.accessToken, tokens.refreshToken)
     }
+
+    // No credentials available
+    return { success: false, error: 'No OAuth tokens available. Please log out and log back in with Google.' }
 }
 
 // Test email connection
 export async function testEmailConnection(): Promise<boolean> {
-    if (!process.env.GMAIL_USER_EMAIL) return false
-    if (!process.env.GMAIL_APP_PASSWORD && !process.env.GOOGLE_CLIENT_ID) return false
-
-    try {
-        const transporter = createSmtpTransporter()
-        await transporter.verify()
-        return true
-    } catch {
-        return false
-    }
+    // For Gmail API, we can't really test without tokens
+    // Return false to indicate manual testing is needed
+    return false
 }

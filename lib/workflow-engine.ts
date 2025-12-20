@@ -366,6 +366,18 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                             entityName: lead.name || 'Unknown',
                             description: smsRes.success ? `Follow-up SMS sent to ${lead.phone}` : `Follow-up SMS failed`,
                         })
+
+                        // Also log SMS to lead's timeline
+                        await db.log.create({
+                            data: {
+                                leadId,
+                                type: 'SMS',
+                                status: smsRes.success ? 'SENT' : 'FAILED',
+                                title: smsRes.success ? `${workflow.name}: SMS Sent (Dual)` : `${workflow.name}: SMS Failed (Dual)`,
+                                content: config.smsBody,
+                                stage: workflow.pipelineStage || 'Automation'
+                            }
+                        })
                     }
                 }
             } catch (stepError: any) {

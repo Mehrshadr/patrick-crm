@@ -115,7 +115,7 @@ export async function GET() {
                             subStatus: 'Scheduled',
                             nextMeetingAt: nextEvent.start, // Store the exact time
                             nextNurtureAt: null // Clear any pending nurture
-                        }
+                        } as any
                     })
 
                     // Cancel Active Automations

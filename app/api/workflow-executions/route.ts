@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
             data: {
                 executionId: execution.id,
                 stepId: null,
-                logType: 'INFO',
+                status: 'INFO',
                 message: `Workflow "${execution.workflow.name}" started manually`,
             }
         })

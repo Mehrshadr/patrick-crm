@@ -193,8 +193,13 @@ export async function processWorkflow({
                     const signatureSetting = await db.appSettings.findUnique({ where: { key: 'email_signature' } })
                     const signature = signatureSetting?.value || ''
 
-                    // Inject signature into body
-                    const bodyWithSignature = config.body.replace(/{signature}/g, signature)
+                    // Handle signature: 
+                    // 1. Replace {signature} token if present
+                    // 2. OR append signature at end if "includeSignature" checkbox is true
+                    let bodyWithSignature = config.body.replace(/{signature}/g, signature)
+                    if (config.includeSignature !== false && !config.body.includes('{signature}')) {
+                        bodyWithSignature = config.body + '<br/><br/>' + signature
+                    }
 
                     // Determine Sender Name and Reply-To
                     // Priority: Step Config > Session User > Default

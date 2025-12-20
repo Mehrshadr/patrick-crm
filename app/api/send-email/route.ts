@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail, testEmailConnection } from '@/lib/email'
+import { auth } from '@/lib/auth'
 
 // POST - Send an email
 export async function POST(request: NextRequest) {
     try {
         const { to, subject, html, from, replyTo } = await request.json()
+        const session = await auth()
+        const accessToken = (session as any)?.accessToken
+        const refreshToken = (session as any)?.refreshToken
 
         if (!to || !subject || !html) {
             return NextResponse.json(
@@ -13,7 +17,9 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const result = await sendEmail({ to, subject, html, from, replyTo })
+        // Try OAuth first, then fall back to app password
+        const tokens = (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined
+        const result = await sendEmail({ to, subject, html, from, replyTo }, tokens)
         return NextResponse.json(result)
     } catch (error: any) {
         return NextResponse.json(

@@ -375,19 +375,33 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                 </FormItem>
                                             )}
                                         />
-                                        {/* Website */}
+                                        {/* Email with Send button */}
                                         <FormField
                                             control={form.control}
-                                            name="website"
+                                            name="email"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Website</FormLabel>
+                                                    <FormLabel>Email</FormLabel>
                                                     {isEditing ? (
                                                         <FormControl>
-                                                            <Input placeholder="example.com" {...field} />
+                                                            <Input placeholder="john@example.com" {...field} />
                                                         </FormControl>
                                                     ) : (
-                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="text-sm font-medium py-2 px-1 flex-1">{field.value || "-"}</div>
+                                                            {lead?.email && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7 bg-purple-50 hover:bg-purple-100 text-purple-600"
+                                                                    onClick={() => { setEmailBody(`Hi ${lead?.name || 'there'},\n\n`); setShowEmailCompose(true); }}
+                                                                    title="Send Email"
+                                                                >
+                                                                    <Mail className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                     <FormMessage />
                                                 </FormItem>
@@ -428,33 +442,19 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                 </FormItem>
                                             )}
                                         />
-                                        {/* Email with Send button */}
+                                        {/* Website */}
                                         <FormField
                                             control={form.control}
-                                            name="email"
+                                            name="website"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Email</FormLabel>
+                                                    <FormLabel>Website</FormLabel>
                                                     {isEditing ? (
                                                         <FormControl>
-                                                            <Input placeholder="john@example.com" {...field} />
+                                                            <Input placeholder="example.com" {...field} />
                                                         </FormControl>
                                                     ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="text-sm font-medium py-2 px-1 flex-1">{field.value || "-"}</div>
-                                                            {lead?.email && (
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-7 w-7 bg-purple-50 hover:bg-purple-100 text-purple-600"
-                                                                    onClick={() => { setEmailBody(`Hi ${lead?.name || 'there'},\n\n`); setShowEmailCompose(true); }}
-                                                                    title="Send Email"
-                                                                >
-                                                                    <Mail className="h-3.5 w-3.5" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
+                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
                                                     )}
                                                     <FormMessage />
                                                 </FormItem>
@@ -1002,6 +1002,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                             toast.success('SMS sent successfully!');
                                             setShowSmsCompose(false);
                                             setSmsMessage('');
+                                            // Refresh logs
+                                            getLeadLogs(lead.id).then(setLogs);
                                         } else {
                                             toast.error('Failed to send SMS: ' + (res.error || 'Unknown error'));
                                         }
@@ -1127,6 +1129,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                             setShowEmailCompose(false);
                                             setEmailSubject('');
                                             setEmailBody('');
+                                            // Refresh logs
+                                            getLeadLogs(lead.id).then(setLogs);
                                         } else {
                                             toast.error('Failed to send email: ' + (res.error || 'Unknown error'));
                                         }

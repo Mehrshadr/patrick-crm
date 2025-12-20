@@ -43,12 +43,24 @@ async function sendViaGmailAPI(
 
         console.log(`[Email Service] Preparing to send email to: "${recipient}"`)
 
-        // Use the provided 'from' email or fallback to empty (Gmail will fill it)
-        const senderEmail = (options.from || '').trim()
+        // Use the provided 'from' which can be a name or email, format properly for RFC 5322
+        const senderInfo = (options.from || '').trim()
+        // Build proper From header: "Sender Name" <email@example.com>
+        // If senderInfo contains @, treat as email; otherwise treat as display name
+        let fromHeader: string | null = null
+        if (senderInfo) {
+            if (senderInfo.includes('@')) {
+                // It's an email address
+                fromHeader = `From: ${senderInfo}`
+            } else {
+                // It's a display name, use with the authenticated account's email
+                fromHeader = `From: "${senderInfo}" <me>`
+            }
+        }
 
         // Build the email in RFC 2822 format
         const messageParts = [
-            senderEmail ? `From: ${senderEmail}` : null,
+            fromHeader,
             options.replyTo ? `Reply-To: ${options.replyTo}` : null,
             `To: ${recipient}`,
             `Subject: ${options.subject}`,

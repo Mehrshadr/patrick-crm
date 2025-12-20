@@ -309,13 +309,15 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[90vw] h-[85vh] flex flex-col p-0 gap-0">
-                <div className="p-6 pb-4 border-b">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl">Edit Lead</DialogTitle>
-                        <DialogDescription className="text-base">
-                            Manage details, automation, and history.
-                        </DialogDescription>
-                    </DialogHeader>
+                <div className="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-10">
+                    <div>
+                        <DialogTitle className="text-lg font-bold">{lead?.name || 'New Lead'}</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">Manage details, automation, and history.</DialogDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button size="sm" type="submit" form="lead-form">Save Changes</Button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-hidden p-8 grid grid-cols-1 lg:grid-cols-12 gap-10">
@@ -355,12 +357,9 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                     <span className="bg-slate-100 p-2 rounded-md"><UserIcon className="h-5 w-5 text-slate-700" /></span>
                                     Lead Information
                                 </h3>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)} title="Edit Contact Info">
-                                        <Pencil className="h-4 w-4 text-slate-500" />
-                                    </Button>
-                                    <Button size="sm" type="submit" form="lead-form">Save</Button>
-                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)} title="Edit Contact Info">
+                                    <Pencil className="h-4 w-4 text-slate-500" />
+                                </Button>
                             </div>
 
                             <Form {...form}>
@@ -842,33 +841,32 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                     )}
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="space-y-2">
                                     <div className="text-xs font-semibold uppercase text-slate-500">Execution Log</div>
-                                    {logs.filter(l => ['EMAIL', 'SMS'].includes(l.type)).length === 0 && <div className="text-sm text-slate-400 italic">No automated actions sent yet.</div>}
+                                    <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
+                                        {logs.filter(l => ['EMAIL', 'SMS'].includes(l.type)).length === 0 && <div className="text-sm text-slate-400 italic">No automated actions sent yet.</div>}
 
-                                    {logs.filter(l => ['EMAIL', 'SMS'].includes(l.type)).map((log: any) => (
-                                        <Popover key={log.id}>
-                                            <PopoverTrigger asChild>
-                                                <div className="group border rounded-lg p-3 hover:bg-slate-50 cursor-pointer transition-colors relative overflow-hidden bg-white">
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500"></div>
-                                                    <div className="flex justify-between items-start mb-1 pl-2">
-                                                        <span className="font-medium text-sm flex items-center gap-2">
-                                                            {log.type === 'EMAIL' ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-                                                            {log.title}
-                                                        </span>
-                                                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500" />
+                                        {logs.filter(l => ['EMAIL', 'SMS'].includes(l.type)).map((log: any) => (
+                                            <Popover key={log.id}>
+                                                <PopoverTrigger asChild>
+                                                    <div className="group border rounded-lg p-2.5 hover:bg-slate-50 cursor-pointer transition-colors flex items-center gap-3 bg-white">
+                                                        <div className={`p-1.5 rounded-md ${log.type === 'EMAIL' ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
+                                                            {log.type === 'EMAIL' ? <Mail className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="font-medium text-sm truncate">{log.title}</div>
+                                                            <div className="text-xs text-slate-400">{new Date(log.createdAt).toLocaleString()}</div>
+                                                        </div>
+                                                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
                                                     </div>
-                                                    <div className="text-xs text-slate-500 pl-2">
-                                                        {new Date(log.createdAt).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-[400px] max-h-[400px] overflow-y-auto">
-                                                <div className="text-sm font-semibold mb-2 border-b pb-2">{log.title}</div>
-                                                <div className="text-sm text-slate-600 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: log.content }} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    ))}
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[400px] max-h-[400px] overflow-y-auto">
+                                                    <div className="text-sm font-semibold mb-2 border-b pb-2">{log.title}</div>
+                                                    <div className="text-sm text-slate-600 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: log.content }} />
+                                                </PopoverContent>
+                                            </Popover>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>

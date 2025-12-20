@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play, Loader2 } from "lucide-react"
+import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play, Loader2, Eye, EyeOff } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -33,6 +33,8 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     Select,
     SelectContent,
@@ -82,6 +84,17 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const [runningWorkflow, setRunningWorkflow] = useState<number | null>(null)
     const [sendingSms, setSendingSms] = useState(false)
     const [sendingEmail, setSendingEmail] = useState(false)
+    // Compose dialog states
+    const [showSmsCompose, setShowSmsCompose] = useState(false)
+    const [showEmailCompose, setShowEmailCompose] = useState(false)
+    const [smsMessage, setSmsMessage] = useState('')
+    const [emailSubject, setEmailSubject] = useState('')
+    const [emailBody, setEmailBody] = useState('')
+    const [emailSenderName, setEmailSenderName] = useState('')
+    const [emailReplyTo, setEmailReplyTo] = useState('')
+    const [emailIncludeSignature, setEmailIncludeSignature] = useState(true)
+    const [emailPreview, setEmailPreview] = useState(false)
+    const [signature, setSignature] = useState('')
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -109,6 +122,10 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             getLeadLogs(lead.id).then(setLogs)
             getLinks(lead.id).then(setLinks)
             fetch(`/api/notes?leadId=${lead.id}`).then(r => r.json()).then(d => setNotes(d.notes || []))
+            // Fetch signature for email compose
+            fetch('/api/settings?key=email_signature').then(r => r.json()).then(d => {
+                if (d.success && d.setting) setSignature(d.setting.value || '')
+            })
             // Fetch suggested workflows for this lead's status
             fetchSuggestedWorkflows(lead.status, lead.subStatus ?? undefined)
             setIsEditing(false)
@@ -324,31 +341,6 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                     {/* Left Panel: Info + Automation (8 cols) */}
                     <div className="lg:col-span-8 border-r pr-8 overflow-y-auto flex flex-col gap-8">
 
-                        {/* Quick Actions */}
-                        {lead && (
-                            <div className="flex gap-2 mb-6 p-4 bg-slate-50 rounded-lg border">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={sendSmsToLead}
-                                    disabled={sendingSms || !lead.phone}
-                                    className="flex-1 bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
-                                >
-                                    <MessageSquare className="h-4 w-4 mr-2" />
-                                    {sendingSms ? 'Sending...' : 'Send SMS'}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={sendEmailToLead}
-                                    disabled={sendingEmail || !lead.email}
-                                    className="flex-1 bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100"
-                                >
-                                    <Mail className="h-4 w-4 mr-2" />
-                                    {sendingEmail ? 'Sending...' : 'Send Email'}
-                                </Button>
-                            </div>
-                        )}
 
                         {/* Section 1: Lead Information */}
                         <div>
@@ -395,7 +387,21 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                             <Input placeholder="+1234567890" {...field} />
                                                         </FormControl>
                                                     ) : (
-                                                        <div className="text-sm font-medium py-2 px-1">{field.value}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="text-sm font-medium py-2 px-1 flex-1">{field.value}</div>
+                                                            {lead?.phone && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7 bg-green-50 hover:bg-green-100 text-green-600"
+                                                                    onClick={() => { setSmsMessage(`Hi ${lead?.name || 'there'}!\n\n`); setShowSmsCompose(true); }}
+                                                                    title="Send SMS"
+                                                                >
+                                                                    <MessageSquare className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                     <FormMessage />
                                                 </FormItem>
@@ -416,7 +422,21 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                             <Input placeholder="john@example.com" {...field} />
                                                         </FormControl>
                                                     ) : (
-                                                        <div className="text-sm font-medium py-2 px-1">{field.value || "-"}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="text-sm font-medium py-2 px-1 flex-1">{field.value || "-"}</div>
+                                                            {lead?.email && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7 bg-purple-50 hover:bg-purple-100 text-purple-600"
+                                                                    onClick={() => { setEmailBody(`Hi ${lead?.name || 'there'},\n\n`); setShowEmailCompose(true); }}
+                                                                    title="Send Email"
+                                                                >
+                                                                    <Mail className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                     <FormMessage />
                                                 </FormItem>
@@ -942,6 +962,185 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                     </div>
                 </div>
             </DialogContent>
+
+            {/* SMS Compose Dialog */}
+            <Dialog open={showSmsCompose} onOpenChange={setShowSmsCompose}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <MessageSquare className="h-5 w-5 text-green-600" />
+                            Send SMS to {lead?.name}
+                        </DialogTitle>
+                        <DialogDescription>Send a text message to {lead?.phone}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                        <div>
+                            <Label>Message</Label>
+                            <Textarea
+                                value={smsMessage}
+                                onChange={(e) => setSmsMessage(e.target.value)}
+                                placeholder="Type your SMS message..."
+                                className="h-[150px] mt-1"
+                            />
+                            <p className="text-xs text-slate-400 mt-1">{smsMessage.length} characters</p>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowSmsCompose(false)}>Cancel</Button>
+                            <Button
+                                className="bg-green-600 hover:bg-green-700"
+                                disabled={sendingSms || !smsMessage.trim()}
+                                onClick={async () => {
+                                    if (!lead?.phone) return;
+                                    setSendingSms(true);
+                                    try {
+                                        const res = await fetch('/api/send-sms', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ to: lead.phone, body: smsMessage })
+                                        }).then(r => r.json());
+                                        if (res.success) {
+                                            toast.success('SMS sent successfully!');
+                                            setShowSmsCompose(false);
+                                            setSmsMessage('');
+                                        } else {
+                                            toast.error('Failed to send SMS: ' + (res.error || 'Unknown error'));
+                                        }
+                                    } catch (e) {
+                                        toast.error('Error sending SMS');
+                                    }
+                                    setSendingSms(false);
+                                }}
+                            >
+                                {sendingSms ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+                                Send SMS
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Email Compose Dialog */}
+            <Dialog open={showEmailCompose} onOpenChange={setShowEmailCompose}>
+                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Mail className="h-5 w-5 text-purple-600" />
+                            Send Email to {lead?.name}
+                        </DialogTitle>
+                        <DialogDescription>Compose and send an email to {lead?.email}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label className="text-xs">Sender Name</Label>
+                                <Input
+                                    value={emailSenderName}
+                                    onChange={(e) => setEmailSenderName(e.target.value)}
+                                    placeholder="e.g., Mehrdad from Mehrana"
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <Label className="text-xs">Reply-To</Label>
+                                <Input
+                                    value={emailReplyTo}
+                                    onChange={(e) => setEmailReplyTo(e.target.value)}
+                                    placeholder="e.g., support@mehrana.agency"
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <Label className="text-xs">Subject</Label>
+                            <Input
+                                value={emailSubject}
+                                onChange={(e) => setEmailSubject(e.target.value)}
+                                placeholder="Email subject..."
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <Label className="text-xs">Body</Label>
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                                        <Checkbox
+                                            checked={emailIncludeSignature}
+                                            onCheckedChange={(checked) => setEmailIncludeSignature(checked as boolean)}
+                                        />
+                                        Include Signature
+                                    </label>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEmailPreview(!emailPreview)}
+                                        className="h-6 text-xs gap-1"
+                                    >
+                                        {emailPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                        {emailPreview ? 'Edit' : 'Preview'}
+                                    </Button>
+                                </div>
+                            </div>
+                            {emailPreview ? (
+                                <div
+                                    className="border rounded-lg p-4 min-h-[200px] bg-white prose prose-sm max-w-none"
+                                    dangerouslySetInnerHTML={{
+                                        __html: emailBody.replace(/\n/g, '<br/>') +
+                                            (emailIncludeSignature ? '<br/><br/>' + (signature || '<em class="text-gray-400">[Signature]</em>') : '')
+                                    }}
+                                />
+                            ) : (
+                                <Textarea
+                                    value={emailBody}
+                                    onChange={(e) => setEmailBody(e.target.value)}
+                                    placeholder="Write your email here..."
+                                    className="h-[200px] mt-1"
+                                />
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowEmailCompose(false)}>Cancel</Button>
+                            <Button
+                                className="bg-purple-600 hover:bg-purple-700"
+                                disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim()}
+                                onClick={async () => {
+                                    if (!lead?.email) return;
+                                    setSendingEmail(true);
+                                    try {
+                                        const finalBody = emailIncludeSignature ? emailBody + '<br/><br/>' + signature : emailBody;
+                                        const res = await fetch('/api/send-email', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                to: lead.email,
+                                                subject: emailSubject,
+                                                html: finalBody.replace(/\n/g, '<br/>'),
+                                                from: emailSenderName || undefined,
+                                                replyTo: emailReplyTo || undefined
+                                            })
+                                        }).then(r => r.json());
+                                        if (res.success) {
+                                            toast.success('Email sent successfully!');
+                                            setShowEmailCompose(false);
+                                            setEmailSubject('');
+                                            setEmailBody('');
+                                        } else {
+                                            toast.error('Failed to send email: ' + (res.error || 'Unknown error'));
+                                        }
+                                    } catch (e) {
+                                        toast.error('Error sending email');
+                                    }
+                                    setSendingEmail(false);
+                                }}
+                            >
+                                {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mail className="h-4 w-4 mr-2" />}
+                                Send Email
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </Dialog>
     )
 }

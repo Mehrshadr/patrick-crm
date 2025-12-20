@@ -27,6 +27,7 @@ interface ActivityLogEntry {
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
     AUTOMATION: { label: 'Automation', icon: Zap, color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+    COMMUNICATION: { label: 'Communication', icon: Mail, color: 'bg-purple-100 text-purple-700 border-purple-300' },
     LEAD: { label: 'Lead', icon: User, color: 'bg-blue-100 text-blue-700 border-blue-300' },
     EMAIL: { label: 'Email', icon: Mail, color: 'bg-purple-100 text-purple-700 border-purple-300' },
     SMS: { label: 'SMS', icon: MessageSquare, color: 'bg-green-100 text-green-700 border-green-300' },
@@ -137,13 +138,29 @@ export function LogsTab() {
                     <div className="space-y-2">
                         {logs.map((log) => {
                             const categoryConf = CATEGORY_CONFIG[log.category] || CATEGORY_CONFIG.SYSTEM
-                            const Icon = categoryConf.icon
+
+                            // Use action-specific icon for COMMUNICATION category
+                            let Icon = categoryConf.icon
+                            let iconBg = categoryConf.color.split(' ')[0]
+                            let iconColor = categoryConf.color.split(' ')[1]
+
+                            if (log.category === 'COMMUNICATION') {
+                                if (log.action.includes('SMS')) {
+                                    Icon = MessageSquare
+                                    iconBg = 'bg-green-100'
+                                    iconColor = 'text-green-600'
+                                } else if (log.action.includes('EMAIL')) {
+                                    Icon = Mail
+                                    iconBg = 'bg-purple-100'
+                                    iconColor = 'text-purple-600'
+                                }
+                            }
 
                             return (
                                 <Card key={log.id} className="hover:shadow-sm transition-shadow">
                                     <CardContent className="p-4 flex items-start gap-4">
-                                        <div className={`p-2 rounded-lg ${categoryConf.color.split(' ')[0]}`}>
-                                            <Icon className={`h-4 w-4 ${categoryConf.color.split(' ')[1]}`} />
+                                        <div className={`p-2 rounded-lg ${iconBg}`}>
+                                            <Icon className={`h-4 w-4 ${iconColor}`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">

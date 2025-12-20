@@ -154,6 +154,10 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                 fixedDuration: 1,
                 fixedUnit: 'DAYS',
                 cancelOnStatuses: []
+            } : type === 'ACTION' ? {
+                service: 'INSTANTLY',
+                campaignId: '',
+                fields: ['email', 'name', 'phone', 'website']
             } : {}
         }
         setSteps([...steps, newStep])
@@ -522,6 +526,71 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                             ))}
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* ACTION Step (Instantly.ai etc.) */}
+                            {editingStep.type === 'ACTION' && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <Label>Integration Service</Label>
+                                        <Select
+                                            value={editingStep.config.service || 'INSTANTLY'}
+                                            onValueChange={(val) => updateStep(editingStepIndex!, {
+                                                config: { ...editingStep.config, service: val }
+                                            })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select service" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="INSTANTLY">Instantly.ai</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {editingStep.config.service === 'INSTANTLY' && (
+                                        <>
+                                            <div>
+                                                <Label>Campaign ID</Label>
+                                                <Input
+                                                    value={editingStep.config.campaignId || ''}
+                                                    onChange={(e) => updateStep(editingStepIndex!, {
+                                                        config: { ...editingStep.config, campaignId: e.target.value }
+                                                    })}
+                                                    placeholder="e.g., 011cbf96-a9ec-4a09-b88d-991fd4a0cf08"
+                                                />
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    Get this from your Instantly campaign settings
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <Label>Fields to Send</Label>
+                                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                                    {['email', 'name', 'phone', 'website'].map((field) => (
+                                                        <label key={field} className="flex items-center gap-2 text-sm">
+                                                            <Checkbox
+                                                                checked={(editingStep.config.fields || []).includes(field)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const current = editingStep.config.fields || []
+                                                                    const updated = checked
+                                                                        ? [...current, field]
+                                                                        : current.filter((f: string) => f !== field)
+                                                                    updateStep(editingStepIndex!, {
+                                                                        config: { ...editingStep.config, fields: updated }
+                                                                    })
+                                                                }}
+                                                                disabled={field === 'email'}
+                                                            />
+                                                            <span className="capitalize">{field}</span>
+                                                            {field === 'email' && <span className="text-xs text-slate-400">(required)</span>}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 

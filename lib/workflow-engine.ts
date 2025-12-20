@@ -426,6 +426,59 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                         })
                     }
                 }
+
+                // Handle ACTION step (External integrations like Instantly)
+                if (step.type === 'ACTION') {
+                    console.log(`[WorkflowEngine] Processing ACTION step: ${step.name}`)
+
+                    if (config.service === 'INSTANTLY') {
+                        const { addLeadToCampaign } = await import('./instantly')
+
+                        // Build lead data based on selected fields
+                        const leadData: any = { email: lead.email }
+                        if (config.fields?.includes('name')) leadData.first_name = lead.name?.split(' ')[0] || ''
+                        if (config.fields?.includes('phone')) leadData.phone = lead.phone || ''
+                        if (config.fields?.includes('website')) leadData.website = lead.website || ''
+
+                        console.log(`[WorkflowEngine] Sending to Instantly campaign ${config.campaignId}:`, leadData)
+
+                        const result = await addLeadToCampaign(config.campaignId, leadData)
+
+                        await db.workflowLog.create({
+                            data: {
+                                executionId: execution.id,
+                                stepId: step.id,
+                                status: result.success ? 'SUCCESS' : 'FAILED',
+                                message: result.success
+                                    ? `Lead added to Instantly campaign`
+                                    : `Instantly failed: ${result.error}`,
+                            }
+                        })
+
+                        await logActivity({
+                            category: 'AUTOMATION',
+                            action: result.success ? 'INSTANTLY_SENT' : 'INSTANTLY_FAILED',
+                            entityType: 'LEAD',
+                            entityId: leadId,
+                            entityName: lead.name || 'Unknown',
+                            description: result.success
+                                ? `🚀 Lead sent to Instantly campaign`
+                                : `❌ Instantly failed: ${result.error}`,
+                            details: JSON.stringify({
+                                workflow: workflow.name,
+                                step: step.name,
+                                campaignId: config.campaignId,
+                                email: lead.email
+                            })
+                        })
+
+                        if (!result.success) {
+                            throw new Error(result.error || 'Instantly integration failed')
+                        }
+                    } else {
+                        console.warn(`[WorkflowEngine] Unknown ACTION service: ${config.service}`)
+                    }
+                }
             } catch (stepError: any) {
                 console.error(`Error in step ${step.id}:`, stepError)
                 await db.workflowLog.create({

@@ -2,6 +2,7 @@ import { db } from './db'
 import { sendEmail } from './email'
 import { sendSms } from './sms'
 import { logActivity } from './activity'
+import { calculateNextNurture } from './nurture-logic'
 
 interface ProcessWorkflowOptions {
     workflowId: number
@@ -11,6 +12,8 @@ interface ProcessWorkflowOptions {
     userEmail?: string
     userName?: string
     triggeredBy?: string
+    resumeFromStep?: number
+    existingExecutionId?: number
 }
 
 // Helper to replace template variables with lead data
@@ -36,7 +39,9 @@ export async function processWorkflow({
     refreshToken,
     userEmail,
     userName,
-    triggeredBy = 'SYSTEM'
+    triggeredBy = 'SYSTEM',
+    resumeFromStep,
+    existingExecutionId
 }: ProcessWorkflowOptions) {
     try {
         // 1. Get Lead and Workflow Details
@@ -54,40 +59,55 @@ export async function processWorkflow({
         console.log(`Executing workflow ${workflow.name} for lead: ${lead.name} (ID: ${lead.id})`)
         console.log(`Lead Contact Info - Email: ${lead.email}, Phone: ${lead.phone}`)
 
-        // 2. Create workflow execution record
-        const execution = await db.workflowExecution.create({
-            data: {
-                workflowId,
-                leadId,
-                status: 'ACTIVE',
-                startDate: new Date(),
-            }
-        })
+        // 2. Create OR Reuse workflow execution record
+        let execution: any = null
+        if (existingExecutionId) {
+            execution = await db.workflowExecution.findUnique({ where: { id: existingExecutionId } })
+        }
+
+        if (!execution) {
+            execution = await db.workflowExecution.create({
+                data: {
+                    workflowId,
+                    leadId,
+                    status: 'ACTIVE',
+                    startDate: new Date(),
+                }
+            })
+            // Log the start
+            await db.workflowLog.create({
+                data: {
+                    executionId: execution.id,
+                    status: 'SUCCESS',
+                    message: `Workflow "${workflow.name}" started for ${lead.name} (${triggeredBy})`,
+                }
+            })
+            await logActivity({
+                category: 'AUTOMATION',
+                action: 'WORKFLOW_STARTED',
+                entityType: 'LEAD',
+                entityId: leadId,
+                entityName: lead.name || 'Unknown',
+                description: `Workflow "${workflow.name}" triggered (${triggeredBy})`,
+                details: { workflowId, executionId: execution.id }
+            })
+        } else {
+            // Resuming
+            console.log(`Resuming workflow ${workflow.name} at step ${resumeFromStep}`)
+            await db.workflowLog.create({
+                data: {
+                    executionId: execution.id,
+                    status: 'INFO',
+                    message: `Workflow Resumed at step ${resumeFromStep} (${triggeredBy})`,
+                }
+            })
+        }
 
         const steps = workflow.steps
+        const startIndex = resumeFromStep || 0
 
-        // Log the start in workflow logs
-        await db.workflowLog.create({
-            data: {
-                executionId: execution.id,
-                status: 'SUCCESS',
-                message: `Workflow "${workflow.name}" started for ${lead.name} (${triggeredBy})`,
-            }
-        })
-
-        // Log in system-wide Activity Log
-        await logActivity({
-            category: 'AUTOMATION',
-            action: 'WORKFLOW_STARTED',
-            entityType: 'LEAD',
-            entityId: leadId,
-            entityName: lead.name || 'Unknown',
-            description: `Workflow "${workflow.name}" triggered (${triggeredBy})`,
-            details: { workflowId, executionId: execution.id }
-        })
-
-        // 3. Simple loop to process immediate steps until a DELAY
-        for (let i = 0; i < steps.length; i++) {
+        // 3. Simple loop to process steps
+        for (let i = startIndex; i < steps.length; i++) {
             const step = steps[i]
             const rawConfig = typeof step.config === 'string' ? JSON.parse(step.config) : step.config
 
@@ -100,28 +120,61 @@ export async function processWorkflow({
             }
 
 
-            if (step.type === 'DELAY') {
-                // Calculate the next nurture time based on delay config
-                const now = new Date()
-                let delayMs = 0
-                const duration = parseInt(config.fixedDuration || '1')
-                const unit = config.fixedUnit || 'hours'
+            if (step.type === 'DELAY' || step.type === 'SMART_DELAY') { // Handle SMART_DELAY too if typed
+                // Calculate the next nurture time
+                let nextNurtureAt: Date | null = null
+                let logMessage = ''
 
-                switch (unit) {
-                    case 'minutes': delayMs = duration * 60 * 1000; break
-                    case 'hours': delayMs = duration * 60 * 60 * 1000; break
-                    case 'days': delayMs = duration * 24 * 60 * 60 * 1000; break
-                    default: delayMs = duration * 60 * 60 * 1000 // default hours
+                // Check for Smart Delay Configuration
+                const isSmart = step.type === 'SMART_DELAY' ||
+                    config.type === 'SMART' ||
+                    (config.delayType && config.delayType.toString().startsWith('SMART'))
+
+                if (isSmart) {
+                    let targetStage = 1 // Default
+
+                    if (config.delayType === 'SMART_STAGE_2') targetStage = 2
+                    else if (config.delayType === 'SMART_STAGE_3') targetStage = 3
+                    else if (config.smartStage) targetStage = parseInt(config.smartStage)
+
+                    // Note: calculateNextNurture(createdAt, currentStage)
+                    // If we are scheduling Stage 2, it means we are currently at Stage 1 (or just finished it).
+                    // So we pass currentStage = targetStage - 1.
+
+                    const currentStage = Math.max(1, targetStage - 1)
+                    const res = calculateNextNurture(lead.createdAt, currentStage)
+
+                    if (res) {
+                        nextNurtureAt = res.scheduleAt
+                        logMessage = `Smart Delay (Stage ${targetStage}) until ${nextNurtureAt.toLocaleString()}`
+                    } else {
+                        logMessage = `Smart Delay failed (No schedule returned), falling back to standard delay.`
+                    }
                 }
 
-                const nextNurtureAt = new Date(now.getTime() + delayMs)
+                // Fallback / Standard Logic
+                if (!nextNurtureAt) {
+                    const now = new Date()
+                    let delayMs = 0
+                    const duration = parseInt(config.fixedDuration || '1')
+                    const unit = config.fixedUnit || 'hours'
 
-                // Update lead with next nurture time and current step index
+                    switch (unit) {
+                        case 'minutes': delayMs = duration * 60 * 1000; break
+                        case 'hours': delayMs = duration * 60 * 60 * 1000; break
+                        case 'days': delayMs = duration * 24 * 60 * 60 * 1000; break
+                        default: delayMs = duration * 60 * 60 * 1000 // default hours
+                    }
+                    nextNurtureAt = new Date(now.getTime() + delayMs)
+                    logMessage = `Waiting ${duration} ${unit}. Next action at ${nextNurtureAt.toLocaleString()}`
+                }
+
+                // Update lead with next nurture time
                 await db.lead.update({
                     where: { id: leadId },
                     data: {
                         nextNurtureAt,
-                        nurtureStage: i, // Track which step we're waiting on
+                        nurtureStage: i, // Track this DELAY step as the resume point
                     }
                 })
 
@@ -130,7 +183,7 @@ export async function processWorkflow({
                         executionId: execution.id,
                         stepId: step.id,
                         status: 'INFO',
-                        message: `Waiting ${duration} ${unit}. Next action at ${nextNurtureAt.toLocaleString()}`,
+                        message: logMessage,
                     }
                 })
 
@@ -143,6 +196,8 @@ export async function processWorkflow({
                     description: `Next nurture scheduled for ${nextNurtureAt.toLocaleString()}`,
                 })
 
+                console.log(`[Workflow] Stopped at Delay step ${i}. Resuming at ${nextNurtureAt}`)
+                // STOP execution here. Resumed later via Cron.
                 break
             }
 

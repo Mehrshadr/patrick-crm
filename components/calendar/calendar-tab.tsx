@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signIn } from 'next-auth/react'
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -80,7 +80,7 @@ export function CalendarTab() {
                     Sign in with Google to sync your calendar events and see your meetings here.
                 </p>
                 <Button
-                    onClick={() => window.location.href = '/login'}
+                    onClick={() => signIn('google')}
                     className="bg-indigo-600 hover:bg-indigo-700"
                 >
                     Sign in with Google

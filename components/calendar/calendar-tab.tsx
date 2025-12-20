@@ -79,7 +79,13 @@ export function CalendarTab() {
                 <p className="text-slate-500 max-w-md mb-4">
                     Sign in with Google to sync your calendar events and see your meetings here.
                 </p>
-                <p className="text-xs text-slate-400">
+                <Button
+                    onClick={() => window.location.href = '/login'}
+                    className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                    Sign in with Google
+                </Button>
+                <p className="text-xs text-slate-400 mt-4">
                     Make sure Calendar API is enabled in Google Cloud Console.
                 </p>
             </div>

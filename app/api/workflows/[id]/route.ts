@@ -94,6 +94,18 @@ export async function PUT(
             return updated
         })
 
+        // Log the update
+        await prisma.activityLog.create({
+            data: {
+                category: 'AUTOMATION',
+                action: 'UPDATED',
+                entityType: 'Workflow',
+                entityId: id,
+                entityName: workflow.name,
+                description: `Workflow "${workflow.name}" was updated`
+            }
+        })
+
         return NextResponse.json({ success: true, workflow })
     } catch (error) {
         console.error('Error updating workflows:', error)
@@ -112,8 +124,23 @@ export async function DELETE(
             return NextResponse.json({ success: false, error: 'Invalid ID' }, { status: 400 })
         }
 
+        // Get workflow name before deletion
+        const workflow = await prisma.workflow.findUnique({ where: { id }, select: { name: true } })
+
         await prisma.workflow.delete({
             where: { id }
+        })
+
+        // Log the deletion
+        await prisma.activityLog.create({
+            data: {
+                category: 'AUTOMATION',
+                action: 'DELETED',
+                entityType: 'Workflow',
+                entityId: id,
+                entityName: workflow?.name || 'Unknown',
+                description: `Workflow "${workflow?.name || 'Unknown'}" was deleted`
+            }
         })
 
         return NextResponse.json({ success: true })
@@ -122,4 +149,5 @@ export async function DELETE(
         return NextResponse.json({ success: false, error: 'Failed to delete workflow' }, { status: 500 })
     }
 }
+
 

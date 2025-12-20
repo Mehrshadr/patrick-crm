@@ -316,13 +316,14 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     const finalReplyTo = customReplyTo || baseEmail;
 
                     // Format sender: "Name <email>"
-                    // If running automatically (no userName) or if baseEmail is missing, 
-                    // we send ONLY the name. lib/email.ts will append <me> (the authenticated user).
-                    // This ensures the Display Name is preserved by Gmail even if the email config string is tricky.
-                    const isAutomated = !userName;
-                    const fromAddress = (isAutomated || !baseEmail)
-                        ? (finalSenderName || "Patrick CRM")
-                        : (finalSenderName ? `"${finalSenderName}" <${baseEmail}>` : baseEmail);
+                    // CRITICAL: Gmail requires proper From format with email to show display name.
+                    // baseEmail comes from session OR process.env.GMAIL_USER for cron jobs.
+                    // If we only send a name without email, Gmail strips the display name!
+                    const fromAddress = baseEmail
+                        ? (finalSenderName ? `"${finalSenderName}" <${baseEmail}>` : baseEmail)
+                        : (finalSenderName || "Patrick CRM");
+
+                    console.log(`[WorkflowEngine] baseEmail=${baseEmail}, finalSenderName=${finalSenderName}`);
 
                     console.log(`[WorkflowEngine v1.4.2-DEBUG] Sending email. From: ${fromAddress}, Reply-To: ${finalReplyTo}`)
 

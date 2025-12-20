@@ -209,6 +209,14 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                         </Badge>
                                                                     </div>
                                                                 )}
+                                                                {/* Confirmed Meeting Badge */}
+                                                                {(lead as any).nextMeetingAt && new Date((lead as any).nextMeetingAt) > new Date() && (
+                                                                    <div className="mt-1.5">
+                                                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-red-50 text-red-700 border-red-200 font-medium">
+                                                                            📅 {format(new Date((lead as any).nextMeetingAt), "MMM d, h:mm a")}
+                                                                        </Badge>
+                                                                    </div>
+                                                                )}
                                                                 {/* Next Nurture Countdown */}
                                                                 {lead.nextNurtureAt && new Date(lead.nextNurtureAt) > new Date() && (
                                                                     <div className="mt-1.5">

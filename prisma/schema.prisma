@@ -39,6 +39,8 @@ model Lead {
   nurtureStage    Int       @default(0) // 0=None, 1=Stage1 Sent, 2=Stage2 Sent...
   nextNurtureAt   DateTime? // When is the next action due?
   
+  nextMeetingAt   DateTime? // When is the confirmed meeting?
+  
   // Tags
   quality         String?   // Hot, Warm, Cold
   businessType    String?   // Service, Product

@@ -7,6 +7,7 @@ import { KanbanBoard } from '@/components/leads/kanban-board'
 import { DataTable } from '@/components/leads/data-table'
 import { WorkflowsTab } from '@/components/automation/workflows-tab'
 import { LogsTab } from '@/components/logs/logs-tab'
+import { CalendarTab } from '@/components/calendar/calendar-tab'
 import { AddLeadButton } from '@/components/leads/add-lead-button'
 import { CleanupButton } from '@/components/leads/cleanup-button'
 import { UserMenu } from '@/components/user-menu'
@@ -87,12 +88,8 @@ export function Dashboard({ leads, user }: DashboardProps) {
                     )}
 
                     {activeTab === 'calendar' && (
-                        <div className="flex items-center justify-center h-64 text-slate-500">
-                            <div className="text-center">
-                                <p className="text-4xl mb-4">📅</p>
-                                <p className="font-medium">Calendar Sync Coming Soon</p>
-                                <p className="text-sm">Connect your Calendly to see scheduled meetings</p>
-                            </div>
+                        <div className="max-w-6xl">
+                            <CalendarTab />
                         </div>
                     )}
 

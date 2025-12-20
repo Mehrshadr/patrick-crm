@@ -31,7 +31,7 @@ const MENU_ITEMS = [
     { id: 'board', label: 'Lead Pipeline', icon: LayoutDashboard },
     { id: 'automation', label: 'Automation', icon: Bot },
     { id: 'logs', label: 'Logs', icon: ClipboardList },
-    { id: 'calendar', label: 'Calendar', icon: Calendar, disabled: true, badge: 'Soon' },
+    { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -58,17 +58,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                                 <SidebarMenuItem key={item.id}>
                                     <SidebarMenuButton
                                         isActive={activeTab === item.id}
-                                        onClick={() => !item.disabled && onTabChange(item.id)}
-                                        disabled={item.disabled}
+                                        onClick={() => onTabChange(item.id)}
                                         tooltip={item.label}
                                     >
                                         <item.icon className="h-4 w-4" />
                                         <span>{item.label}</span>
-                                        {item.badge && (
-                                            <span className="ml-auto text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
-                                                {item.badge}
-                                            </span>
-                                        )}
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
                             ))}

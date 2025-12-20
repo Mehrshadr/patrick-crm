@@ -171,11 +171,47 @@ export async function GET() {
             }
         }
 
+        // 6. Detect Cancellations
+        // Find leads who THINK they have a meeting in the fetched window, but don't anymore.
+        const trackedLeads = await db.lead.findMany({
+            where: {
+                nextMeetingAt: {
+                    gte: now,
+                    lte: nextTwoWeeks
+                }
+            }
+        })
+
+        let cancelledCount = 0
+        for (const L of trackedLeads) {
+            // Check if L's email appears in ANY event in 'events'
+            const hasMeeting = events.some(e => e.attendees?.some(att => att.toLowerCase() === L.email?.toLowerCase()))
+
+            if (!hasMeeting) {
+                // Meeting disappeared!
+                console.log(`[MeetingSync] Cancellation detected for ${L.email}. Clearing status.`)
+
+                await db.lead.update({
+                    where: { id: L.id },
+                    data: {
+                        nextMeetingAt: null,
+                        meetingId: null,
+                        subStatus: L.subStatus === 'Scheduled' ? null : L.subStatus, // Clear 'Scheduled' tag, keep others if weird
+                    } as any
+                })
+
+                // We don't change the Stage back automatically (too risky), 
+                // but removing 'Scheduled' + Date Badge effectively "un-confirms" is visually.
+                cancelledCount++
+            }
+        }
+
         return NextResponse.json({
             success: true,
             eventsFound: events.length,
             leadsMatched: leads.length,
-            leadsUpdated: updatedCount
+            leadsUpdated: updatedCount,
+            cancellations: cancelledCount
         })
 
     } catch (error: any) {

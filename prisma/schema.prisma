@@ -37,9 +37,11 @@ model Lead {
   
   // Nurture State
   nurtureStage    Int       @default(0) // 0=None, 1=Stage1 Sent, 2=Stage2 Sent...
+  automationStatus String?  // User-facing status: "Waiting for Welcome 2" or "Welcome 1 Done"
   nextNurtureAt   DateTime? // When is the next action due?
   
   nextMeetingAt   DateTime? // When is the confirmed meeting?
+  meetingId       String?   // Google Calendar Event ID to track cancellations
   
   // Tags
   quality         String?   // Hot, Warm, Cold

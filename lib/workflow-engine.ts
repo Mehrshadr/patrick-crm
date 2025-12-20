@@ -205,12 +205,16 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     logMessage = `Waiting ${duration} ${unit}. Next action at ${nextNurtureAt.toLocaleString()}`
                 }
 
+                // Determine next step name for status
+                const nextStepName = steps[i + 1]?.name || 'Next Step'
+
                 // Update lead with next nurture time
                 await db.lead.update({
                     where: { id: leadId },
                     data: {
                         nextNurtureAt,
                         nurtureStage: i, // Track this DELAY step as the resume point
+                        automationStatus: `Waiting: ${nextStepName}`
                     }
                 })
 
@@ -311,9 +315,10 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     const finalReplyTo = customReplyTo || baseEmail;
 
                     // Format sender: "Name <email>"
+                    // If baseEmail is missing (Cron), try sending just Name; lib/email.ts will append <me>
                     const fromAddress = baseEmail
                         ? (finalSenderName ? `"${finalSenderName}" <${baseEmail}>` : baseEmail)
-                        : undefined
+                        : (finalSenderName || undefined)
 
                     console.log(`[WorkflowEngine v1.4.2-DEBUG] Sending email. From: ${fromAddress}, Reply-To: ${finalReplyTo}`)
 
@@ -337,6 +342,13 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                             message: `Email sent to ${lead.email}`,
                         }
                     })
+
+                    // Update Status
+                    await db.lead.update({
+                        where: { id: leadId },
+                        data: { automationStatus: `${step.name} Done` }
+                    })
+
                     // Also log to lead's log table for display in lead dialog
                     await db.log.create({
                         data: {
@@ -348,6 +360,7 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                             stage: workflow.pipelineStage || 'Automation'
                         }
                     })
+
                     await logActivity({
                         category: 'COMMUNICATION',
                         action: res.success ? 'EMAIL_SENT' : 'EMAIL_FAILED',

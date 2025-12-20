@@ -10,7 +10,7 @@ import { format } from "date-fns"
 import { LeadActions } from "./lead-actions"
 import { toast } from "sonner"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Zap } from "lucide-react"
+import { Zap, CheckCircle2 } from "lucide-react"
 import { FileText, ClipboardList } from "lucide-react"
 import { useSession } from "next-auth/react"
 
@@ -205,11 +205,21 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                 </div>
                                                                 {/* Last Automation Badge */}
                                                                 {lead.nurtureStage > 0 && (
-                                                                    <div className="mt-1.5">
-                                                                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-amber-50 text-amber-700 border-amber-200">
-                                                                            <Zap className="h-2.5 w-2.5 mr-0.5" />
-                                                                            Seq {lead.nurtureStage}
-                                                                        </Badge>
+                                                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                                                        {/* Last Automation Badge */}
+                                                                        {(lead.nurtureStage > 0 || (lead as any).automationStatus) && (
+                                                                            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 border ${(lead as any).automationStatus?.includes("Done")
+                                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                                                    : "bg-amber-50 text-amber-700 border-amber-200"
+                                                                                }`}>
+                                                                                {(lead as any).automationStatus?.includes("Done") ? (
+                                                                                    <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                                                                                ) : (
+                                                                                    <Zap className="h-2.5 w-2.5 mr-0.5" />
+                                                                                )}
+                                                                                {(lead as any).automationStatus || `Seq ${lead.nurtureStage}`}
+                                                                            </Badge>
+                                                                        )}
                                                                     </div>
                                                                 )}
 

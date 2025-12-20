@@ -56,12 +56,12 @@ export async function createLead(data: any) {
             data: {
                 name: data.name || "",
                 phone: data.phone || "",
-                email: data.email || "",
-                website: data.website || "",
+                email: data.email || null,
+                website: data.website || null,
                 quality: data.quality || null,
                 businessType: data.businessType || null,
-                status: "New",
-                stage: "New"
+                status: data.status || "New",
+                stage: data.stage || "New"
             }
         })
 
@@ -126,13 +126,17 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
                 })
 
                 for (const workflow of matchingWorkflows) {
+                    // Refresh lead data to ensure tokens and fields are up to date
+                    const refreshedLead = await db.lead.findUnique({ where: { id: id } })
+                    if (!refreshedLead) continue
+
                     // Start execution
                     await processWorkflow({
                         workflowId: workflow.id,
                         leadId: id,
                         accessToken,
                         refreshToken,
-                        triggeredBy: 'AUTO (Status Change)'
+                        triggeredBy: `AUTO (${newStatus}${newSubStatus ? ' - ' + newSubStatus : ''})`
                     })
                 }
             }

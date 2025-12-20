@@ -173,6 +173,13 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         if (!lead) return
         setRunningWorkflow(workflowId)
         try {
+            // Basic validation Check
+            if (!lead.email && !lead.phone) {
+                toast.error('Lead must have an email or phone number to run automation')
+                setRunningWorkflow(null)
+                return
+            }
+
             const res = await fetch('/api/workflow-executions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

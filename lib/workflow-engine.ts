@@ -140,7 +140,10 @@ export async function processWorkflow({
             }
 
             try {
-                if (step.type === 'SMS' && lead.phone) {
+                if (step.type === 'SMS') {
+                    if (!lead.phone) {
+                        throw new Error(`Recipient phone number required for step: ${step.name}`)
+                    }
                     const res = await sendSms(lead.phone, config.body)
                     await db.workflowLog.create({
                         data: {
@@ -171,7 +174,11 @@ export async function processWorkflow({
                     })
                 }
 
-                if (step.type === 'EMAIL' && lead.email) {
+                if (step.type === 'EMAIL') {
+                    if (!lead.email) {
+                        throw new Error(`Recipient email address required for step: ${step.name}`)
+                    }
+
                     const res = await sendEmail({
                         to: lead.email,
                         subject: config.subject,

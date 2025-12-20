@@ -183,7 +183,7 @@ export async function processWorkflow({
 
                 if (step.type === 'EMAIL') {
                     const recipientEmail = (lead.email || '').trim()
-                    console.log(`[WorkflowEngine v1.4.1-DEBUG] Step: ${step.name}, Recipient Email: "${recipientEmail}"`)
+                    console.log(`[WorkflowEngine v1.4.2-DEBUG] Step: ${step.name}, Recipient Email: "${recipientEmail}"`)
 
                     if (!recipientEmail || recipientEmail.length < 5) {
                         throw new Error(`Recipient email address required or invalid: "${recipientEmail}"`)
@@ -196,17 +196,27 @@ export async function processWorkflow({
                     // Inject signature into body
                     const bodyWithSignature = config.body.replace(/{signature}/g, signature)
 
+                    // Determine Sender Name and Reply-To
+                    // Priority: Step Config > Session User > Default
+                    const customSenderName = config.senderName
+                    const customReplyTo = config.replyTo
+
+                    const finalSenderName = customSenderName || userName;
+                    const finalReplyTo = customReplyTo || userEmail;
+
                     // Format sender: "Name <email>"
                     const fromAddress = userEmail
-                        ? (userName ? `"${userName}" <${userEmail}>` : userEmail)
+                        ? (finalSenderName ? `"${finalSenderName}" <${userEmail}>` : userEmail)
                         : undefined
+
+                    console.log(`[WorkflowEngine v1.4.2-DEBUG] Sending email. From: ${fromAddress}, Reply-To: ${finalReplyTo}`)
 
                     const res = await sendEmail({
                         to: recipientEmail,
                         subject: config.subject,
                         html: bodyWithSignature,
                         from: fromAddress,
-                        replyTo: userEmail
+                        replyTo: finalReplyTo
                     }, (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined)
 
                     await db.workflowLog.create({

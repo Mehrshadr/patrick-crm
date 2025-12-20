@@ -70,7 +70,7 @@ export async function GET() {
             const durationMs = nextEvent.end.getTime() - nextEvent.start.getTime()
             const durationMinutes = Math.floor(durationMs / (1000 * 60))
 
-            let targetStage = 'Meeting 1' // Default
+            let targetStage = 'Meeting1' // Default
             let description = '15min Discovery Call Detected'
 
             // LOGIC: Differentiate Meeting Types based on Duration and History
@@ -79,15 +79,15 @@ export async function GET() {
                 // Decide if M2 or M3 based on history
                 // "If they had a Meeting 2 Outcome (Done, Rescheduled, etc), this is likely M3"
                 if (lead.meeting2Outcome && lead.meeting2Outcome !== '') {
-                    targetStage = 'Meeting 3'
+                    targetStage = 'Meeting3'
                     description = `60min Proposal Call Detected (History: M2 ${lead.meeting2Outcome})`
                 } else {
-                    targetStage = 'Meeting 2'
+                    targetStage = 'Meeting2'
                     description = '60min Strategy Call Detected'
                 }
             } else {
                 // < 45 mins -> Likely the 15min Intro (Meeting 1)
-                targetStage = 'Meeting 1'
+                targetStage = 'Meeting1'
             }
 
             // Status Protection: Don't revert 'Won' or 'Lost' leads

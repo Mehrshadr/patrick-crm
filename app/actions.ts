@@ -41,7 +41,7 @@ export async function getLeads() {
     try {
         const leads = await db.lead.findMany({
             orderBy: { createdAt: 'desc' },
-            include: { links: true }
+            include: { links: true, logs: true }
         })
         return leads
     } catch (e) {

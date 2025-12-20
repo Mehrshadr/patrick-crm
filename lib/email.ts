@@ -34,13 +34,12 @@ async function sendViaGmailAPI(
 
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
-        // Get the sender email from the token
-        const profile = await gmail.users.getProfile({ userId: 'me' })
-        const senderEmail = profile.data.emailAddress || options.from
+        // Use the provided 'from' email or fallback to empty (Gmail will fill it)
+        const senderEmail = options.from || ''
 
         // Build the email in RFC 2822 format
         const messageParts = [
-            `From: ${senderEmail}`,
+            senderEmail ? `From: ${senderEmail}` : '',
             `To: ${options.to}`,
             `Subject: ${options.subject}`,
             'MIME-Version: 1.0',

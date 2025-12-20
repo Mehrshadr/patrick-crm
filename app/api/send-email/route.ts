@@ -19,7 +19,13 @@ export async function POST(request: NextRequest) {
 
         // Try OAuth first, then fall back to app password
         const tokens = (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined
-        const result = await sendEmail({ to, subject, html, from, replyTo }, tokens)
+        const result = await sendEmail({
+            to,
+            subject,
+            html,
+            from: from || session?.user?.email || undefined,
+            replyTo
+        }, tokens)
         return NextResponse.json(result)
     } catch (error: any) {
         return NextResponse.json(

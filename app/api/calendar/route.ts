@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     try {
         const session = await auth()
         const accessToken = (session as any)?.accessToken
+        const refreshToken = (session as any)?.refreshToken
 
         if (!accessToken) {
             return NextResponse.json(
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
         const timeMax = searchParams.get('timeMax')
 
         const events = await getCalendarEvents(accessToken, {
+            refreshToken, // Pass refresh token for auto-renewal
             timeMin: timeMin ? new Date(timeMin) : undefined,
             timeMax: timeMax ? new Date(timeMax) : undefined,
             maxResults: 100

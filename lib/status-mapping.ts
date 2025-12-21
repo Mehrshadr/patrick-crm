@@ -32,7 +32,7 @@ export const STAGE_CONFIG: Record<PipelineStage, {
     "Meeting2": {
         label: "Meeting 2 (Reveal)",
         color: "bg-purple-50 border-purple-200 text-purple-700",
-        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Done", "Ghosted", "Other"]
+        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Audit Presented", "Ghosted", "Other"]
     },
     "Meeting3": {
         label: "Meeting 3 (The Deal)",

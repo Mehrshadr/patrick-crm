@@ -113,23 +113,62 @@ async function sendViaGmailAPI(
     }
 }
 
+// Get system tokens from database (from Hello@ or admin login)
+async function getSystemTokens(): Promise<{ accessToken: string; refreshToken: string } | null> {
+    try {
+        // Dynamic import to avoid circular dependency
+        const { db } = await import('@/lib/db')
+
+        const tokens = await db.appSettings.findMany({
+            where: {
+                key: {
+                    in: ['SYSTEM_GOOGLE_ACCESS_TOKEN', 'SYSTEM_GOOGLE_REFRESH_TOKEN']
+                }
+            }
+        })
+
+        const accessToken = tokens.find(t => t.key === 'SYSTEM_GOOGLE_ACCESS_TOKEN')?.value
+        const refreshToken = tokens.find(t => t.key === 'SYSTEM_GOOGLE_REFRESH_TOKEN')?.value
+
+        if (accessToken && refreshToken) {
+            return { accessToken, refreshToken }
+        }
+        return null
+    } catch (e) {
+        console.error('[Email] Failed to get system tokens:', e)
+        return null
+    }
+}
+
 export async function sendEmail(
     options: SendEmailOptions,
     tokens?: { accessToken: string; refreshToken: string }
 ): Promise<SendEmailResult> {
-    // Try Gmail API first (like n8n)
-    if (tokens?.accessToken && tokens?.refreshToken) {
-        console.log('Attempting to send via Gmail API with OAuth...')
-        return await sendViaGmailAPI(options, tokens.accessToken, tokens.refreshToken)
+    // Default sender to Mehrana Agency
+    if (!options.from) {
+        options.from = 'Mehrana Agency'
+    }
+
+    // Try provided tokens first, then fall back to system tokens
+    let tokensToUse = tokens
+
+    if (!tokensToUse?.accessToken || !tokensToUse?.refreshToken) {
+        console.log('[Email] No tokens provided, trying system tokens...')
+        tokensToUse = await getSystemTokens() || undefined
+    }
+
+    if (tokensToUse?.accessToken && tokensToUse?.refreshToken) {
+        console.log('[Email] Sending via Gmail API with tokens...')
+        return await sendViaGmailAPI(options, tokensToUse.accessToken, tokensToUse.refreshToken)
     }
 
     // No credentials available
-    return { success: false, error: 'No OAuth tokens available. Please log out and log back in with Google.' }
+    return { success: false, error: 'No OAuth tokens available. Please have an admin (Hello@mehrana.agency) log in first.' }
 }
 
 // Test email connection
 export async function testEmailConnection(): Promise<boolean> {
-    // For Gmail API, we can't really test without tokens
-    // Return false to indicate manual testing is needed
-    return false
+    const tokens = await getSystemTokens()
+    return tokens !== null
 }
+

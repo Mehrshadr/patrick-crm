@@ -67,12 +67,13 @@ export async function POST(request: NextRequest) {
             description: `Lead created via API${source ? ` (${source})` : ''}`
         })
 
-        // Auto-trigger workflow if status is set
+        // Auto-trigger workflow ONLY if executionMode is AUTO (not MANUAL)
         if (lead.status && lead.subStatus) {
-            // Find matching workflows
+            // Find matching AUTO workflows only
             const workflows = await db.workflow.findMany({
                 where: {
                     isActive: true,
+                    executionMode: 'AUTO', // Only trigger AUTO workflows!
                     triggerType: 'ON_STATUS_CHANGE',
                     triggerStatus: lead.status,
                     OR: [
@@ -82,6 +83,8 @@ export async function POST(request: NextRequest) {
                     ]
                 }
             })
+
+            console.log(`[API/leads] Found ${workflows.length} AUTO workflows to trigger for status ${lead.status}/${lead.subStatus}`)
 
             // Start workflows in background
             for (const wf of workflows) {

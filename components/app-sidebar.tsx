@@ -40,10 +40,17 @@ export function AppSidebar() {
         <Sidebar collapsible="icon">
             <SidebarHeader className="p-4">
                 <Link href="/leads" className="flex items-center">
+                    {/* Full logo - shown when sidebar is expanded */}
                     <img
                         src="https://mehrana.agency/wp-content/uploads/2023/06/Mehrana-Logo-Black.png"
                         alt="Mehrana Agency"
-                        className="h-8 object-contain group-data-[collapsible=icon]:h-6"
+                        className="h-8 object-contain group-data-[collapsible=icon]:hidden"
+                    />
+                    {/* Icon only - shown when sidebar is collapsed */}
+                    <img
+                        src="/mehrana-icon.png"
+                        alt="Mehrana"
+                        className="h-8 w-8 object-contain hidden group-data-[collapsible=icon]:block"
                     />
                 </Link>
             </SidebarHeader>

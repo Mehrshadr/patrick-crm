@@ -56,7 +56,8 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
             "Meeting2": [],
             "Meeting3": [],
             "Won": [],
-            "Lost": []
+            "Lost": [],
+            "Ghosted": []
         }
 
         leads.forEach(lead => {

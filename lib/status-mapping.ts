@@ -7,6 +7,7 @@ export type PipelineStage =
     | "Meeting3"
     | "Won"
     | "Lost"
+    | "Ghosted"
 
 export const STAGE_CONFIG: Record<PipelineStage, {
     label: string,
@@ -47,6 +48,11 @@ export const STAGE_CONFIG: Record<PipelineStage, {
         label: "Lost",
         color: "bg-red-50 border-red-200 text-red-700",
         subStatuses: ["Not Interested", "Not Qualified", "Too Expensive", "Other"]
+    },
+    "Ghosted": {
+        label: "Ghosted",
+        color: "bg-slate-100 border-slate-300 text-slate-600",
+        subStatuses: ["Long Term Ghosted", "Ready for Nurture", "To Follow Up", "Other"]
     }
 }
 

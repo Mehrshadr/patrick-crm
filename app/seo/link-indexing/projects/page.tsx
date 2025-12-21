@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -53,7 +53,7 @@ interface Project {
     }
 }
 
-export default function ProjectsPage() {
+function ProjectsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [projects, setProjects] = useState<Project[]>([])
@@ -333,5 +333,13 @@ export default function ProjectsPage() {
                 </DialogContent>
             </Dialog>
         </div>
+    )
+}
+
+export default function ProjectsPage() {
+    return (
+        <Suspense fallback={<div className="p-6">Loading...</div>}>
+            <ProjectsContent />
+        </Suspense>
     )
 }

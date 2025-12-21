@@ -5,6 +5,7 @@ import { db } from "@/lib/db"
 import { Lead } from "@prisma/client"
 import { processWorkflow } from "@/lib/workflow-engine"
 import { auth } from "@/lib/auth"
+import { requireAdmin } from "@/lib/permissions"
 
 // We re-export Lead so components can use it
 export type { Lead } from "@prisma/client"
@@ -53,6 +54,8 @@ export async function getLeads() {
 export async function createLead(data: any) {
     console.log('[createLead] Triggered with data:', data)
     try {
+        const session = await auth()
+        await requireAdmin(session)
         const lead = await db.lead.create({
             data: {
                 name: data.name || "Unnamed Lead",
@@ -80,6 +83,9 @@ export async function createLead(data: any) {
 
 export async function updateLead(id: number, data: LeadUpdateValues, user?: { email?: string | null, name?: string | null }) {
     try {
+        const session = await auth()
+        await requireAdmin(session)
+
         const currentLead = await db.lead.findUnique({ where: { id } });
 
         const updatedData = { ...data };
@@ -181,6 +187,9 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
 
 export async function deleteLead(id: number) {
     try {
+        const session = await auth()
+        await requireAdmin(session)
+
         await db.lead.delete({ where: { id } })
         revalidatePath("/")
         return { success: true }
@@ -207,6 +216,9 @@ export async function getLeadLogs(leadId: number) {
 
 export async function addLink(leadId: number, type: string, title: string, url: string) {
     try {
+        const session = await auth()
+        await requireAdmin(session)
+
         const link = await db.link.create({
             data: { leadId, type, title, url }
         })

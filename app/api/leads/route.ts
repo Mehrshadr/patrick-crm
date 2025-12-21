@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { processWorkflow } from '@/lib/workflow-engine'
-import { logActivity } from '@/lib/activity-log'
+import { logActivity } from '@/lib/activity'
 
 // POST - Create a new lead (for n8n, Facebook, Zapier, etc.)
 export async function POST(request: NextRequest) {

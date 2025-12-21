@@ -200,7 +200,15 @@ export function LogsTab() {
                                             {log.details && (() => {
                                                 // Try to parse as JSON for nicer display
                                                 try {
-                                                    const parsed = JSON.parse(log.details)
+                                                    let parsed = JSON.parse(log.details)
+                                                    // Handle double-stringified JSON
+                                                    if (typeof parsed === 'string') {
+                                                        try {
+                                                            parsed = JSON.parse(parsed)
+                                                        } catch {
+                                                            // Not double-stringified, keep as string
+                                                        }
+                                                    }
                                                     // Ensure it's actually an object, not a string or array
                                                     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
                                                         return (
@@ -217,10 +225,17 @@ export function LogsTab() {
                                                             </div>
                                                         )
                                                     }
-                                                    // If parsed but not object, show as string
-                                                    throw new Error('Not an object')
+                                                    // If parsed but not object, show as formatted string
+                                                    return (
+                                                        <div>
+                                                            <div className="text-xs font-medium text-slate-500 mb-1">Details:</div>
+                                                            <div className="text-sm text-slate-700 bg-slate-50 rounded p-2 whitespace-pre-wrap">
+                                                                {typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2)}
+                                                            </div>
+                                                        </div>
+                                                    )
                                                 } catch {
-                                                    // Fallback to raw display
+                                                    // Fallback to raw display (non-JSON)
                                                     return (
                                                         <div>
                                                             <div className="text-xs font-medium text-slate-500 mb-1">Details:</div>

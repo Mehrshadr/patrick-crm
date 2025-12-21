@@ -127,7 +127,7 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
 
     return (
         <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex gap-4 pb-4 overflow-x-auto" style={{ height: 'calc(100vh - 220px)' }}>
+            <div className="flex gap-4 pb-4 overflow-x-auto" style={{ height: 'calc(100vh - 140px)' }}>
                 {Object.entries(STAGE_CONFIG).map(([stage, config]) => (
                     <div key={stage} className="w-[300px] flex-shrink-0 flex flex-col bg-slate-50/50 rounded-lg border overflow-hidden" style={{ maxHeight: '100%' }}>
                         <div className={`p-3 border-b ${config.color.split(" ")[0]} rounded-t-lg`}>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -20,7 +21,6 @@ import {
     Bot,
     Calendar,
     Settings,
-    Zap,
     ClipboardList
 } from "lucide-react"
 
@@ -34,6 +34,7 @@ const MENU_ITEMS = [
 
 export function AppSidebar() {
     const pathname = usePathname()
+    const [patrickEnlarged, setPatrickEnlarged] = useState(false)
 
     return (
         <Sidebar collapsible="icon">
@@ -75,7 +76,23 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter className="p-4">
-                <div className="text-xs text-slate-500 group-data-[collapsible=icon]:hidden space-y-1">
+                {/* Patrick Easter Egg */}
+                <div className="flex justify-center mb-2">
+                    <img
+                        src="/patrick-mascot.png"
+                        alt="Patrick"
+                        onClick={() => {
+                            setPatrickEnlarged(true)
+                            setTimeout(() => setPatrickEnlarged(false), 1500)
+                        }}
+                        className={`cursor-pointer select-none transition-all duration-500 ease-out ${patrickEnlarged
+                                ? 'h-20 w-20 opacity-100 rotate-12 scale-125'
+                                : 'h-8 w-8 opacity-15 hover:opacity-40'
+                            }`}
+                        title="Hi, I'm Patrick! 🌟"
+                    />
+                </div>
+                <div className="text-xs text-slate-500 group-data-[collapsible=icon]:hidden space-y-1 text-center">
                     <div className="font-medium text-slate-600">PCRM</div>
                     <div>A product by Mehrana Agency</div>
                     <div>© {new Date().getFullYear()} All rights reserved</div>

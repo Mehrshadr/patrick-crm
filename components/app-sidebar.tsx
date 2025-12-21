@@ -14,17 +14,30 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubItem,
+    SidebarMenuSubButton,
     SidebarRail,
 } from "@/components/ui/sidebar"
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
     LayoutDashboard,
     Bot,
     Calendar,
     Settings,
-    ClipboardList
+    ClipboardList,
+    Link2,
+    ChevronDown,
+    Search,
+    Brain,
 } from "lucide-react"
 
-const MENU_ITEMS = [
+// PCRM Menu Items
+const PCRM_ITEMS = [
     { id: 'leads', label: 'Lead Pipeline', icon: LayoutDashboard, href: '/leads' },
     { id: 'automation', label: 'Automation', icon: Bot, href: '/automation' },
     { id: 'logs', label: 'Logs', icon: ClipboardList, href: '/logs' },
@@ -32,9 +45,27 @@ const MENU_ITEMS = [
     { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ]
 
+// SEO Tools Menu Items
+const SEO_ITEMS = [
+    {
+        id: 'link-indexing',
+        label: 'Link Indexing',
+        icon: Link2,
+        href: '/seo/link-indexing',
+        children: [
+            { id: 'li-dashboard', label: 'Dashboard', href: '/seo/link-indexing' },
+            { id: 'li-projects', label: 'Projects', href: '/seo/link-indexing/projects' },
+            { id: 'li-logs', label: 'Logs', href: '/seo/link-indexing/logs' },
+        ]
+    },
+    // Future: Link Building, Keyword Tracker, etc.
+]
+
 export function AppSidebar() {
     const pathname = usePathname()
     const [patrickEnlarged, setPatrickEnlarged] = useState(false)
+    const isPcrm = !pathname.startsWith('/seo')
+    const isSeoActive = pathname.startsWith('/seo')
 
     return (
         <Sidebar collapsible="icon">
@@ -56,26 +87,94 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <SidebarGroup>
-                    <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {MENU_ITEMS.map((item) => (
-                                <SidebarMenuItem key={item.id}>
-                                    <SidebarMenuButton
-                                        asChild
-                                        isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
-                                        tooltip={item.label}
-                                    >
-                                        <Link href={item.href}>
-                                            <item.icon className="h-4 w-4" />
-                                            <span>{item.label}</span>
-                                        </Link>
+                <SidebarGroup className="py-0">
+                    <SidebarMenu>
+                        {/* PCRM Section */}
+                        <Collapsible defaultOpen={isPcrm} className="group/pcrm">
+                            <SidebarMenuItem>
+                                <CollapsibleTrigger asChild>
+                                    <SidebarMenuButton className="font-medium">
+                                        <Brain className="h-4 w-4" />
+                                        <span>PCRM</span>
+                                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/pcrm:rotate-180" />
                                     </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <SidebarMenuSub>
+                                        {PCRM_ITEMS.map((item) => (
+                                            <SidebarMenuSubItem key={item.id}>
+                                                <SidebarMenuSubButton
+                                                    asChild
+                                                    isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
+                                                >
+                                                    <Link href={item.href}>
+                                                        <item.icon className="h-4 w-4" />
+                                                        <span>{item.label}</span>
+                                                    </Link>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                        ))}
+                                    </SidebarMenuSub>
+                                </CollapsibleContent>
+                            </SidebarMenuItem>
+                        </Collapsible>
+
+                        {/* SEO Tools Section */}
+                        <Collapsible defaultOpen={isSeoActive} className="group/seo">
+                            <SidebarMenuItem>
+                                <CollapsibleTrigger asChild>
+                                    <SidebarMenuButton className="font-medium">
+                                        <Search className="h-4 w-4" />
+                                        <span>SEO Tools</span>
+                                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/seo:rotate-180" />
+                                    </SidebarMenuButton>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <SidebarMenuSub>
+                                        {SEO_ITEMS.map((item) => (
+                                            <Collapsible key={item.id} defaultOpen={pathname.startsWith(item.href)} className="group/tool">
+                                                <SidebarMenuSubItem>
+                                                    <CollapsibleTrigger asChild>
+                                                        <SidebarMenuSubButton
+                                                            isActive={pathname.startsWith(item.href)}
+                                                            className="justify-between pr-2"
+                                                        >
+                                                            <span className="flex items-center gap-2">
+                                                                <item.icon className="h-4 w-4" />
+                                                                <span>{item.label}</span>
+                                                            </span>
+                                                            {item.children && (
+                                                                <ChevronDown className="h-3 w-3 transition-transform group-data-[state=open]/tool:rotate-180" />
+                                                            )}
+                                                        </SidebarMenuSubButton>
+                                                    </CollapsibleTrigger>
+                                                    {item.children && (
+                                                        <CollapsibleContent>
+                                                            <SidebarMenuSub className="ml-4 border-l border-border/50">
+                                                                {item.children.map((child) => (
+                                                                    <SidebarMenuSubItem key={child.id}>
+                                                                        <SidebarMenuSubButton
+                                                                            asChild
+                                                                            isActive={pathname === child.href}
+                                                                            size="sm"
+                                                                        >
+                                                                            <Link href={child.href}>
+                                                                                <span>{child.label}</span>
+                                                                            </Link>
+                                                                        </SidebarMenuSubButton>
+                                                                    </SidebarMenuSubItem>
+                                                                ))}
+                                                            </SidebarMenuSub>
+                                                        </CollapsibleContent>
+                                                    )}
+                                                </SidebarMenuSubItem>
+                                            </Collapsible>
+                                        ))}
+                                    </SidebarMenuSub>
+                                </CollapsibleContent>
+                            </SidebarMenuItem>
+                        </Collapsible>
+                    </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>
 
@@ -97,8 +196,7 @@ export function AppSidebar() {
                     />
                 </div>
                 <div className="text-xs text-slate-500 group-data-[collapsible=icon]:hidden space-y-1 text-center">
-                    <div className="font-medium text-slate-600">PCRM</div>
-                    <div>A product by Mehrana Agency</div>
+                    <div className="font-medium text-slate-600">Mehrana Platform</div>
                     <div>© {new Date().getFullYear()} All rights reserved</div>
                 </div>
             </SidebarFooter>

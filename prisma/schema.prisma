@@ -259,3 +259,58 @@ model LoginLog {
   
   createdAt DateTime @default(now())
 }
+
+// ============================================
+// SEO TOOLS: Link Indexing
+// ============================================
+
+model IndexingProject {
+  id          Int       @id @default(autoincrement())
+  name        String    // "Mehrana", "Epochtimes", "Morsun Kitchen"
+  domain      String?   // "mehrana.agency"
+  description String?
+  
+  urls        IndexingUrl[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model IndexingUrl {
+  id          Int              @id @default(autoincrement())
+  projectId   Int
+  project     IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  url         String
+  
+  // Status tracking
+  status      String    @default("PENDING")  // "PENDING", "SUBMITTED", "INDEXED", "ERROR"
+  
+  // Scheduling
+  interval    String?   // "DAILY", "WEEKLY", "MONTHLY", null = one-time
+  lastSubmittedAt DateTime?
+  nextSubmitAt    DateTime?
+  
+  // Google API Response
+  lastInspectionResult String?  // JSON from Search Console API
+  lastInspectedAt      DateTime?
+  
+  logs        IndexingLog[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@unique([projectId, url])  // No duplicate URLs per project
+}
+
+model IndexingLog {
+  id        Int          @id @default(autoincrement())
+  urlId     Int
+  url       IndexingUrl  @relation(fields: [urlId], references: [id], onDelete: Cascade)
+  
+  action    String       // "SUBMIT", "INSPECT", "ERROR"
+  status    String       // "SUCCESS", "FAILED"
+  response  String?      // API response JSON
+  
+  createdAt DateTime     @default(now())
+}

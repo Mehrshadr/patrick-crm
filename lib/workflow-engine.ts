@@ -206,7 +206,7 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     const now = new Date()
                     let delayMs = 0
                     const duration = parseInt(config.fixedDuration || '1')
-                    const unit = config.fixedUnit || 'hours'
+                    const unit = (config.fixedUnit || 'hours').toLowerCase() // Case-insensitive!
 
                     switch (unit) {
                         case 'minutes': delayMs = duration * 60 * 1000; break

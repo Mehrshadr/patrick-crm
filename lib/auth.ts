@@ -34,7 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // Upsert user in database
             try {
                 const role = getUserRole(email)
-                await db.user.upsert({
+                const dbUser = await db.user.upsert({
                     where: { email },
                     update: {
                         name: user.name || undefined,
@@ -46,6 +46,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         role
                     }
                 })
+
+                // Create login log for security auditing
+                await db.loginLog.create({
+                    data: {
+                        userId: dbUser.id,
+                        success: true
+                    }
+                })
+
                 console.log(`[Auth] User logged in: ${email} (${role})`)
             } catch (e) {
                 console.error("[Auth] Failed to upsert user:", e)

@@ -242,4 +242,20 @@ model User {
   role      String    @default("VIEWER")  // "ADMIN", "VIEWER"
   createdAt DateTime  @default(now())
   lastLogin DateTime?
+  lastLoginIp String?
+  
+  loginLogs LoginLog[]
+}
+
+// Login History (for security auditing)
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  ip        String?
+  userAgent String?
+  success   Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
 }

@@ -312,6 +312,8 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
 
                     // Determine Sender Name and Reply-To
                     // Priority: Step Config > DB Settings > Default
+                    console.log(`[WorkflowEngine DEBUG] rawConfig.senderName='${rawConfig?.senderName}', config.senderName='${config?.senderName}'`)
+
                     const customSenderName = config.senderName
                     const customReplyTo = config.replyTo
 
@@ -338,7 +340,8 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                         ? `"${finalSenderName}" <${baseEmail}>`
                         : baseEmail;
 
-                    console.log(`[WorkflowEngine] baseEmail=${baseEmail}, finalSenderName=${finalSenderName}`);
+                    console.log(`[WorkflowEngine] customSenderName='${customSenderName}', defaultSenderName='${defaultSenderName}', finalSenderName='${finalSenderName}'`);
+                    console.log(`[WorkflowEngine] baseEmail=${baseEmail}, fromAddress=${fromAddress}`);
 
                     console.log(`[WorkflowEngine v1.4.2-DEBUG] Sending email. From: ${fromAddress}, Reply-To: ${finalReplyTo}`)
 

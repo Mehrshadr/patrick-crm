@@ -83,7 +83,7 @@ export function AppSidebar() {
                 {/* Patrick Easter Egg */}
                 <div className="flex justify-center mb-2">
                     <img
-                        src="/patrick-mascot.png"
+                        src="/patrick.png"
                         alt="Patrick"
                         onClick={() => {
                             setPatrickEnlarged(true)

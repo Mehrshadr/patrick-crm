@@ -43,19 +43,32 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
             return { success: false, error: 'Lead not found' }
         }
 
-        // Fallback: If no tokens provided (e.g. Cron), try to fetch System Tokens
-        if (!accessToken || !refreshToken) {
-            try {
+        // ALWAYS use system email tokens (Hello@) for sending emails
+        // This ensures all emails go from hello@mehrana.agency regardless of who triggers
+        try {
+            // First try dedicated EMAIL tokens (from Hello@)
+            const emailTokens = await db.appSettings.findMany({
+                where: { key: { in: ['SYSTEM_EMAIL_ACCESS_TOKEN', 'SYSTEM_EMAIL_REFRESH_TOKEN'] } }
+            })
+            const emailAccess = emailTokens.find((t: any) => t.key === 'SYSTEM_EMAIL_ACCESS_TOKEN')?.value
+            const emailRefresh = emailTokens.find((t: any) => t.key === 'SYSTEM_EMAIL_REFRESH_TOKEN')?.value
+
+            if (emailAccess && emailRefresh) {
+                accessToken = emailAccess
+                refreshToken = emailRefresh
+                console.log("[WorkflowEngine] Using Hello@ Email Tokens")
+            } else {
+                // Fallback to legacy system tokens
                 const t1 = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_ACCESS_TOKEN' } })
                 const t2 = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_REFRESH_TOKEN' } })
                 if (t1?.value && t2?.value) {
-                    accessToken = t1.value;
-                    refreshToken = t2.value;
-                    console.log("[WorkflowEngine] Using System Tokens for execution")
+                    accessToken = t1.value
+                    refreshToken = t2.value
+                    console.log("[WorkflowEngine] Using Legacy System Tokens")
                 }
-            } catch (e) {
-                console.error("Failed to fetch system tokens", e)
             }
+        } catch (e) {
+            console.error("Failed to fetch system tokens", e)
         }
 
         const workflow = await db.workflow.findUnique({

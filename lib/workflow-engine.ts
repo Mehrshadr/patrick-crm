@@ -311,30 +311,32 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                     }
 
                     // Determine Sender Name and Reply-To
-                    // Priority: Step Config > Session User > Default
+                    // Priority: Step Config > DB Settings > Default
                     const customSenderName = config.senderName
                     const customReplyTo = config.replyTo
 
-                    // Fallback to System Email if User Email is missing (e.g. Cron)
-                    const baseEmail = userEmail || process.env.GMAIL_USER || process.env.GMAIL_USER_EMAIL
+                    // ALWAYS use system email address from DB for sending
+                    let baseEmail = 'hello@mehrana.agency' // Fallback
+                    try {
+                        const sysEmail = await db.appSettings.findUnique({ where: { key: 'SYSTEM_EMAIL_SENDER' } })
+                        if (sysEmail?.value) baseEmail = sysEmail.value
+                    } catch (e) { }
 
-                    // Fallback for Sender Name (Cron has no userName)
-                    let defaultSenderName = 'Patrick CRM' // Default
+                    // Fetch Sender Name from DB settings
+                    let defaultSenderName = 'Mehrdad from Mehrana' // Default
                     try {
                         const sName = await db.appSettings.findUnique({ where: { key: 'default_sender_name' } })
                         if (sName?.value) defaultSenderName = sName.value
                     } catch (e) { }
 
-                    const finalSenderName = customSenderName || userName || defaultSenderName;
+                    const finalSenderName = customSenderName || defaultSenderName;
                     const finalReplyTo = customReplyTo || baseEmail;
 
                     // Format sender: "Name <email>"
                     // CRITICAL: Gmail requires proper From format with email to show display name.
-                    // baseEmail comes from session OR process.env.GMAIL_USER for cron jobs.
-                    // If we only send a name without email, Gmail strips the display name!
-                    const fromAddress = baseEmail
-                        ? (finalSenderName ? `"${finalSenderName}" <${baseEmail}>` : baseEmail)
-                        : (finalSenderName || "Patrick CRM");
+                    const fromAddress = finalSenderName
+                        ? `"${finalSenderName}" <${baseEmail}>`
+                        : baseEmail;
 
                     console.log(`[WorkflowEngine] baseEmail=${baseEmail}, finalSenderName=${finalSenderName}`);
 

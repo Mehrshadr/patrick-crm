@@ -49,3 +49,5 @@ next-env.d.ts
 # IDE
 .idea/
 .vscode/
+Mehrana Lead Sheet*.xlsx
+*.xlsx

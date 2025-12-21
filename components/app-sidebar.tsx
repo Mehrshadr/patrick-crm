@@ -39,15 +39,12 @@ export function AppSidebar() {
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader className="p-4">
-                <Link href="/leads" className="flex items-center gap-2">
+                <Link href="/leads" className="flex items-center">
                     <img
-                        src="/mehrana-logo.png"
-                        alt="Mehrana"
-                        className="h-8 w-8 rounded-lg object-cover"
+                        src="https://mehrana.agency/wp-content/uploads/2023/06/Mehrana-Logo-Black.png"
+                        alt="Mehrana Agency"
+                        className="h-8 object-contain group-data-[collapsible=icon]:h-6"
                     />
-                    <span className="font-bold text-lg group-data-[collapsible=icon]:hidden">
-                        PCRM
-                    </span>
                 </Link>
             </SidebarHeader>
 
@@ -86,8 +83,8 @@ export function AppSidebar() {
                             setTimeout(() => setPatrickEnlarged(false), 1500)
                         }}
                         className={`cursor-pointer select-none transition-all duration-500 ease-out ${patrickEnlarged
-                                ? 'h-20 w-20 opacity-100 rotate-12 scale-125'
-                                : 'h-8 w-8 opacity-15 hover:opacity-40'
+                            ? 'h-20 w-20 opacity-100 rotate-12 scale-125'
+                            : 'h-8 w-8 opacity-15 hover:opacity-40'
                             }`}
                         title="Hi, I'm Patrick! 🌟"
                     />

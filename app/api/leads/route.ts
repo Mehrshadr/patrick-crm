@@ -3,9 +3,27 @@ import { db } from '@/lib/db'
 import { processWorkflow } from '@/lib/workflow-engine'
 import { logActivity } from '@/lib/activity'
 
+const API_KEY = process.env.EXTERNAL_API_KEY || 'patrick-api-secret-2024'
+
+// Helper to validate API key
+function validateApiKey(request: NextRequest): boolean {
+    const headerKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '')
+    const queryKey = request.nextUrl.searchParams.get('api_key')
+    return (headerKey === API_KEY) || (queryKey === API_KEY)
+}
+
 // POST - Create a new lead (for n8n, Facebook, Zapier, etc.)
 export async function POST(request: NextRequest) {
     try {
+        // Validate API Key
+        if (!validateApiKey(request)) {
+            console.log('[API/leads] Unauthorized request - invalid API key')
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized: Invalid API key' },
+                { status: 401 }
+            )
+        }
+
         const body = await request.json()
 
         const { name, email, phone, website, status, subStatus, source } = body

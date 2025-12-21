@@ -1,12 +1,27 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCalendarEvents } from '@/lib/calendar'
 import { logActivity } from '@/lib/activity'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+const CRON_SECRET = process.env.CRON_SECRET || 'patrick-cron-secret-2024'
+
+export async function GET(request: NextRequest) {
     try {
+        // Validate CRON_SECRET for security
+        const authHeader = request.headers.get('authorization')
+        const querySecret = request.nextUrl.searchParams.get('secret')
+        const isValidSecret = (authHeader === `Bearer ${CRON_SECRET}`) || (querySecret === CRON_SECRET)
+
+        if (!isValidSecret) {
+            console.log('[MeetingSync] Unauthorized access attempt')
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized: Invalid cron secret' },
+                { status: 401 }
+            )
+        }
+
         console.log('[MeetingSync] Starting...')
 
         // 1. Fetch System Calendar Tokens (preferring Mehrdad's calendar tokens)

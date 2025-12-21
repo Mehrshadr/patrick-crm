@@ -4,11 +4,22 @@ import { processWorkflow } from '@/lib/workflow-engine'
 
 export const dynamic = 'force-dynamic' // Ensure it runs dynamically
 
+const CRON_SECRET = process.env.CRON_SECRET || 'patrick-cron-secret-2024'
+
 export async function GET(request: NextRequest) {
     try {
-        // Optional: Add secret validation here if using Vercel Cron
-        // const authHeader = request.headers.get('authorization');
-        // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) { ... }
+        // Validate CRON_SECRET for security
+        const authHeader = request.headers.get('authorization')
+        const querySecret = request.nextUrl.searchParams.get('secret')
+        const isValidSecret = (authHeader === `Bearer ${CRON_SECRET}`) || (querySecret === CRON_SECRET)
+
+        if (!isValidSecret) {
+            console.log('[Cron] Unauthorized access attempt')
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized: Invalid cron secret' },
+                { status: 401 }
+            )
+        }
 
         console.log('[Cron] Starting automation check...')
 

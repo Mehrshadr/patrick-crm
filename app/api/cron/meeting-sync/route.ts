@@ -9,17 +9,31 @@ export async function GET() {
     try {
         console.log('[MeetingSync] Starting...')
 
-        // 1. Fetch System Tokens
-        const t1 = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_ACCESS_TOKEN' } })
-        const t2 = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_REFRESH_TOKEN' } })
+        // 1. Fetch System Calendar Tokens (preferring Mehrdad's calendar tokens)
+        let accessToken: string | undefined
+        let refreshToken: string | undefined
 
-        if (!t1?.value || !t2?.value) {
+        // First try dedicated CALENDAR tokens (from Mehrdad@)
+        const calTokens = await db.appSettings.findMany({
+            where: { key: { in: ['SYSTEM_CALENDAR_ACCESS_TOKEN', 'SYSTEM_CALENDAR_REFRESH_TOKEN'] } }
+        })
+        accessToken = calTokens.find(t => t.key === 'SYSTEM_CALENDAR_ACCESS_TOKEN')?.value
+        refreshToken = calTokens.find(t => t.key === 'SYSTEM_CALENDAR_REFRESH_TOKEN')?.value
+
+        // Fallback to legacy tokens if calendar-specific tokens not found
+        if (!accessToken || !refreshToken) {
+            const legacyTokens = await db.appSettings.findMany({
+                where: { key: { in: ['SYSTEM_GOOGLE_ACCESS_TOKEN', 'SYSTEM_GOOGLE_REFRESH_TOKEN'] } }
+            })
+            accessToken = accessToken || legacyTokens.find(t => t.key === 'SYSTEM_GOOGLE_ACCESS_TOKEN')?.value
+            refreshToken = refreshToken || legacyTokens.find(t => t.key === 'SYSTEM_GOOGLE_REFRESH_TOKEN')?.value
+        }
+
+        if (!accessToken || !refreshToken) {
             console.log('[MeetingSync] No system tokens found. Skipping.')
             return NextResponse.json({ success: false, error: 'No system tokens' }, { status: 401 })
         }
 
-        const accessToken = t1.value
-        const refreshToken = t2.value
 
         // 2. Fetch Events for next 14 days (Look further ahead)
         const now = new Date()

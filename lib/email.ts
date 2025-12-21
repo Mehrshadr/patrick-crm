@@ -113,22 +113,36 @@ async function sendViaGmailAPI(
     }
 }
 
-// Get system tokens from database (from Hello@ or admin login)
+// Get system tokens from database (preferring Hello@'s email tokens)
 async function getSystemTokens(): Promise<{ accessToken: string; refreshToken: string } | null> {
     try {
         // Dynamic import to avoid circular dependency
         const { db } = await import('@/lib/db')
 
-        const tokens = await db.appSettings.findMany({
+        // First try dedicated EMAIL tokens (from Hello@)
+        const emailTokens = await db.appSettings.findMany({
             where: {
                 key: {
-                    in: ['SYSTEM_GOOGLE_ACCESS_TOKEN', 'SYSTEM_GOOGLE_REFRESH_TOKEN']
+                    in: ['SYSTEM_EMAIL_ACCESS_TOKEN', 'SYSTEM_EMAIL_REFRESH_TOKEN']
                 }
             }
         })
 
-        const accessToken = tokens.find(t => t.key === 'SYSTEM_GOOGLE_ACCESS_TOKEN')?.value
-        const refreshToken = tokens.find(t => t.key === 'SYSTEM_GOOGLE_REFRESH_TOKEN')?.value
+        let accessToken = emailTokens.find(t => t.key === 'SYSTEM_EMAIL_ACCESS_TOKEN')?.value
+        let refreshToken = emailTokens.find(t => t.key === 'SYSTEM_EMAIL_REFRESH_TOKEN')?.value
+
+        // Fallback to legacy tokens if email-specific tokens not found
+        if (!accessToken || !refreshToken) {
+            const legacyTokens = await db.appSettings.findMany({
+                where: {
+                    key: {
+                        in: ['SYSTEM_GOOGLE_ACCESS_TOKEN', 'SYSTEM_GOOGLE_REFRESH_TOKEN']
+                    }
+                }
+            })
+            accessToken = accessToken || legacyTokens.find(t => t.key === 'SYSTEM_GOOGLE_ACCESS_TOKEN')?.value
+            refreshToken = refreshToken || legacyTokens.find(t => t.key === 'SYSTEM_GOOGLE_REFRESH_TOKEN')?.value
+        }
 
         if (accessToken && refreshToken) {
             return { accessToken, refreshToken }

@@ -65,16 +65,52 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 // Only save if the user is Hello@ or an admin
                 if (account.access_token && account.refresh_token) {
                     const isHelloAccount = email === 'hello@mehrana.agency'
-                    const isAdmin = ADMIN_EMAILS.includes(email)
+                    const isMehrdadAccount = email === 'mehrdad@mehrana.agency'
 
-                    if (isHelloAccount || isAdmin) {
-                        try {
-                            // Store which email these tokens belong to
+                    try {
+                        // Hello@ is the designated EMAIL sender
+                        if (isHelloAccount) {
                             await db.appSettings.upsert({
                                 where: { key: 'SYSTEM_EMAIL_SENDER' },
                                 update: { value: email },
                                 create: { key: 'SYSTEM_EMAIL_SENDER', value: email }
                             })
+                            await db.appSettings.upsert({
+                                where: { key: 'SYSTEM_EMAIL_ACCESS_TOKEN' },
+                                update: { value: account.access_token },
+                                create: { key: 'SYSTEM_EMAIL_ACCESS_TOKEN', value: account.access_token }
+                            })
+                            await db.appSettings.upsert({
+                                where: { key: 'SYSTEM_EMAIL_REFRESH_TOKEN' },
+                                update: { value: account.refresh_token },
+                                create: { key: 'SYSTEM_EMAIL_REFRESH_TOKEN', value: account.refresh_token }
+                            })
+                            console.log(`[Auth] EMAIL tokens updated from: ${email}`)
+                        }
+
+                        // Mehrdad@ is the designated CALENDAR user
+                        if (isMehrdadAccount) {
+                            await db.appSettings.upsert({
+                                where: { key: 'SYSTEM_CALENDAR_USER' },
+                                update: { value: email },
+                                create: { key: 'SYSTEM_CALENDAR_USER', value: email }
+                            })
+                            await db.appSettings.upsert({
+                                where: { key: 'SYSTEM_CALENDAR_ACCESS_TOKEN' },
+                                update: { value: account.access_token },
+                                create: { key: 'SYSTEM_CALENDAR_ACCESS_TOKEN', value: account.access_token }
+                            })
+                            await db.appSettings.upsert({
+                                where: { key: 'SYSTEM_CALENDAR_REFRESH_TOKEN' },
+                                update: { value: account.refresh_token },
+                                create: { key: 'SYSTEM_CALENDAR_REFRESH_TOKEN', value: account.refresh_token }
+                            })
+                            console.log(`[Auth] CALENDAR tokens updated from: ${email}`)
+                        }
+
+                        // Legacy: Keep SYSTEM_GOOGLE_* for backward compatibility (use first admin login)
+                        const existingToken = await db.appSettings.findUnique({ where: { key: 'SYSTEM_GOOGLE_ACCESS_TOKEN' } })
+                        if (!existingToken && (isHelloAccount || isMehrdadAccount)) {
                             await db.appSettings.upsert({
                                 where: { key: 'SYSTEM_GOOGLE_ACCESS_TOKEN' },
                                 update: { value: account.access_token },
@@ -85,10 +121,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                                 update: { value: account.refresh_token },
                                 create: { key: 'SYSTEM_GOOGLE_REFRESH_TOKEN', value: account.refresh_token }
                             })
-                            console.log(`[Auth] System tokens updated from: ${email}`)
-                        } catch (e) {
-                            console.error("[Auth] Failed to save system tokens:", e)
                         }
+                    } catch (e) {
+                        console.error("[Auth] Failed to save system tokens:", e)
                     }
                 }
             }

@@ -83,15 +83,19 @@ export async function POST(
             })
         }
 
-        // Create new URLs
-        await prisma.indexingUrl.createMany({
-            data: newUrls.map(url => ({
-                projectId,
-                url,
-                status: 'PENDING',
-                interval: interval || null
-            }))
-        })
+        // Create new URLs (using transaction for SQLite compatibility)
+        await prisma.$transaction(
+            newUrls.map(url =>
+                prisma.indexingUrl.create({
+                    data: {
+                        projectId,
+                        url,
+                        status: 'PENDING',
+                        interval: interval || null
+                    }
+                })
+            )
+        )
 
         return NextResponse.json({
             added: newUrls.length,

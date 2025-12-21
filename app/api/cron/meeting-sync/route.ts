@@ -17,16 +17,16 @@ export async function GET() {
         const calTokens = await db.appSettings.findMany({
             where: { key: { in: ['SYSTEM_CALENDAR_ACCESS_TOKEN', 'SYSTEM_CALENDAR_REFRESH_TOKEN'] } }
         })
-        accessToken = calTokens.find(t => t.key === 'SYSTEM_CALENDAR_ACCESS_TOKEN')?.value
-        refreshToken = calTokens.find(t => t.key === 'SYSTEM_CALENDAR_REFRESH_TOKEN')?.value
+        accessToken = calTokens.find((t: { key: string; value: string }) => t.key === 'SYSTEM_CALENDAR_ACCESS_TOKEN')?.value
+        refreshToken = calTokens.find((t: { key: string; value: string }) => t.key === 'SYSTEM_CALENDAR_REFRESH_TOKEN')?.value
 
         // Fallback to legacy tokens if calendar-specific tokens not found
         if (!accessToken || !refreshToken) {
             const legacyTokens = await db.appSettings.findMany({
                 where: { key: { in: ['SYSTEM_GOOGLE_ACCESS_TOKEN', 'SYSTEM_GOOGLE_REFRESH_TOKEN'] } }
             })
-            accessToken = accessToken || legacyTokens.find(t => t.key === 'SYSTEM_GOOGLE_ACCESS_TOKEN')?.value
-            refreshToken = refreshToken || legacyTokens.find(t => t.key === 'SYSTEM_GOOGLE_REFRESH_TOKEN')?.value
+            accessToken = accessToken || legacyTokens.find((t: { key: string; value: string }) => t.key === 'SYSTEM_GOOGLE_ACCESS_TOKEN')?.value
+            refreshToken = refreshToken || legacyTokens.find((t: { key: string; value: string }) => t.key === 'SYSTEM_GOOGLE_REFRESH_TOKEN')?.value
         }
 
         if (!accessToken || !refreshToken) {

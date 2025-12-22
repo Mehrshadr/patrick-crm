@@ -128,15 +128,21 @@ export async function GET(request: NextRequest) {
             // Actually, we should always update the nextMeetingAt time even if status doesn't change
 
             if (!PROTECTED_STATUSES.includes(lead.status)) {
+                // IMPORTANT: Only auto-change status for Meeting 1
+                // Meeting 2 and 3 should be manually managed
+                const shouldAutoChangeStatus = targetStage === 'Meeting1'
+
                 // Determine if we need to log a major status change
-                const isStatusChange = lead.status !== targetStage
+                const isStatusChange = shouldAutoChangeStatus && lead.status !== targetStage
 
                 // Cast lead to any to avoid TS error on server where Prisma client isn't updated yet
                 const leadAny = lead as any;
-                if (isStatusChange || !leadAny.nextMeetingAt) {
+
+                // For Meeting 1: update status. For Meeting 2/3: only update nextMeetingAt time
+                if (shouldAutoChangeStatus && (isStatusChange || !leadAny.nextMeetingAt)) {
                     console.log(`[MeetingSync] Updating lead ${lead.email} to ${targetStage} (${description})`)
 
-                    // Update Lead
+                    // Update Lead (full status change for Meeting 1)
                     await db.lead.update({
                         where: { id: lead.id },
                         data: {
@@ -162,41 +168,50 @@ export async function GET(request: NextRequest) {
                             }
                         })
                     }
-
-                    // Activity Log
-                    if (isStatusChange) {
-                        await logActivity({
-                            category: 'MEETING',
-                            action: 'MEETING_BOOKED',
-                            entityType: 'LEAD',
-                            entityId: lead.id,
-                            entityName: (lead.name || lead.email) || undefined,
-                            description: `Meeting detected: ${description}. Status -> ${targetStage}`,
-                        })
-
-                        // Timeline Log
-                        await db.log.create({
-                            data: {
-                                leadId: lead.id,
-                                type: 'MEETING',
-                                status: 'BOOKED',
-                                title: `${targetStage} Confirmed`,
-                                content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. Updates status to ${targetStage}.`,
-                                stage: targetStage,
-                                meta: JSON.stringify({
-                                    eventId: nextEvent.id,
-                                    startTime: nextEvent.start,
-                                    topic: nextEvent.title
-                                })
-                            }
-                        })
-                    } else {
-                        // Just update time, maybe silent log?
-                        // No need to spam logs if just updating time
-                    }
-
-                    updatedCount++
+                } else if (!shouldAutoChangeStatus) {
+                    // For Meeting 2/3: Just update the meeting time, don't change status
+                    console.log(`[MeetingSync] ${targetStage} detected for ${lead.email} - updating nextMeetingAt only (no status change)`)
+                    await db.lead.update({
+                        where: { id: lead.id },
+                        data: {
+                            nextMeetingAt: nextEvent.start
+                        } as any
+                    })
                 }
+
+                // Activity Log
+                if (isStatusChange) {
+                    await logActivity({
+                        category: 'MEETING',
+                        action: 'MEETING_BOOKED',
+                        entityType: 'LEAD',
+                        entityId: lead.id,
+                        entityName: (lead.name || lead.email) || undefined,
+                        description: `Meeting detected: ${description}. Status -> ${targetStage}`,
+                    })
+
+                    // Timeline Log
+                    await db.log.create({
+                        data: {
+                            leadId: lead.id,
+                            type: 'MEETING',
+                            status: 'BOOKED',
+                            title: `${targetStage} Confirmed`,
+                            content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. Updates status to ${targetStage}.`,
+                            stage: targetStage,
+                            meta: JSON.stringify({
+                                eventId: nextEvent.id,
+                                startTime: nextEvent.start,
+                                topic: nextEvent.title
+                            })
+                        }
+                    })
+                } else {
+                    // Just update time, maybe silent log?
+                    // No need to spam logs if just updating time
+                }
+
+                updatedCount++
             }
         }
 

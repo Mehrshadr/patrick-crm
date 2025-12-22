@@ -12,8 +12,8 @@ export default function LoginPage() {
                 <CardHeader className="text-center space-y-4 pt-8">
                     <div className="mx-auto">
                         <Image
-                            src="/patrick-mascot.png"
-                            alt="Patrick"
+                            src="/mehrana.png"
+                            alt="Mehrana"
                             width={180}
                             height={180}
                             className="drop-shadow-lg"

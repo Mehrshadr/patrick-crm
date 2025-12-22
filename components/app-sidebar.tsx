@@ -95,7 +95,7 @@ export function AppSidebar() {
                                 <CollapsibleTrigger asChild>
                                     <SidebarMenuButton className="font-medium">
                                         <Brain className="h-4 w-4" />
-                                        <span>PCRM</span>
+                                        <span>Patrick</span>
                                         <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/pcrm:rotate-180" />
                                     </SidebarMenuButton>
                                 </CollapsibleTrigger>

@@ -169,7 +169,7 @@ export function CalendarTab() {
                         </div>
 
                         <CardContent className="flex-1 p-0 overflow-hidden">
-                            <ScrollArea className="h-full">
+                            <ScrollArea className="h-full max-h-[500px]">
                                 <TabsContent value="selected" className="m-0 p-4 space-y-4 min-h-[400px]">
                                     <div className="px-2 pb-2">
                                         <h4 className="text-sm font-medium text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -191,13 +191,13 @@ export function CalendarTab() {
                                     <div className="px-2 pb-2">
                                         <h4 className="text-sm font-medium text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                            Next 7 Days
+                                            Upcoming Events
                                         </h4>
                                     </div>
                                     {upcomingEvents.length === 0 ? (
                                         <div className="text-center py-12 text-slate-400">No upcoming events</div>
                                     ) : (
-                                        upcomingEvents.slice(0, 10).map(event => <EventCard key={event.id} event={event} showDate />)
+                                        upcomingEvents.map(event => <EventCard key={event.id} event={event} showDate />)
                                     )}
                                 </TabsContent>
                             </ScrollArea>

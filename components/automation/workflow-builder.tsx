@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { STAGE_CONFIG, PipelineStage } from '@/lib/status-mapping'
-import { ArrowLeft, Save, Trash2, Mail, MessageSquare, Clock, Zap, Eye, EyeOff, Layers, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Mail, MessageSquare, Clock, Zap, Eye, EyeOff, Layers, AlertCircle, ArrowRightLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface WorkflowBuilderProps {
@@ -23,7 +23,7 @@ interface WorkflowBuilderProps {
 interface WorkflowStep {
     id?: number
     name: string
-    type: 'EMAIL' | 'SMS' | 'DELAY' | 'CONDITION' | 'ACTION'
+    type: 'EMAIL' | 'SMS' | 'DELAY' | 'CONDITION' | 'ACTION' | 'STATUS_CHANGE'
     config: any
 }
 
@@ -32,6 +32,7 @@ const STEP_TYPES = [
     { type: 'SMS', label: 'Send SMS', icon: MessageSquare },
     { type: 'DELAY', label: 'Delay', icon: Clock },
     { type: 'ACTION', label: 'External Action', icon: Zap },
+    { type: 'STATUS_CHANGE', label: 'Change Status', icon: ArrowRightLeft },
 ]
 
 export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
@@ -158,6 +159,9 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                 service: 'INSTANTLY',
                 campaignId: '',
                 fields: ['email', 'name', 'phone', 'website']
+            } : type === 'STATUS_CHANGE' ? {
+                status: '',
+                subStatus: ''
             } : {}
         }
         setSteps([...steps, newStep])
@@ -376,6 +380,11 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                                 <Clock className="h-3.5 w-3.5 text-amber-500" />
                                                 <span>Wait for {step.config.fixedDuration} {step.config.fixedUnit}{step.config.fixedDuration !== 1 ? 's' : ''}</span>
                                             </div>
+                                        ) : step.type === 'STATUS_CHANGE' ? (
+                                            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-purple-50 rounded-lg py-2 px-3 border border-purple-100">
+                                                <ArrowRightLeft className="h-3.5 w-3.5 text-purple-500" />
+                                                <span>Change to: {step.config.status || 'Not set'}{step.config.subStatus ? ` - ${step.config.subStatus}` : ''}</span>
+                                            </div>
                                         ) : (
                                             <div className="text-xs text-slate-400 line-clamp-1 italic">
                                                 {step.config.subject || step.config.body || "No content configured yet"}
@@ -591,6 +600,58 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                             </div>
                                         </>
                                     )}
+                                </div>
+                            )}
+
+                            {/* STATUS_CHANGE Step */}
+                            {editingStep.type === 'STATUS_CHANGE' && (
+                                <div className="space-y-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <ArrowRightLeft className="h-5 w-5 text-purple-600" />
+                                        <Label className="text-purple-800 font-medium">Change Lead Status</Label>
+                                    </div>
+                                    <p className="text-xs text-purple-700 mb-4">
+                                        Update the lead's status when this step is reached in the workflow.
+                                    </p>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label>New Status</Label>
+                                            <Select
+                                                value={editingStep.config.status || ''}
+                                                onValueChange={(val) => updateStep(editingStepIndex!, {
+                                                    config: { ...editingStep.config, status: val, subStatus: '' }
+                                                })}
+                                            >
+                                                <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                        <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {editingStep.config.status && STAGE_CONFIG[editingStep.config.status as PipelineStage]?.subStatuses?.length > 0 && (
+                                            <div>
+                                                <Label>Sub-Status (Optional)</Label>
+                                                <Select
+                                                    value={editingStep.config.subStatus || '__NONE__'}
+                                                    onValueChange={(val) => updateStep(editingStepIndex!, {
+                                                        config: { ...editingStep.config, subStatus: val === '__NONE__' ? '' : val }
+                                                    })}
+                                                >
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="__NONE__">None</SelectItem>
+                                                        {STAGE_CONFIG[editingStep.config.status as PipelineStage]?.subStatuses?.map((sub: string) => (
+                                                            <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 

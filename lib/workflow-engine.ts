@@ -518,6 +518,58 @@ export async function processWorkflow(options: ProcessWorkflowOptions) {
                         console.warn(`[WorkflowEngine] Unknown ACTION service: ${config.service}`)
                     }
                 }
+
+                // ============ STATUS_CHANGE STEP ============
+                // Updates the lead's status and/or subStatus
+                if (step.type === 'STATUS_CHANGE') {
+                    const newStatus = config.status
+                    const newSubStatus = config.subStatus
+
+                    console.log(`[WorkflowEngine] Processing STATUS_CHANGE step: ${step.name}`)
+                    console.log(`[WorkflowEngine] Changing status to: ${newStatus || 'unchanged'}, subStatus: ${newSubStatus || 'unchanged'}`)
+
+                    const updateData: any = {}
+                    if (newStatus) updateData.status = newStatus
+                    if (newSubStatus) updateData.subStatus = newSubStatus
+
+                    if (Object.keys(updateData).length > 0) {
+                        await db.lead.update({
+                            where: { id: leadId },
+                            data: updateData
+                        })
+
+                        // Log the status change
+                        await db.log.create({
+                            data: {
+                                leadId,
+                                type: 'STATUS_CHANGE',
+                                status: 'COMPLETED',
+                                title: `${workflow.name}: Status Changed`,
+                                content: `Changed to **${newStatus || 'same'}** (${newSubStatus || 'same'})`,
+                                stage: newStatus || lead.status
+                            }
+                        })
+
+                        // Log to activity
+                        await db.activityLog.create({
+                            data: {
+                                category: 'AUTOMATION',
+                                action: 'STATUS_CHANGE',
+                                entityType: 'Lead',
+                                entityId: leadId,
+                                entityName: lead.name || 'Unknown',
+                                description: `Workflow "${workflow.name}" changed status to ${newStatus || 'same'} - ${newSubStatus || 'same'}`,
+                                details: JSON.stringify({ workflow: workflow.name, step: step.name, newStatus, newSubStatus })
+                            }
+                        })
+
+                        // Update automationStatus for visibility
+                        await db.lead.update({
+                            where: { id: leadId },
+                            data: { automationStatus: `Status → ${newStatus}${newSubStatus ? ' - ' + newSubStatus : ''}` }
+                        })
+                    }
+                }
             } catch (stepError: any) {
                 console.error(`Error in step ${step.id}:`, stepError)
                 await db.workflowLog.create({

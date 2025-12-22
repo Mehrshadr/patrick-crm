@@ -19,9 +19,9 @@ export default function LoginPage() {
                             className="drop-shadow-lg"
                         />
                     </div>
-                    <CardTitle className="text-3xl font-bold text-slate-800">Patrick CRM</CardTitle>
+                    <CardTitle className="text-3xl font-bold text-slate-800">Welcome to Mehrana App</CardTitle>
                     <CardDescription className="text-slate-500">
-                        Sign in to access your lead management dashboard
+                        Automate to the Max
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 pb-8">

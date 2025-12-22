@@ -159,6 +159,20 @@ export async function updateLead(id: number, data: LeadUpdateValues, user?: { em
                 })
 
                 for (const workflow of matchingWorkflows) {
+                    // SMART: Skip if lead already has ACTIVE or COMPLETED execution for this workflow
+                    const existingExecution = await db.workflowExecution.findFirst({
+                        where: {
+                            workflowId: workflow.id,
+                            leadId: id,
+                            status: { in: ['ACTIVE', 'COMPLETED'] }
+                        }
+                    })
+
+                    if (existingExecution) {
+                        console.log(`[UpdateLead] Skipping workflow ${workflow.id} for lead ${id} - already has ${existingExecution.status} execution`)
+                        continue
+                    }
+
                     // Refresh lead data to ensure tokens and fields are up to date
                     const refreshedLead = await db.lead.findUnique({ where: { id: id } })
                     if (!refreshedLead) continue

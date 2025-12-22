@@ -23,6 +23,18 @@ export async function POST(
             data: { nextNurtureAt: oneMinuteAgo }
         })
 
+        // Log to lead's activity timeline
+        await db.log.create({
+            data: {
+                leadId,
+                type: 'USER_ACTION',
+                status: 'FAST_FORWARD',
+                title: 'Automation Fast-Forwarded',
+                content: 'User manually skipped the delay timer to trigger the next automation step immediately',
+                stage: 'Automation'
+            }
+        })
+
         return NextResponse.json({ success: true, lead: updatedLead })
     } catch (e: any) {
         console.error('Error advancing timer:', e)

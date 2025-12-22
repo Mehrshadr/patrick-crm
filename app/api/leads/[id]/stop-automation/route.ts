@@ -55,6 +55,18 @@ export async function POST(
                     message: 'Workflow manually stopped by user'
                 }
             })
+
+            // Log to lead's activity timeline
+            await db.log.create({
+                data: {
+                    leadId,
+                    type: 'USER_ACTION',
+                    status: 'STOPPED',
+                    title: `Automation Stopped: ${execution.workflow?.name || 'Unknown'}`,
+                    content: `User manually stopped the workflow "${execution.workflow?.name || 'Unknown'}" at step ${lastLog?.message || 'N/A'}`,
+                    stage: 'Automation'
+                }
+            })
         }
 
         // Update lead to clear nurture schedule and show stopped status

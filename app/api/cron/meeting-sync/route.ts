@@ -50,14 +50,14 @@ export async function GET(request: NextRequest) {
         }
 
 
-        // 2. Fetch Events for next 14 days (Look further ahead)
+        // 2. Fetch Events for next 30 days (Look further ahead)
         const now = new Date()
-        const nextTwoWeeks = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+        const nextThirtyDays = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
         const events = await getCalendarEvents(accessToken, {
             refreshToken,
             timeMin: now,
-            timeMax: nextTwoWeeks
+            timeMax: nextThirtyDays
         })
 
         console.log(`[MeetingSync] Found ${events.length} upcoming events`)
@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
             where: {
                 nextMeetingAt: {
                     gte: now,
-                    lte: nextTwoWeeks
+                    lte: nextThirtyDays
                 }
             }
         })

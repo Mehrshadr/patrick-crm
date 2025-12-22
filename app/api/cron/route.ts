@@ -51,24 +51,59 @@ export async function GET(request: NextRequest) {
             // The 'nurtureStage' holds the index of the last processed step (the Delay step)
             // So we want to resume from the next step
             const nextStepIndex = lead.nurtureStage + 1
+            const delayStepIndex = lead.nurtureStage
+
+            // Get the workflow steps to check cancel conditions
+            const workflow = await db.workflow.findUnique({
+                where: { id: execution.workflowId },
+                include: { steps: { orderBy: { order: 'asc' } } }
+            })
+
+            if (workflow && workflow.steps[delayStepIndex]) {
+                const delayStep = workflow.steps[delayStepIndex]
+                const config = typeof delayStep.config === 'string' ? JSON.parse(delayStep.config) : delayStep.config
+
+                const cancelOnStatuses = config.cancelOnStatuses || []
+                const cancelOnSubStatuses = config.cancelOnSubStatuses || []
+
+                // Check if lead's current status/subStatus matches cancel conditions
+                const shouldCancel = cancelOnStatuses.includes(lead.status) ||
+                    (lead.subStatus && cancelOnSubStatuses.includes(lead.subStatus))
+
+                if (shouldCancel) {
+                    console.log(`[Cron] Cancelling execution ${execution.id} - lead ${lead.name} status matches cancel conditions (${lead.status}/${lead.subStatus})`)
+
+                    await db.workflowExecution.update({
+                        where: { id: execution.id },
+                        data: {
+                            status: 'CANCELLED',
+                            cancelReason: `Status matched cancel condition: ${lead.status}${lead.subStatus ? ' - ' + lead.subStatus : ''}`,
+                            cancelledAt: new Date()
+                        }
+                    })
+
+                    await db.lead.update({
+                        where: { id: lead.id },
+                        data: {
+                            nextNurtureAt: null,
+                            automationStatus: `Cancelled (${lead.status})`
+                        }
+                    })
+
+                    results.push({
+                        lead: lead.name,
+                        success: true,
+                        cancelled: true,
+                        reason: `Status: ${lead.status}/${lead.subStatus}`
+                    })
+
+                    continue // Skip to next execution
+                }
+            }
 
             console.log(`[Cron] Resuming execution ${execution.id} for lead ${lead.name} from step ${nextStepIndex}`)
 
-            // Clear the schedule first to prevent double-processing if engine fails
-            // But ideally engine clears it. Engine updates it if there is ANOTHER delay.
-            // If the engine finishes or fails, we might get stuck loop if we don't clear?
-            // Engine updates 'nextNurtureAt' ONLY if it hits another DELAY.
-            // If it finishes, it doesn't clear 'nextNurtureAt'.
-            // So we should probably clear it here or verify engine clears it.
-            // The engine does NOT clear it upon completion in my code?
-            // Checking code...
-            // "return { success: true, executionId: execution.id }"
-            // It does not clear nextNurtureAt upon completion.
-            // So if I don't clear it, and engine finishes, next run will pick it up again?
-            // Yes.
-            // So I MUST clear it before processing or explicitly handle completion status.
-
-            // Let's clear it just before processing.
+            // Clear the schedule first to prevent double-processing
             await db.lead.update({
                 where: { id: lead.id },
                 data: { nextNurtureAt: null }

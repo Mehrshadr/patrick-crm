@@ -520,19 +520,47 @@ export function WorkflowBuilder({ workflowId, onClose }: WorkflowBuilderProps) {
                                     )}
 
                                     {/* Multi-Select Cancel Conditions */}
-                                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <Label className="text-amber-800 font-medium">Cancel if status changes to:</Label>
-                                        <p className="text-xs text-amber-700 mb-3">Select any statuses that should cancel remaining steps</p>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {Object.entries(STAGE_CONFIG).map(([key, config]) => (
-                                                <label key={key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-amber-100 p-1 rounded">
-                                                    <Checkbox
-                                                        checked={(editingStep.config.cancelOnStatuses || []).includes(key)}
-                                                        onCheckedChange={() => toggleCancelStatus(key)}
-                                                    />
-                                                    {config.label}
-                                                </label>
-                                            ))}
+                                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-4">
+                                        <div>
+                                            <Label className="text-amber-800 font-medium">Cancel if status changes to:</Label>
+                                            <p className="text-xs text-amber-700 mb-3">Select any statuses that should cancel remaining steps</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {Object.entries(STAGE_CONFIG).map(([key, config]) => (
+                                                    <label key={key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-amber-100 p-1 rounded">
+                                                        <Checkbox
+                                                            checked={(editingStep.config.cancelOnStatuses || []).includes(key)}
+                                                            onCheckedChange={() => toggleCancelStatus(key)}
+                                                        />
+                                                        {config.label}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div>
+                                            <Label className="text-amber-800 font-medium">Cancel if sub-status is:</Label>
+                                            <p className="text-xs text-amber-700 mb-3">Also cancel if sub-status matches any of these</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {['Scheduled', 'No Show', 'Ghosted', 'Done', 'Rescheduled', 'Not Interested'].map((sub) => (
+                                                    <label key={sub} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-amber-100 p-1 rounded">
+                                                        <Checkbox
+                                                            checked={(editingStep.config.cancelOnSubStatuses || []).includes(sub)}
+                                                            onCheckedChange={(checked) => {
+                                                                const current = editingStep.config.cancelOnSubStatuses || []
+                                                                const updated = checked
+                                                                    ? [...current, sub]
+                                                                    : current.filter((s: string) => s !== sub)
+                                                                updateStep(editingStepIndex!, {
+                                                                    config: { ...editingStep.config, cancelOnSubStatuses: updated }
+                                                                })
+                                                            }}
+                                                        />
+                                                        {sub}
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

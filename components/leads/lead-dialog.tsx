@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play, Loader2, Eye, EyeOff } from "lucide-react"
+import { Clock, Mail, MessageSquare, ChevronRight, CheckCircle2, Timer, Pencil, Plus, Link as LinkIcon, ExternalLink, Trash2, Zap, Play, Loader2, Eye, EyeOff, StopCircle, FastForward } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -928,6 +928,35 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                             </div>
                                             <div className="mt-2 text-sm bg-indigo-100 text-indigo-700 px-2 py-1 rounded inline-block">
                                                 Stage {lead.nurtureStage ? lead.nurtureStage + 1 : 1}
+                                            </div>
+                                            <div className="flex gap-2 mt-3">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-xs h-7 bg-white hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+                                                    onClick={handleFastForward}
+                                                >
+                                                    <FastForward className="h-3 w-3 mr-1" />
+                                                    Fast Forward
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-xs h-7 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                                                    onClick={async () => {
+                                                        if (!lead || !confirm('Stop this automation? This cannot be undone.')) return;
+                                                        const res = await fetch(`/api/leads/${lead.id}/stop-automation`, { method: 'POST' }).then(r => r.json());
+                                                        if (res.success) {
+                                                            toast.success('Automation stopped');
+                                                            router.refresh();
+                                                        } else {
+                                                            toast.error('Failed to stop: ' + (res.error || 'Unknown error'));
+                                                        }
+                                                    }}
+                                                >
+                                                    <StopCircle className="h-3 w-3 mr-1" />
+                                                    Stop
+                                                </Button>
                                             </div>
                                         </div>
                                     ) : (

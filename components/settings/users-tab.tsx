@@ -69,7 +69,7 @@ export function UsersTab() {
     function formatDate(dateStr: string | null) {
         if (!dateStr) return 'Never'
         const date = new Date(dateStr)
-        return date.toLocaleString('fa-IR', {
+        return date.toLocaleString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',

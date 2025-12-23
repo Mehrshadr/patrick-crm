@@ -20,7 +20,7 @@ interface ProcessWorkflowOptions {
 function replaceTemplateVariables(text: string, lead: any): string {
     if (!text) return text
 
-    return text
+    let result = text
         .replace(/\{name\}/gi, lead.name || '')
         .replace(/\{first_name\}/gi, (lead.name || '').split(' ')[0] || '')
         .replace(/\{phone\}/gi, lead.phone || '')
@@ -30,14 +30,31 @@ function replaceTemplateVariables(text: string, lead: any): string {
         .replace(/\{stage\}/gi, lead.stage || '')
         .replace(/\{business_type\}/gi, lead.businessType || '')
         .replace(/\{quality\}/gi, lead.quality || '')
+
+    // Add link variables if lead has links
+    if (lead.links && Array.isArray(lead.links)) {
+        const auditLink = lead.links.find((l: any) => l.type === 'AUDIT')
+        const proposalLink = lead.links.find((l: any) => l.type === 'PROPOSAL')
+        const recordingLink = lead.links.find((l: any) => l.type === 'RECORDING')
+
+        result = result
+            .replace(/\{audit_link\}/gi, auditLink?.url || '[Audit Link Not Set]')
+            .replace(/\{proposal_link\}/gi, proposalLink?.url || '[Proposal Link Not Set]')
+            .replace(/\{recording_link\}/gi, recordingLink?.url || '[Recording Link Not Set]')
+    }
+
+    return result
 }
 
 export async function processWorkflow(options: ProcessWorkflowOptions) {
     let { workflowId, leadId, accessToken, refreshToken, userEmail, userName, triggeredBy = 'SYSTEM', resumeFromStep, existingExecutionId } = options;
 
     try {
-        // 1. Get Lead and Workflow Details
-        const lead = await db.lead.findUnique({ where: { id: leadId } })
+        // 1. Get Lead and Workflow Details (include links for template variables)
+        const lead = await db.lead.findUnique({
+            where: { id: leadId },
+            include: { links: true }
+        })
         if (!lead) {
             console.error('Lead not found for execution', { leadId, workflowId })
             return { success: false, error: 'Lead not found' }

@@ -191,10 +191,10 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                         {getFriendlyStatusLabel(lead.status, lead.subStatus)}
                                                                     </Badge>
                                                                     {/* Audit/Proposal Link Indicators */}
-                                                                    {(lead as any).links?.some((l: any) => l.type === 'Audit Link') && (
+                                                                    {(lead as any).links?.some((l: any) => l.type === 'AUDIT' || l.type === 'Audit Link') && (
                                                                         <span title="Has Audit" className="text-purple-600"><FileText className="h-3 w-3" /></span>
                                                                     )}
-                                                                    {(lead as any).links?.some((l: any) => l.type === 'Proposal Link') && (
+                                                                    {(lead as any).links?.some((l: any) => l.type === 'PROPOSAL' || l.type === 'Proposal Link') && (
                                                                         <span title="Has Proposal" className="text-teal-600"><ClipboardList className="h-3 w-3" /></span>
                                                                     )}
                                                                     {/* Confirmed Meeting Badge */}

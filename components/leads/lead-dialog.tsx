@@ -97,6 +97,38 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const [signature, setSignature] = useState('')
     const [isFastForwarding, setIsFastForwarding] = useState(false)
 
+    // Available variables for SMS/Email templates
+    const getAvailableVariables = () => {
+        const auditLink = links.find((l: any) => l.type === 'AUDIT' || l.type === 'Audit Link')?.url || ''
+        const proposalLink = links.find((l: any) => l.type === 'PROPOSAL' || l.type === 'Proposal Link')?.url || ''
+        const recordingLink = links.find((l: any) => l.type === 'RECORDING' || l.type === 'Meeting Recording')?.url || ''
+
+        return [
+            { key: '{name}', label: 'Name', value: lead?.name || '' },
+            { key: '{first_name}', label: 'First Name', value: (lead?.name || '').split(' ')[0] },
+            { key: '{email}', label: 'Email', value: lead?.email || '' },
+            { key: '{phone}', label: 'Phone', value: lead?.phone || '' },
+            { key: '{website}', label: 'Website', value: lead?.website || '' },
+            { key: '{audit_link}', label: 'Audit Link', value: auditLink },
+            { key: '{proposal_link}', label: 'Proposal Link', value: proposalLink },
+            { key: '{recording_link}', label: 'Recording Link', value: recordingLink },
+        ]
+    }
+
+    // Replace variables in text
+    const replaceVariables = (text: string) => {
+        let result = text
+        getAvailableVariables().forEach(v => {
+            result = result.replace(new RegExp(v.key.replace(/[{}]/g, '\\$&'), 'g'), v.value)
+        })
+        return result
+    }
+
+    // Insert variable at cursor position
+    const insertVariable = (variable: string, setter: React.Dispatch<React.SetStateAction<string>>, currentValue: string) => {
+        setter(currentValue + variable)
+    }
+
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -1083,11 +1115,33 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
                         <div>
-                            <Label>Message</Label>
+                            <div className="flex items-center justify-between mb-1">
+                                <Label>Message</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-6 text-xs gap-1">
+                                            <Plus className="h-3 w-3" /> Insert Variable
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-48 p-1" align="end">
+                                        <div className="text-xs font-medium text-muted-foreground px-2 py-1">Variables</div>
+                                        {getAvailableVariables().map(v => (
+                                            <button
+                                                key={v.key}
+                                                className="w-full text-left px-2 py-1.5 text-sm hover:bg-slate-100 rounded flex justify-between items-center"
+                                                onClick={() => insertVariable(v.key, setSmsMessage, smsMessage)}
+                                            >
+                                                <span>{v.label}</span>
+                                                <code className="text-xs text-muted-foreground">{v.key}</code>
+                                            </button>
+                                        ))}
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                             <Textarea
                                 value={smsMessage}
                                 onChange={(e) => setSmsMessage(e.target.value)}
-                                placeholder="Type your SMS message..."
+                                placeholder="Type your SMS message... Use {name}, {audit_link}, etc."
                                 className="h-[150px] mt-1"
                             />
                             <p className="text-xs text-slate-400 mt-1">{smsMessage.length} characters</p>
@@ -1101,10 +1155,11 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                     if (!lead?.phone) return;
                                     setSendingSms(true);
                                     try {
+                                        const finalMessage = replaceVariables(smsMessage);
                                         const res = await fetch('/api/send-sms', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ to: lead.phone, body: smsMessage, leadId: lead.id, leadName: lead.name })
+                                            body: JSON.stringify({ to: lead.phone, body: finalMessage, leadId: lead.id, leadName: lead.name })
                                         }).then(r => r.json());
                                         if (res.success) {
                                             toast.success('SMS sent successfully!');
@@ -1173,6 +1228,26 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                             <div className="flex items-center justify-between mb-1">
                                 <Label className="text-xs">Body</Label>
                                 <div className="flex items-center gap-3">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-6 text-xs gap-1">
+                                                <Plus className="h-3 w-3" /> Insert Variable
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-48 p-1" align="end">
+                                            <div className="text-xs font-medium text-muted-foreground px-2 py-1">Variables</div>
+                                            {getAvailableVariables().map(v => (
+                                                <button
+                                                    key={v.key}
+                                                    className="w-full text-left px-2 py-1.5 text-sm hover:bg-slate-100 rounded flex justify-between items-center"
+                                                    onClick={() => insertVariable(v.key, setEmailBody, emailBody)}
+                                                >
+                                                    <span>{v.label}</span>
+                                                    <code className="text-xs text-muted-foreground">{v.key}</code>
+                                                </button>
+                                            ))}
+                                        </PopoverContent>
+                                    </Popover>
                                     <label className="flex items-center gap-2 text-xs cursor-pointer">
                                         <Checkbox
                                             checked={emailIncludeSignature}
@@ -1218,13 +1293,15 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                     if (!lead?.email) return;
                                     setSendingEmail(true);
                                     try {
-                                        const finalBody = emailIncludeSignature ? emailBody + '<br/><br/>' + signature : emailBody;
+                                        const finalSubject = replaceVariables(emailSubject);
+                                        const processedBody = replaceVariables(emailBody);
+                                        const finalBody = emailIncludeSignature ? processedBody + '<br/><br/>' + signature : processedBody;
                                         const res = await fetch('/api/send-email', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
                                                 to: lead.email,
-                                                subject: emailSubject,
+                                                subject: finalSubject,
                                                 html: finalBody.replace(/\n/g, '<br/>'),
                                                 from: emailSenderName || undefined,
                                                 replyTo: emailReplyTo || undefined,

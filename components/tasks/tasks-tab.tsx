@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { format, isToday, isTomorrow, isPast, isFuture } from "date-fns"
-import { CheckSquare, Plus, Calendar as CalendarIcon, Filter, Search, MoreHorizontal, Trash2, CheckCircle2, Circle, Pencil } from "lucide-react"
+import { CheckSquare, Plus, Calendar as CalendarIcon, Filter, Search, MoreHorizontal, Trash2, CheckCircle2, Circle, Pencil, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -113,113 +113,101 @@ export function TasksTab() {
         overdue: overdueTasks.length
     }
 
+    const [showSearch, setShowSearch] = useState(false)
+
     return (
-        <div className="flex flex-col h-[calc(100vh-140px)] gap-6">
-            {/* Header with Stats */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/30">
-                                <CheckSquare className="h-6 w-6 text-white" />
-                            </div>
-                            Tasks
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-1">Manage and track your tasks</p>
-                    </div>
-
-                    <Button
-                        onClick={() => { setEditingTask(null); setDialogOpen(true) }}
-                        className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Task
-                    </Button>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-4 gap-4">
-                    <Card className="bg-gradient-to-br from-slate-50 to-slate-100/50 border-slate-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total</p>
-                                    <p className="text-2xl font-bold text-slate-900 mt-1">{stats.total}</p>
-                                </div>
-                                <div className="bg-slate-200 p-3 rounded-lg">
-                                    <CheckSquare className="h-5 w-5 text-slate-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Pending</p>
-                                    <p className="text-2xl font-bold text-blue-900 mt-1">{stats.pending}</p>
-                                </div>
-                                <div className="bg-blue-200 p-3 rounded-lg">
-                                    <Circle className="h-5 w-5 text-blue-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Completed</p>
-                                    <p className="text-2xl font-bold text-green-900 mt-1">{stats.completed}</p>
-                                </div>
-                                <div className="bg-green-200 p-3 rounded-lg">
-                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-red-50 to-red-100/50 border-red-200 hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Overdue</p>
-                                    <p className="text-2xl font-bold text-red-900 mt-1">{stats.overdue}</p>
-                                </div>
-                                <div className="bg-red-200 p-3 rounded-lg">
-                                    <CalendarIcon className="h-5 w-5 text-red-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Search and Filter */}
+        <div className="flex flex-col h-[calc(100vh-140px)] gap-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                            placeholder="Search tasks..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 bg-white border-slate-200 focus-visible:ring-blue-500"
-                        />
-                    </div>
-
-                    <Tabs value={filter} onValueChange={(v: any) => setFilter(v)} className="bg-white border rounded-lg p-1">
-                        <TabsList className="bg-transparent">
-                            <TabsTrigger value="all" className="data-[state=active]:bg-slate-100">All</TabsTrigger>
-                            <TabsTrigger value="pending" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">Pending</TabsTrigger>
-                            <TabsTrigger value="completed" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">Completed</TabsTrigger>
+                    <Tabs value={filter} onValueChange={(v: any) => setFilter(v)}>
+                        <TabsList>
+                            <TabsTrigger value="all">All</TabsTrigger>
+                            <TabsTrigger value="pending">Pending</TabsTrigger>
+                            <TabsTrigger value="completed">Completed</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
+
+                <div className="flex items-center gap-2">
+                    {showSearch ? (
+                        <div className="flex items-center gap-2">
+                            <Input
+                                placeholder="Search tasks..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-48 h-9"
+                                autoFocus
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => { setShowSearch(false); setSearchQuery("") }}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={() => setShowSearch(true)}
+                        >
+                            <Search className="h-4 w-4" />
+                        </Button>
+                    )}
+
+                    <Button onClick={() => { setEditingTask(null); setDialogOpen(true) }} size="sm">
+                        <Plus className="h-4 w-4 mr-1" />
+                        New Task
+                    </Button>
+                </div>
+            </div>
+
+            {/* Stats - Compact */}
+            <div className="grid grid-cols-4 gap-3">
+                <Card className="border-slate-200">
+                    <CardContent className="p-3 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-muted-foreground">Total</p>
+                            <p className="text-lg font-bold">{stats.total}</p>
+                        </div>
+                        <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                    </CardContent>
+                </Card>
+                <Card className="border-blue-200 bg-blue-50/50">
+                    <CardContent className="p-3 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-blue-600">Pending</p>
+                            <p className="text-lg font-bold text-blue-700">{stats.pending}</p>
+                        </div>
+                        <Circle className="h-4 w-4 text-blue-500" />
+                    </CardContent>
+                </Card>
+                <Card className="border-green-200 bg-green-50/50">
+                    <CardContent className="p-3 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-green-600">Completed</p>
+                            <p className="text-lg font-bold text-green-700">{stats.completed}</p>
+                        </div>
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    </CardContent>
+                </Card>
+                <Card className="border-red-200 bg-red-50/50">
+                    <CardContent className="p-3 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-red-600">Overdue</p>
+                            <p className="text-lg font-bold text-red-700">{stats.overdue}</p>
+                        </div>
+                        <CalendarIcon className="h-4 w-4 text-red-500" />
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Task Lists */}
-            <div className="flex-1 overflow-auto space-y-6 pr-2">
+            <div className="flex-1 overflow-auto space-y-6 pr-1">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
                         <div className="bg-slate-100 rounded-full p-4 mb-4">
@@ -257,7 +245,7 @@ export function TasksTab() {
             </div>
 
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>{editingTask ? 'Edit Task' : 'New Task'}</DialogTitle>
                     </DialogHeader>

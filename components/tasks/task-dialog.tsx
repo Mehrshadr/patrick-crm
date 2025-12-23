@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import { CalendarIcon, Loader2, Search } from "lucide-react"
-import { format } from "date-fns"
+import { CalendarIcon, Loader2, Search, AlertCircle, AlertTriangle, Minus, Clock, User } from "lucide-react"
+import { format, addMinutes, setHours, setMinutes } from "date-fns"
 import { toast } from "sonner"
 import { Task } from "./tasks-tab"
 
@@ -24,7 +24,7 @@ const formSchema = z.object({
     dueDate: z.date(),
     time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
     priority: z.enum(["LOW", "NORMAL", "HIGH"]),
-    leadId: z.string().optional() // We'll store ID as string in form
+    leadId: z.string().optional()
 })
 
 interface TaskDialogProps {
@@ -32,10 +32,19 @@ interface TaskDialogProps {
     onSuccess: () => void
 }
 
+// Quick time options
+const TIME_OPTIONS = [
+    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+    "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+    "18:00", "18:30", "19:00", "19:30", "20:00"
+]
+
 export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
     const [leads, setLeads] = useState<any[]>([])
     const [loadingLeads, setLoadingLeads] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [leadSearch, setLeadSearch] = useState("")
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -50,12 +59,9 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
     })
 
     useEffect(() => {
-        // Fetch leads for the dropdown
         async function fetchLeads() {
             setLoadingLeads(true)
             try {
-                // We might need a lightweight endpoint for lead search, but GET /api/leads works for now if not too large
-                // Or use a search param
                 const res = await fetch("/api/leads")
                 const data = await res.json()
                 if (data.leads) {
@@ -70,10 +76,22 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
         fetchLeads()
     }, [])
 
+    const filteredLeads = useMemo(() => {
+        if (!leadSearch.trim()) return leads
+        return leads.filter(l =>
+            l.name?.toLowerCase().includes(leadSearch.toLowerCase()) ||
+            l.email?.toLowerCase().includes(leadSearch.toLowerCase())
+        )
+    }, [leads, leadSearch])
+
+    const selectedLead = useMemo(() => {
+        const id = form.watch("leadId")
+        return leads.find(l => l.id.toString() === id) || null
+    }, [leads, form.watch("leadId")])
+
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setSubmitting(true)
         try {
-            // Combine date and time
             const date = new Date(values.dueDate)
             const [hours, minutes] = values.time.split(':')
             date.setHours(parseInt(hours), parseInt(minutes))
@@ -108,44 +126,42 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                {/* Title */}
                 <FormField
                     control={form.control}
                     name="title"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Title</FormLabel>
+                            <FormLabel>Task Title</FormLabel>
                             <FormControl>
-                                <Input placeholder="Follow up with..." {...field} />
+                                <Input placeholder="e.g. Follow up with client" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Date & Time - Side by Side */}
+                <div className="grid grid-cols-2 gap-3">
                     <FormField
                         control={form.control}
                         name="dueDate"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Date</FormLabel>
+                                <FormLabel>Due Date</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
                                             <Button
-                                                variant={"outline"}
+                                                variant="outline"
                                                 className={cn(
-                                                    "w-full pl-3 text-left font-normal",
+                                                    "w-full justify-start text-left font-normal",
                                                     !field.value && "text-muted-foreground"
                                                 )}
                                             >
-                                                {field.value ? (
-                                                    format(field.value, "PPP")
-                                                ) : (
-                                                    <span>Pick a date</span>
-                                                )}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {field.value ? format(field.value, "MMM d, yyyy") : <span>Pick date</span>}
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
@@ -163,95 +179,209 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
                         )}
                     />
 
+                    {/* Time Picker - Dropdown Style */}
                     <FormField
                         control={form.control}
                         name="time"
                         render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="flex flex-col">
                                 <FormLabel>Time</FormLabel>
-                                <FormControl>
-                                    <Input type="time" {...field} />
-                                </FormControl>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-start text-left font-normal"
+                                            >
+                                                <Clock className="mr-2 h-4 w-4" />
+                                                {field.value || "Select time"}
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[160px] p-0" align="start">
+                                        <ScrollArea className="h-[200px]">
+                                            <div className="p-1">
+                                                {TIME_OPTIONS.map(time => (
+                                                    <Button
+                                                        key={time}
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className={cn(
+                                                            "w-full justify-start font-normal",
+                                                            field.value === time && "bg-slate-100"
+                                                        )}
+                                                        onClick={() => field.onChange(time)}
+                                                    >
+                                                        {time}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    </PopoverContent>
+                                </Popover>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                        control={form.control}
-                        name="priority"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Priority</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select priority" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="LOW">Low</SelectItem>
-                                        <SelectItem value="NORMAL">Normal</SelectItem>
-                                        <SelectItem value="HIGH">High</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                {/* Priority - Icon Based */}
+                <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Priority</FormLabel>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "flex-1 gap-2",
+                                        field.value === "LOW" && "bg-green-50 border-green-300 text-green-700"
+                                    )}
+                                    onClick={() => field.onChange("LOW")}
+                                >
+                                    <Minus className="h-4 w-4" />
+                                    Low
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "flex-1 gap-2",
+                                        field.value === "NORMAL" && "bg-slate-100 border-slate-300 text-slate-700"
+                                    )}
+                                    onClick={() => field.onChange("NORMAL")}
+                                >
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Normal
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "flex-1 gap-2",
+                                        field.value === "HIGH" && "bg-red-50 border-red-300 text-red-700"
+                                    )}
+                                    onClick={() => field.onChange("HIGH")}
+                                >
+                                    <AlertCircle className="h-4 w-4" />
+                                    High
+                                </Button>
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
-                    <FormField
-                        control={form.control}
-                        name="leadId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Link to Lead (Optional)</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                {/* Link to Lead - With Search */}
+                <FormField
+                    control={form.control}
+                    name="leadId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Link to Lead (Optional)</FormLabel>
+                            <Popover>
+                                <PopoverTrigger asChild>
                                     <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={initialData?.lead?.name || "Select lead"} />
-                                        </SelectTrigger>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-start text-left font-normal"
+                                        >
+                                            <User className="mr-2 h-4 w-4" />
+                                            {selectedLead?.name || "Select lead..."}
+                                        </Button>
                                     </FormControl>
-                                    <SelectContent>
-                                        {/* We might filter or limit this list if it's huge */}
-                                        <div className="max-h-[200px] overflow-y-auto">
-                                            {leads.map(lead => (
-                                                <SelectItem key={lead.id} value={lead.id.toString()}>
-                                                    {lead.name}
-                                                </SelectItem>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[280px] p-0" align="start">
+                                    <div className="p-2 border-b">
+                                        <div className="relative">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search leads..."
+                                                value={leadSearch}
+                                                onChange={(e) => setLeadSearch(e.target.value)}
+                                                className="pl-8 h-9"
+                                            />
+                                        </div>
+                                    </div>
+                                    <ScrollArea className="h-[200px]">
+                                        <div className="p-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-full justify-start font-normal text-muted-foreground"
+                                                onClick={() => {
+                                                    field.onChange(undefined)
+                                                    setLeadSearch("")
+                                                }}
+                                            >
+                                                None
+                                            </Button>
+                                            {filteredLeads.map(lead => (
+                                                <Button
+                                                    key={lead.id}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "w-full justify-start font-normal",
+                                                        field.value === lead.id.toString() && "bg-slate-100"
+                                                    )}
+                                                    onClick={() => {
+                                                        field.onChange(lead.id.toString())
+                                                        setLeadSearch("")
+                                                    }}
+                                                >
+                                                    <span className="truncate">{lead.name}</span>
+                                                    {lead.email && (
+                                                        <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
+                                                            {lead.email}
+                                                        </span>
+                                                    )}
+                                                </Button>
                                             ))}
-                                            {leads.length === 0 && (
-                                                <div className="p-2 text-sm text-center text-muted-foreground">No leads found</div>
+                                            {filteredLeads.length === 0 && (
+                                                <div className="p-4 text-center text-sm text-muted-foreground">
+                                                    No leads found
+                                                </div>
                                             )}
                                         </div>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                                    </ScrollArea>
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
+                {/* Description */}
                 <FormField
                     control={form.control}
                     name="description"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Description</FormLabel>
+                            <FormLabel>Notes</FormLabel>
                             <FormControl>
-                                <Textarea placeholder="Details..." {...field} />
+                                <Textarea
+                                    placeholder="Additional details..."
+                                    className="resize-none h-20"
+                                    {...field}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
 
-                <div className="flex justify-end gap-2 pt-2">
+                {/* Actions */}
+                <div className="flex justify-end pt-2">
                     <Button type="submit" disabled={submitting}>
                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Task
+                        {initialData ? "Update Task" : "Create Task"}
                     </Button>
                 </div>
             </form>

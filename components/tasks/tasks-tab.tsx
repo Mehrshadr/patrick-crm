@@ -140,12 +140,12 @@ export function TasksTab() {
                 ) : (
                     <>
                         {filter === 'pending' && overdueTasks.length > 0 && (
-                            <TaskGroup title="Overdue" tasks={overdueTasks} variant="danger" onToggle={toggleTaskStatus} onEdit={(t) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
+                            <TaskGroup title="Overdue" tasks={overdueTasks} variant="danger" onToggle={toggleTaskStatus} onEdit={(t: Task) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
                         )}
 
-                        <TaskGroup title="Today" tasks={todayTasks} variant="primary" onToggle={toggleTaskStatus} onEdit={(t) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
+                        <TaskGroup title="Today" tasks={todayTasks} variant="primary" onToggle={toggleTaskStatus} onEdit={(t: Task) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
 
-                        <TaskGroup title="Upcoming" tasks={upcomingTasks} variant="default" onToggle={toggleTaskStatus} onEdit={(t) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
+                        <TaskGroup title="Upcoming" tasks={upcomingTasks} variant="default" onToggle={toggleTaskStatus} onEdit={(t: Task) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
 
                         {/* If filtering all/completed, just show list or handle differently? */}
                         {filter !== 'pending' && filteredTasks.length === 0 && (

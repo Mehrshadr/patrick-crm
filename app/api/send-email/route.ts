@@ -18,13 +18,27 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Construct From header
-        let fromHeader = from;
-        if (from && !from.includes('@') && session?.user?.email) {
-            fromHeader = `"${from}" <${session.user.email}>`
-        } else if (!from && session?.user?.email) {
-            fromHeader = session.user.email
+        // Get system email address from DB (same pattern as workflow-engine)
+        let baseEmail = 'hello@mehrana.agency' // Fallback
+        try {
+            const sysEmail = await db.appSettings.findUnique({ where: { key: 'SYSTEM_EMAIL_SENDER' } })
+            if (sysEmail?.value) baseEmail = sysEmail.value
+        } catch (e) { }
+
+        // Construct From header - use same logic as workflow-engine
+        // If 'from' is a name (no @), format as "Name <baseEmail>"
+        // If 'from' includes @, use it directly
+        // If no 'from', just use baseEmail
+        let fromHeader: string
+        if (from && !from.includes('@')) {
+            fromHeader = `"${from}" <${baseEmail}>`
+        } else if (from) {
+            fromHeader = from
+        } else {
+            fromHeader = baseEmail
         }
+
+        console.log(`[send-email] from='${from}', baseEmail='${baseEmail}', fromHeader='${fromHeader}'`)
 
         const tokens = (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined
         const result = await sendEmail({

@@ -198,25 +198,24 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-[160px] p-0" align="start">
-                                        <ScrollArea className="h-[200px]">
-                                            <div className="p-1">
-                                                {TIME_OPTIONS.map(time => (
-                                                    <Button
-                                                        key={time}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className={cn(
-                                                            "w-full justify-start font-normal",
-                                                            field.value === time && "bg-slate-100"
-                                                        )}
-                                                        onClick={() => field.onChange(time)}
-                                                    >
-                                                        {time}
-                                                    </Button>
-                                                ))}
-                                            </div>
-                                        </ScrollArea>
+                                    <PopoverContent className="w-[140px] p-1" align="start">
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                            {TIME_OPTIONS.map(time => (
+                                                <Button
+                                                    key={time}
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "w-full justify-start font-normal",
+                                                        field.value === time && "bg-slate-100"
+                                                    )}
+                                                    onClick={() => field.onChange(time)}
+                                                >
+                                                    {time}
+                                                </Button>
+                                            ))}
+                                        </div>
                                     </PopoverContent>
                                 </Popover>
                                 <FormMessage />

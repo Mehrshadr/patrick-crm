@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { RefreshCw, CalendarDays, Clock, MapPin, Users, ExternalLink, Video, ChevronRight, CheckSquare, CheckCircle2 } from 'lucide-react'
-import { format, isSameDay, startOfMonth, endOfMonth, addMonths, isBefore, isAfter, startOfDay } from 'date-fns'
+import { format, isSameDay, startOfMonth, endOfMonth, addMonths, isBefore, isAfter, startOfDay, isToday } from 'date-fns'
 import { cn } from '@/lib/utils'
 
 interface CalendarEvent {
@@ -191,7 +191,7 @@ export function CalendarTab() {
                         <div className="px-6 pt-6 pb-2">
                             <TabsList className="w-full grid grid-cols-2 bg-slate-100 p-1 rounded-xl">
                                 <TabsTrigger value="selected" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                                    {format(selectedDate, 'MMM d')}
+                                    {isToday(selectedDate) ? 'Today' : format(selectedDate, 'MMM d')}
                                 </TabsTrigger>
                                 <TabsTrigger value="upcoming" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
                                     Upcoming

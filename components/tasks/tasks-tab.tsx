@@ -310,97 +310,38 @@ function TaskGroup({ title, tasks, variant = "default", onToggle, onEdit, onDele
                     <Card
                         key={task.id}
                         className={cn(
-                            "group hover:shadow-lg hover:scale-[1.01] transition-all duration-200 border-l-4",
+                            "group transition-all duration-150 border-l-4 cursor-pointer",
+                            "hover:ring-2 hover:ring-inset hover:ring-slate-200",
                             task.status === 'COMPLETED'
                                 ? "opacity-60 bg-slate-50/50 border-l-green-400"
-                                : cn("bg-white/80 backdrop-blur-sm", colorScheme.border.replace('border-', 'border-l-'))
+                                : cn("bg-white", colorScheme.border.replace('border-', 'border-l-'))
                         )}
+                        onClick={() => onEdit(task)}
                     >
-                        <CardContent className="p-5">
-                            <div className="flex items-start gap-4">
-                                {/* Checkbox */}
-                                <button
-                                    onClick={() => onToggle(task)}
-                                    className={cn(
-                                        "mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 shrink-0",
-                                        task.status === 'COMPLETED'
-                                            ? "bg-gradient-to-br from-green-500 to-emerald-600 border-green-500 text-white shadow-lg shadow-green-500/30"
-                                            : "border-slate-300 hover:border-blue-500 hover:scale-110"
+                        <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                                {/* Title */}
+                                <span className={cn(
+                                    "font-medium text-sm flex-1 truncate",
+                                    task.status === 'COMPLETED' && "line-through text-slate-400"
+                                )}>
+                                    {task.title}
+                                </span>
+
+                                {/* Meta - compact */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {task.lead && (
+                                        <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-medium truncate max-w-[80px]">
+                                            {task.lead.name}
+                                        </span>
                                     )}
-                                >
-                                    {task.status === 'COMPLETED' && <CheckCircle2 className="h-4 w-4" />}
-                                </button>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0 space-y-2">
-                                    <div className={cn(
-                                        "font-semibold text-base leading-tight",
-                                        task.status === 'COMPLETED' && "line-through text-slate-500"
-                                    )}>
-                                        {task.title}
-                                    </div>
-
-                                    {task.description && (
-                                        <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
-                                            {task.description}
-                                        </p>
+                                    {task.priority === 'HIGH' && (
+                                        <span className="text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded font-bold">!</span>
                                     )}
-
-                                    {/* Metadata */}
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
-                                            <CalendarIcon className="h-3.5 w-3.5" />
-                                            <span className="font-medium">{format(new Date(task.dueDate), 'MMM d, h:mm a')}</span>
-                                        </div>
-
-                                        {task.lead && (
-                                            <div className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md font-medium">
-                                                <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                                                {task.lead.name}
-                                            </div>
-                                        )}
-
-                                        {task.priority !== 'NORMAL' && (
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-xs font-bold border-2",
-                                                    task.priority === 'HIGH'
-                                                        ? "text-red-600 border-red-300 bg-red-50"
-                                                        : "text-amber-600 border-amber-300 bg-amber-50"
-                                                )}
-                                            >
-                                                {task.priority}
-                                            </Badge>
-                                        )}
-                                    </div>
+                                    <span className="text-xs text-slate-500">
+                                        {format(new Date(task.dueDate), 'h:mm a')}
+                                    </span>
                                 </div>
-
-                                {/* Actions */}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100"
-                                        >
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-32">
-                                        <DropdownMenuItem onClick={() => onEdit(task)} className="cursor-pointer">
-                                            <Pencil className="h-3.5 w-3.5 mr-2" />
-                                            Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onClick={() => onDelete(task.id)}
-                                            className="text-red-600 cursor-pointer focus:text-red-600"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
                             </div>
                         </CardContent>
                     </Card>

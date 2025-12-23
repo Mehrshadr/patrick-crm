@@ -18,13 +18,8 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Construct From header
-        let fromHeader = from;
-        if (from && !from.includes('@') && session?.user?.email) {
-            fromHeader = `"${from}" <${session.user.email}>`
-        } else if (!from && session?.user?.email) {
-            fromHeader = session.user.email
-        }
+        // Pass from directly - lib/email.ts will format it properly with the authenticated email
+        const fromHeader = from || undefined;
 
         const tokens = (accessToken && refreshToken) ? { accessToken, refreshToken } : undefined
         const result = await sendEmail({

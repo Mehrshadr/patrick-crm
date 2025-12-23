@@ -105,38 +105,144 @@ export function TasksTab() {
     const overdueTasks = filteredTasks.filter(t => isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate)) && t.status === "PENDING")
     const upcomingTasks = filteredTasks.filter(t => isFuture(new Date(t.dueDate)))
 
+    // Stats
+    const stats = {
+        total: tasks.length,
+        pending: tasks.filter(t => t.status === 'PENDING').length,
+        completed: tasks.filter(t => t.status === 'COMPLETED').length,
+        overdue: overdueTasks.length
+    }
+
     return (
         <div className="flex flex-col h-[calc(100vh-140px)] gap-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 bg-white p-2 rounded-lg border shadow-sm flex-1 max-w-md">
-                    <Search className="h-4 w-4 text-slate-400" />
-                    <Input
-                        placeholder="Search tasks..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="border-none shadow-none focus-visible:ring-0 h-auto p-0"
-                    />
-                </div>
+            {/* Header with Stats */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/30">
+                                <CheckSquare className="h-6 w-6 text-white" />
+                            </div>
+                            Tasks
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-1">Manage and track your tasks</p>
+                    </div>
 
-                <div className="flex items-center gap-2">
-                    <Tabs value={filter} onValueChange={(v: any) => setFilter(v)} className="bg-slate-100 p-1 rounded-lg">
-                        <TabsList>
-                            <TabsTrigger value="all">All</TabsTrigger>
-                            <TabsTrigger value="pending">Pending</TabsTrigger>
-                            <TabsTrigger value="completed">Completed</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-
-                    <Button onClick={() => { setEditingTask(null); setDialogOpen(true) }} className="gap-2">
+                    <Button
+                        onClick={() => { setEditingTask(null); setDialogOpen(true) }}
+                        className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30"
+                    >
                         <Plus className="h-4 w-4" />
                         New Task
                     </Button>
                 </div>
+
+                {/* Stats Cards */}
+                <div className="grid grid-cols-4 gap-4">
+                    <Card className="bg-gradient-to-br from-slate-50 to-slate-100/50 border-slate-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Total</p>
+                                    <p className="text-2xl font-bold text-slate-900 mt-1">{stats.total}</p>
+                                </div>
+                                <div className="bg-slate-200 p-3 rounded-lg">
+                                    <CheckSquare className="h-5 w-5 text-slate-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Pending</p>
+                                    <p className="text-2xl font-bold text-blue-900 mt-1">{stats.pending}</p>
+                                </div>
+                                <div className="bg-blue-200 p-3 rounded-lg">
+                                    <Circle className="h-5 w-5 text-blue-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Completed</p>
+                                    <p className="text-2xl font-bold text-green-900 mt-1">{stats.completed}</p>
+                                </div>
+                                <div className="bg-green-200 p-3 rounded-lg">
+                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-red-50 to-red-100/50 border-red-200 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-medium text-red-600 uppercase tracking-wide">Overdue</p>
+                                    <p className="text-2xl font-bold text-red-900 mt-1">{stats.overdue}</p>
+                                </div>
+                                <div className="bg-red-200 p-3 rounded-lg">
+                                    <CalendarIcon className="h-5 w-5 text-red-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Search and Filter */}
+                <div className="flex items-center gap-3">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Search tasks..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10 bg-white border-slate-200 focus-visible:ring-blue-500"
+                        />
+                    </div>
+
+                    <Tabs value={filter} onValueChange={(v: any) => setFilter(v)} className="bg-white border rounded-lg p-1">
+                        <TabsList className="bg-transparent">
+                            <TabsTrigger value="all" className="data-[state=active]:bg-slate-100">All</TabsTrigger>
+                            <TabsTrigger value="pending" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">Pending</TabsTrigger>
+                            <TabsTrigger value="completed" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">Completed</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
             </div>
 
-            <div className="flex-1 overflow-auto space-y-8 pr-2">
+            {/* Task Lists */}
+            <div className="flex-1 overflow-auto space-y-6 pr-2">
                 {loading ? (
-                    <div className="text-center py-10 text-slate-400">Loading tasks...</div>
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="bg-slate-100 rounded-full p-4 mb-4">
+                            <CheckSquare className="h-8 w-8 text-slate-400 animate-pulse" />
+                        </div>
+                        <p className="text-slate-500 font-medium">Loading tasks...</p>
+                    </div>
+                ) : filteredTasks.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-8 mb-4 border-2 border-dashed border-slate-200">
+                            <CheckSquare className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                            <p className="text-slate-600 font-semibold text-lg">No tasks found</p>
+                            <p className="text-slate-400 text-sm mt-1">Create your first task to get started</p>
+                        </div>
+                        <Button
+                            onClick={() => { setEditingTask(null); setDialogOpen(true) }}
+                            variant="outline"
+                            className="gap-2 border-slate-300 hover:border-blue-500 hover:text-blue-600"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Create Task
+                        </Button>
+                    </div>
                 ) : (
                     <>
                         {filter === 'pending' && overdueTasks.length > 0 && (
@@ -146,11 +252,6 @@ export function TasksTab() {
                         <TaskGroup title="Today" tasks={todayTasks} variant="primary" onToggle={toggleTaskStatus} onEdit={(t: Task) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
 
                         <TaskGroup title="Upcoming" tasks={upcomingTasks} variant="default" onToggle={toggleTaskStatus} onEdit={(t: Task) => { setEditingTask(t); setDialogOpen(true) }} onDelete={deleteTask} />
-
-                        {/* If filtering all/completed, just show list or handle differently? */}
-                        {filter !== 'pending' && filteredTasks.length === 0 && (
-                            <div className="text-center py-10 text-slate-400">No tasks found</div>
-                        )}
                     </>
                 )}
             </div>
@@ -177,68 +278,142 @@ function TaskGroup({ title, tasks, variant = "default", onToggle, onEdit, onDele
     if (tasks.length === 0) return null
 
     const colors = {
-        danger: "text-red-600 bg-red-50 border-red-200",
-        primary: "text-blue-600 bg-blue-50 border-blue-200",
-        default: "text-slate-600 bg-slate-50 border-slate-200"
+        danger: {
+            header: "from-red-500 to-rose-600",
+            text: "text-red-700",
+            bg: "bg-red-50/50",
+            border: "border-red-100",
+            badge: "bg-red-100 text-red-700"
+        },
+        primary: {
+            header: "from-blue-500 to-indigo-600",
+            text: "text-blue-700",
+            bg: "bg-blue-50/50",
+            border: "border-blue-100",
+            badge: "bg-blue-100 text-blue-700"
+        },
+        default: {
+            header: "from-slate-500 to-slate-600",
+            text: "text-slate-700",
+            bg: "bg-slate-50/50",
+            border: "border-slate-100",
+            badge: "bg-slate-100 text-slate-700"
+        }
     }
+
+    const colorScheme = colors[variant as keyof typeof colors]
 
     return (
         <div className="space-y-3">
-            <h3 className={cn("font-medium text-sm flex items-center gap-2 px-2 py-1 rounded-md w-fit", colors[variant as keyof typeof colors])}>
-                {title}
-                <Badge variant="secondary" className="bg-white/50 text-inherit border-none h-5 px-1.5 min-w-[1.5rem]">{tasks.length}</Badge>
-            </h3>
+            {/* Section Header */}
+            <div className="flex items-center gap-3">
+                <div className={cn("h-1 w-12 rounded-full bg-gradient-to-r", colorScheme.header)} />
+                <h3 className={cn("font-bold text-base uppercase tracking-wide", colorScheme.text)}>
+                    {title}
+                </h3>
+                <Badge variant="secondary" className={cn("text-xs font-semibold", colorScheme.badge)}>
+                    {tasks.length}
+                </Badge>
+            </div>
 
-            <div className="grid gap-2">
+            {/* Task Cards */}
+            <div className="grid gap-3">
                 {tasks.map((task: Task) => (
-                    <Card key={task.id} className={cn("group hover:shadow-md transition-all", task.status === 'COMPLETED' && "opacity-60 bg-slate-50")}>
-                        <CardContent className="p-4 flex items-start gap-4">
-                            <button
-                                onClick={() => onToggle(task)}
-                                className={cn("mt-1 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                                    task.status === 'COMPLETED' ? "bg-green-500 border-green-500 text-white" : "border-slate-300 hover:border-blue-500"
-                                )}
-                            >
-                                {task.status === 'COMPLETED' && <CheckCircle2 className="h-3.5 w-3.5" />}
-                            </button>
+                    <Card
+                        key={task.id}
+                        className={cn(
+                            "group hover:shadow-lg hover:scale-[1.01] transition-all duration-200 border-l-4",
+                            task.status === 'COMPLETED'
+                                ? "opacity-60 bg-slate-50/50 border-l-green-400"
+                                : cn("bg-white/80 backdrop-blur-sm", colorScheme.border.replace('border-', 'border-l-'))
+                        )}
+                    >
+                        <CardContent className="p-5">
+                            <div className="flex items-start gap-4">
+                                {/* Checkbox */}
+                                <button
+                                    onClick={() => onToggle(task)}
+                                    className={cn(
+                                        "mt-0.5 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 shrink-0",
+                                        task.status === 'COMPLETED'
+                                            ? "bg-gradient-to-br from-green-500 to-emerald-600 border-green-500 text-white shadow-lg shadow-green-500/30"
+                                            : "border-slate-300 hover:border-blue-500 hover:scale-110"
+                                    )}
+                                >
+                                    {task.status === 'COMPLETED' && <CheckCircle2 className="h-4 w-4" />}
+                                </button>
 
-                            <div className="flex-1 space-y-1">
-                                <div className={cn("font-medium text-sm", task.status === 'COMPLETED' && "line-through text-slate-500")}>
-                                    {task.title}
-                                </div>
-                                {task.description && (
-                                    <div className="text-xs text-slate-500 line-clamp-2">{task.description}</div>
-                                )}
-                                <div className="flex items-center gap-3 text-xs text-slate-400 mt-2">
-                                    <div className="flex items-center gap-1">
-                                        <CalendarIcon className="h-3 w-3" />
-                                        <span>{format(new Date(task.dueDate), 'MMM d, h:mm a')}</span>
+                                {/* Content */}
+                                <div className="flex-1 min-w-0 space-y-2">
+                                    <div className={cn(
+                                        "font-semibold text-base leading-tight",
+                                        task.status === 'COMPLETED' && "line-through text-slate-500"
+                                    )}>
+                                        {task.title}
                                     </div>
-                                    {task.lead && (
-                                        <div className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                            {task.lead.name}
-                                        </div>
-                                    )}
-                                    {task.priority !== 'NORMAL' && (
-                                        <Badge variant="outline" className={cn("h-5 text-[10px]", task.priority === 'HIGH' ? "text-red-500 border-red-200 bg-red-50" : "text-slate-500")}>
-                                            {task.priority}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </div>
 
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => onEdit(task)}>Edit</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onDelete(task.id)} className="text-red-600">Delete</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                    {task.description && (
+                                        <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                                            {task.description}
+                                        </p>
+                                    )}
+
+                                    {/* Metadata */}
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                                            <CalendarIcon className="h-3.5 w-3.5" />
+                                            <span className="font-medium">{format(new Date(task.dueDate), 'MMM d, h:mm a')}</span>
+                                        </div>
+
+                                        {task.lead && (
+                                            <div className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md font-medium">
+                                                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                                                {task.lead.name}
+                                            </div>
+                                        )}
+
+                                        {task.priority !== 'NORMAL' && (
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "text-xs font-bold border-2",
+                                                    task.priority === 'HIGH'
+                                                        ? "text-red-600 border-red-300 bg-red-50"
+                                                        : "text-amber-600 border-amber-300 bg-amber-50"
+                                                )}
+                                            >
+                                                {task.priority}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100"
+                                        >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-32">
+                                        <DropdownMenuItem onClick={() => onEdit(task)} className="cursor-pointer">
+                                            <Pencil className="h-3.5 w-3.5 mr-2" />
+                                            Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => onDelete(task.id)}
+                                            className="text-red-600 cursor-pointer focus:text-red-600"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                            Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </CardContent>
                     </Card>
                 ))}

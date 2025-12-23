@@ -130,9 +130,12 @@ export async function POST(request: NextRequest) {
 }
 
 // GET - List leads (basic)
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const email = request.nextUrl.searchParams.get('email')
+
         const leads = await db.lead.findMany({
+            where: email ? { email: email.toLowerCase().trim() } : undefined,
             orderBy: { createdAt: 'desc' },
             take: 100
         })

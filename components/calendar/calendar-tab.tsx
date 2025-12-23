@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { RefreshCw, CalendarDays, Clock, MapPin, Users, ExternalLink, Video, ChevronRight, CheckSquare, CheckCircle2 } from 'lucide-react'
 import { format, isSameDay, startOfMonth, endOfMonth, addMonths, isBefore, isAfter, startOfDay, isToday } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { LeadDialog } from '@/components/leads/lead-dialog'
+import { Lead } from '@/app/actions'
 
 interface CalendarEvent {
     id: string
@@ -42,12 +44,33 @@ export function CalendarTab() {
     const [error, setError] = useState<string | null>(null)
     const accessToken = (session as any)?.accessToken
 
+    // Lead Dialog state
+    const [leadDialogOpen, setLeadDialogOpen] = useState(false)
+    const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+
     useEffect(() => {
         if (accessToken) {
             fetchEvents()
         }
         fetchTasks()
     }, [session, currentMonth])
+
+    // Handle click on event to open Lead Dialog
+    async function handleEventLeadClick(email: string) {
+        try {
+            const res = await fetch(`/api/leads?email=${encodeURIComponent(email)}`)
+            const data = await res.json()
+            if (data.success && data.leads?.length > 0) {
+                setSelectedLead(data.leads[0])
+                setLeadDialogOpen(true)
+            } else {
+                // No lead found with this email
+                console.log('No lead found for email:', email)
+            }
+        } catch (e) {
+            console.error('Failed to fetch lead by email', e)
+        }
+    }
 
     async function fetchTasks() {
         try {
@@ -232,7 +255,7 @@ export function CalendarTab() {
                                             <p className="text-xs mt-1">Enjoy your free time!</p>
                                         </div>
                                     ) : (
-                                        selectedDateEvents.map(event => <EventCard key={event.id} event={event} />)
+                                        selectedDateEvents.map(event => <EventCard key={event.id} event={event} onClickLead={handleEventLeadClick} />)
                                     )}
                                 </TabsContent>
                                 <TabsContent value="upcoming" className="m-0 p-4 space-y-4 min-h-[400px]">
@@ -245,7 +268,7 @@ export function CalendarTab() {
                                     {upcomingEvents.length === 0 ? (
                                         <div className="text-center py-12 text-slate-400">No upcoming events</div>
                                     ) : (
-                                        upcomingEvents.map(event => <EventCard key={event.id} event={event} showDate />)
+                                        upcomingEvents.map(event => <EventCard key={event.id} event={event} showDate onClickLead={handleEventLeadClick} />)
                                     )}
                                 </TabsContent>
                             </ScrollArea>
@@ -253,150 +276,84 @@ export function CalendarTab() {
                     </Tabs>
                 </Card>
             </div>
+
+            {/* Lead Dialog */}
+            <LeadDialog
+                open={leadDialogOpen}
+                onOpenChange={setLeadDialogOpen}
+                lead={selectedLead}
+            />
         </div>
     )
 }
 
-function EventCard({ event, showDate = false }: { event: CalendarEvent, showDate?: boolean }) {
+function EventCard({ event, showDate = false, onClickLead }: { event: CalendarEvent, showDate?: boolean, onClickLead?: (email: string) => void }) {
     const isMeeting = (event.attendees?.length || 0) > 0 || (event.htmlLink && event.htmlLink.includes('meet.google'))
-    const [leads, setLeads] = useState<LeadSimple[]>([])
-    const [showLinkDialog, setShowLinkDialog] = useState(false)
-    const [searchLead, setSearchLead] = useState('')
 
-    async function fetchLeads() {
-        if (leads.length > 0) return
-        try {
-            const res = await fetch('/api/leads')
-            const data = await res.json()
-            if (data.success && Array.isArray(data.leads)) {
-                setLeads(data.leads)
-            }
-        } catch (e) {
-            console.error('Failed to fetch leads')
+    // Find first external attendee email (not the calendar owner)
+    const externalEmail = event.attendees?.find(att => !att.includes('mehrana'))
+
+    function handleClick() {
+        if (externalEmail && onClickLead) {
+            onClickLead(externalEmail)
         }
     }
-
-    async function linkLead(leadId: number) {
-        try {
-            await fetch('/api/calendar/link-event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ eventId: event.id, eventTitle: event.title, leadId })
-            })
-            // Ideally we'd show success and maybe navigate or show connected state
-            setShowLinkDialog(false)
-            alert('Linked to lead!')
-        } catch (e) {
-            alert('Failed to link')
-        }
-    }
-
-    const filteredLeads = leads.filter(l => l.name.toLowerCase().includes(searchLead.toLowerCase()))
 
     return (
-        <div className="group relative bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200 cursor-default overflow-hidden">
+        <div
+            className={cn(
+                "group relative bg-white rounded-lg border border-slate-200 p-3 transition-all duration-150",
+                externalEmail ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-200" : ""
+            )}
+            onClick={handleClick}
+        >
             {/* Decorative Strip */}
-            <div className={cn("absolute left-0 top-0 bottom-0 w-1", isMeeting ? "bg-blue-500" : "bg-slate-300")} />
+            <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-lg", isMeeting ? "bg-blue-500" : "bg-slate-300")} />
 
-            <div className="pl-3">
+            <div className="pl-2">
                 {showDate && (
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        {format(new Date(event.start), 'EEEE, MMM do')}
+                    <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-1">
+                        {format(new Date(event.start), 'EEE, MMM d')}
                     </div>
                 )}
 
-                <div className="flex items-start justify-between gap-3 mb-2">
-                    <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2">
+                <div className="flex items-center gap-2">
+                    {/* Title */}
+                    <h4 className="font-medium text-slate-800 text-sm flex-1 truncate">
                         {event.title || '(No Title)'}
                     </h4>
+
+                    {/* Time */}
+                    <span className="text-xs text-slate-500 shrink-0">
+                        {format(new Date(event.start), 'h:mm a')}
+                    </span>
+
+                    {/* Meeting indicator */}
+                    {isMeeting && (
+                        <Video className="h-3 w-3 text-blue-500 shrink-0" />
+                    )}
+
+                    {/* External link */}
                     {event.htmlLink && (
-                        <a href={event.htmlLink} target="_blank" className="text-slate-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded-md">
-                            <ExternalLink className="h-3.5 w-3.5" />
+                        <a
+                            href={event.htmlLink}
+                            target="_blank"
+                            className="text-slate-400 hover:text-blue-600 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <ExternalLink className="h-3 w-3" />
                         </a>
                     )}
                 </div>
 
-                <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                        <Clock className="h-3.5 w-3.5 text-slate-400" />
-                        <span>
-                            {format(new Date(event.start), 'h:mm a')} - {format(new Date(event.end), 'h:mm a')}
-                        </span>
+                {/* Attendees - compact */}
+                {event.attendees && event.attendees.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1.5 text-xs text-slate-500">
+                        <Users className="h-3 w-3" />
+                        <span className="truncate">{event.attendees.slice(0, 2).join(', ')}</span>
+                        {event.attendees.length > 2 && <span>+{event.attendees.length - 2}</span>}
                     </div>
-
-                    {isMeeting && (
-                        <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded w-fit">
-                            <Video className="h-3 w-3" />
-                            <span>Meeting</span>
-                        </div>
-                    )}
-
-                    {event.location && (
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                            <span className="truncate max-w-[200px]">{event.location}</span>
-                        </div>
-                    )}
-
-                    {event.attendees && event.attendees.length > 0 && (
-                        <div className="flex items-center gap-[-4px] pt-1">
-                            {event.attendees.slice(0, 3).map((att, i) => (
-                                <div key={i} className="h-6 w-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600 uppercase" title={att}>
-                                    {att[0]}
-                                </div>
-                            ))}
-                            {event.attendees.length > 3 && (
-                                <div className="h-6 w-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-600">
-                                    +{event.attendees.length - 3}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Actions */}
-                <div className="mt-3 pt-3 border-t flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-                        <DialogTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-[10px] text-slate-400 hover:text-blue-600"
-                                onClick={fetchLeads}
-                            >
-                                <Users className="h-3 w-3 mr-1" />
-                                Link to Lead
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Link Event to Lead</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                                <Input
-                                    placeholder="Search leads..."
-                                    value={searchLead}
-                                    onChange={(e) => setSearchLead(e.target.value)}
-                                />
-                                <ScrollArea className="h-[200px]">
-                                    <div className="space-y-1">
-                                        {filteredLeads.map(lead => (
-                                            <Button
-                                                key={lead.id}
-                                                variant="ghost"
-                                                className="w-full justify-start text-sm font-normal"
-                                                onClick={() => linkLead(lead.id)}
-                                            >
-                                                {lead.name}
-                                                {lead.email && <span className="text-slate-400 text-xs ml-2">({lead.email})</span>}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </ScrollArea>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                </div>
+                )}
             </div>
         </div>
     )

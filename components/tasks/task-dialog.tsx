@@ -179,45 +179,24 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
                         )}
                     />
 
-                    {/* Time Picker - Dropdown Style */}
+                    {/* Time Picker - Native Select */}
                     <FormField
                         control={form.control}
                         name="time"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel>Time</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                className="w-full justify-start text-left font-normal"
-                                            >
-                                                <Clock className="mr-2 h-4 w-4" />
-                                                {field.value || "Select time"}
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[140px] p-1" align="start">
-                                        <div className="max-h-[200px] overflow-y-auto">
-                                            {TIME_OPTIONS.map(time => (
-                                                <Button
-                                                    key={time}
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className={cn(
-                                                        "w-full justify-start font-normal",
-                                                        field.value === time && "bg-slate-100"
-                                                    )}
-                                                    onClick={() => field.onChange(time)}
-                                                >
-                                                    {time}
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
+                                <FormControl>
+                                    <select
+                                        value={field.value}
+                                        onChange={(e) => field.onChange(e.target.value)}
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    >
+                                        {TIME_OPTIONS.map(time => (
+                                            <option key={time} value={time}>{time}</option>
+                                        ))}
+                                    </select>
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}

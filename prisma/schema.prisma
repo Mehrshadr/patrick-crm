@@ -294,6 +294,7 @@ model IndexingUrl {
   // Google API Response
   lastInspectionResult String?  // JSON from Search Console API
   lastInspectedAt      DateTime?
+  lastCrawledAt        DateTime?  // When Google last crawled this URL
   
   logs        IndexingLog[]
   
@@ -313,4 +314,22 @@ model IndexingLog {
   response  String?      // API response JSON
   
   createdAt DateTime     @default(now())
+}
+
+// Google OAuth Tokens for Search Console API
+model GoogleOAuthToken {
+  id           Int      @id @default(autoincrement())
+  
+  // OAuth tokens
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  
+  // Scopes this token has access to
+  scope        String   // Space-separated scopes
+  
+  // Meta
+  email        String?  // Google account email
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

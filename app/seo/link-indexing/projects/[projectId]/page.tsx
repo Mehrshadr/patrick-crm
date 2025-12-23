@@ -66,8 +66,11 @@ import {
     HelpCircle,
     ArrowRight,
     Link2Off,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react"
 import { toast } from "sonner"
+import { ProgressDialog } from "@/components/seo/progress-dialog"
 
 interface IndexingUrl {
     id: number
@@ -77,6 +80,7 @@ interface IndexingUrl {
     lastSubmittedAt: string | null
     lastInspectedAt: string | null
     lastInspectionResult: string | null
+    lastCrawledAt: string | null
     createdAt: string
 }
 
@@ -88,47 +92,55 @@ interface Project {
 }
 
 // Google's actual status values with colors
+// Only "Submitted and indexed" is GREEN, all others are non-green
 const statusConfig: Record<string, {
     label: string
     icon: React.ElementType
     bgColor: string
     textColor: string
 }> = {
+    // ✅ INDEXED - The only green status
     'Submitted and indexed': {
         label: 'Submitted and indexed',
         icon: CheckCircle2,
         bgColor: 'bg-green-100 dark:bg-green-900/30',
         textColor: 'text-green-700 dark:text-green-400'
     },
-    'INDEXED': {
-        label: 'Indexed',
-        icon: CheckCircle2,
-        bgColor: 'bg-green-100 dark:bg-green-900/30',
-        textColor: 'text-green-700 dark:text-green-400'
-    },
-    'SUBMITTED': {
-        label: 'Submitted',
-        icon: RefreshCw,
-        bgColor: 'bg-green-100 dark:bg-green-900/30',
-        textColor: 'text-green-700 dark:text-green-400'
-    },
+
+    // ⚠️ CRAWLED BUT NOT INDEXED - Yellow/Orange
     'Crawled - currently not indexed': {
         label: 'Crawled - not indexed',
         icon: Clock,
         bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
         textColor: 'text-yellow-700 dark:text-yellow-400'
     },
-    'URL is unknown to Google': {
-        label: 'Unknown to Google',
-        icon: HelpCircle,
-        bgColor: 'bg-slate-100 dark:bg-slate-800',
-        textColor: 'text-slate-600 dark:text-slate-400'
+    'Discovered - currently not indexed': {
+        label: 'Discovered - not indexed',
+        icon: Clock,
+        bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+        textColor: 'text-amber-700 dark:text-amber-400'
     },
+
+    // 🔄 REDIRECTS - Orange
     'Page with redirect': {
         label: 'Redirect',
         icon: ArrowRight,
         bgColor: 'bg-orange-100 dark:bg-orange-900/30',
         textColor: 'text-orange-700 dark:text-orange-400'
+    },
+    'Redirect error': {
+        label: 'Redirect error',
+        icon: AlertCircle,
+        bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+        textColor: 'text-orange-700 dark:text-orange-400'
+    },
+
+    // 🚫 EXCLUDED - Purple/Blue
+    "Excluded by 'noindex' tag": {
+        label: 'Excluded (noindex)',
+        icon: Link2Off,
+        bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+        textColor: 'text-purple-700 dark:text-purple-400'
     },
     'Alternate page with proper canonical tag': {
         label: 'Alternate (canonical)',
@@ -136,11 +148,67 @@ const statusConfig: Record<string, {
         bgColor: 'bg-blue-100 dark:bg-blue-900/30',
         textColor: 'text-blue-700 dark:text-blue-400'
     },
+    'Duplicate without user-selected canonical': {
+        label: 'Duplicate (no canonical)',
+        icon: Link2Off,
+        bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+        textColor: 'text-indigo-700 dark:text-indigo-400'
+    },
+
+    // 🚷 BLOCKED - Slate/Gray
+    'Blocked by robots.txt': {
+        label: 'Blocked (robots.txt)',
+        icon: Link2Off,
+        bgColor: 'bg-slate-200 dark:bg-slate-700',
+        textColor: 'text-slate-700 dark:text-slate-300'
+    },
+    'Blocked due to other 4xx issue': {
+        label: 'Blocked (4xx)',
+        icon: AlertCircle,
+        bgColor: 'bg-slate-200 dark:bg-slate-700',
+        textColor: 'text-slate-700 dark:text-slate-300'
+    },
+
+    // ❌ ERRORS - Red
+    'Not found (404)': {
+        label: 'Not found (404)',
+        icon: AlertCircle,
+        bgColor: 'bg-red-100 dark:bg-red-900/30',
+        textColor: 'text-red-700 dark:text-red-400'
+    },
+
+    // ❓ UNKNOWN - Slate
+    'URL is unknown to Google': {
+        label: 'Unknown to Google',
+        icon: HelpCircle,
+        bgColor: 'bg-slate-100 dark:bg-slate-800',
+        textColor: 'text-slate-600 dark:text-slate-400'
+    },
+
+    // 📝 INTERNAL STATUSES
     'PENDING': {
-        label: 'Pending',
+        label: 'Pending check',
         icon: Clock,
         bgColor: 'bg-slate-100 dark:bg-slate-800',
         textColor: 'text-slate-600 dark:text-slate-400'
+    },
+    'INDEXED': {
+        label: 'Indexed',
+        icon: CheckCircle2,
+        bgColor: 'bg-green-100 dark:bg-green-900/30',
+        textColor: 'text-green-700 dark:text-green-400'
+    },
+    'CRAWLED': {
+        label: 'Crawled',
+        icon: Clock,
+        bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+        textColor: 'text-yellow-700 dark:text-yellow-400'
+    },
+    'EXCLUDED': {
+        label: 'Excluded',
+        icon: Link2Off,
+        bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+        textColor: 'text-purple-700 dark:text-purple-400'
     },
     'ERROR': {
         label: 'Error',
@@ -155,12 +223,18 @@ function getStatusConfig(status: string) {
     if (statusConfig[status]) return statusConfig[status]
     // Then try to find a partial match
     const lower = status.toLowerCase()
-    if (lower.includes('indexed') && lower.includes('submitted')) return statusConfig['Submitted and indexed']
-    if (lower.includes('indexed')) return statusConfig['INDEXED']
-    if (lower.includes('crawled')) return statusConfig['Crawled - currently not indexed']
+    if (lower.includes('submitted') && lower.includes('indexed')) return statusConfig['Submitted and indexed']
+    if (lower.includes('crawled') && lower.includes('not indexed')) return statusConfig['Crawled - currently not indexed']
+    if (lower.includes('discovered') && lower.includes('not indexed')) return statusConfig['Discovered - currently not indexed']
+    if (lower.includes('redirect') && lower.includes('error')) return statusConfig['Redirect error']
     if (lower.includes('redirect')) return statusConfig['Page with redirect']
+    if (lower.includes('noindex')) return statusConfig["Excluded by 'noindex' tag"]
+    if (lower.includes('canonical') && lower.includes('alternate')) return statusConfig['Alternate page with proper canonical tag']
+    if (lower.includes('duplicate')) return statusConfig['Duplicate without user-selected canonical']
+    if (lower.includes('robots')) return statusConfig['Blocked by robots.txt']
+    if (lower.includes('4xx') || lower.includes('blocked')) return statusConfig['Blocked due to other 4xx issue']
+    if (lower.includes('404') || lower.includes('not found')) return statusConfig['Not found (404)']
     if (lower.includes('unknown')) return statusConfig['URL is unknown to Google']
-    if (lower.includes('canonical') || lower.includes('alternate')) return statusConfig['Alternate page with proper canonical tag']
     if (lower.includes('error')) return statusConfig['ERROR']
     return statusConfig['PENDING']
 }
@@ -201,10 +275,39 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
     const [saving, setSaving] = useState(false)
     const [selectedUrls, setSelectedUrls] = useState<Set<number>>(new Set())
     const [submitting, setSubmitting] = useState(false)
+    const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
+
+    // Progress dialog state
+    const [progressDialog, setProgressDialog] = useState({
+        open: false,
+        title: '',
+        current: 0,
+        total: 0,
+        status: 'running' as 'running' | 'completed' | 'error',
+        successCount: 0,
+        failedCount: 0
+    })
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('ALL')
+
+    // Sort state: null = default, 'asc' = ascending, 'desc' = descending
+    const [sortColumn, setSortColumn] = useState<string | null>(null)
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null)
+
+    // Toggle sort on column click (3 states: asc -> desc -> none)
+    const toggleSort = (column: string) => {
+        if (sortColumn !== column) {
+            setSortColumn(column)
+            setSortDirection('asc')
+        } else if (sortDirection === 'asc') {
+            setSortDirection('desc')
+        } else {
+            setSortColumn(null)
+            setSortDirection(null)
+        }
+    }
 
     useEffect(() => {
         fetchProjectData()
@@ -245,9 +348,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         return statuses
     }, [urls])
 
-    // Filter URLs
+    // Filter and sort URLs (selected items appear at top)
     const filteredUrls = useMemo(() => {
-        return urls.filter(url => {
+        const filtered = urls.filter(url => {
             // Search filter
             if (searchQuery && !url.url.toLowerCase().includes(searchQuery.toLowerCase())) {
                 return false
@@ -259,7 +362,43 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
             }
             return true
         })
-    }, [urls, searchQuery, statusFilter])
+
+        // Sort: selected items first, then by column sort, then by original order
+        return filtered.sort((a, b) => {
+            // Selected items always first
+            const aSelected = selectedUrls.has(a.id) ? 0 : 1
+            const bSelected = selectedUrls.has(b.id) ? 0 : 1
+            if (aSelected !== bSelected) return aSelected - bSelected
+
+            // Column sort
+            if (sortColumn && sortDirection) {
+                let aVal: any, bVal: any
+                switch (sortColumn) {
+                    case 'status':
+                        aVal = a.lastInspectionResult || a.status || ''
+                        bVal = b.lastInspectionResult || b.status || ''
+                        break
+                    case 'lastSubmittedAt':
+                        aVal = a.lastSubmittedAt ? new Date(a.lastSubmittedAt).getTime() : 0
+                        bVal = b.lastSubmittedAt ? new Date(b.lastSubmittedAt).getTime() : 0
+                        break
+                    case 'lastInspectedAt':
+                        aVal = a.lastInspectedAt ? new Date(a.lastInspectedAt).getTime() : 0
+                        bVal = b.lastInspectedAt ? new Date(b.lastInspectedAt).getTime() : 0
+                        break
+                    case 'lastCrawledAt':
+                        aVal = a.lastCrawledAt ? new Date(a.lastCrawledAt).getTime() : 0
+                        bVal = b.lastCrawledAt ? new Date(b.lastCrawledAt).getTime() : 0
+                        break
+                    default:
+                        return 0
+                }
+                if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+                if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+            }
+            return 0
+        })
+    }, [urls, searchQuery, statusFilter, selectedUrls, sortColumn, sortDirection])
 
     async function handleAddUrls() {
         const urlLines = urlInput.split('\n').filter(u => u.trim())
@@ -336,6 +475,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
     async function handleSubmitForIndexing(urlIds: number[]) {
         setSubmitting(true)
+        setProgressDialog({
+            open: true,
+            title: 'Submitting URLs for Indexing',
+            current: 0,
+            total: urlIds.length,
+            status: 'running',
+            successCount: 0,
+            failedCount: 0
+        })
+
         try {
             const res = await fetch('/api/seo/urls/submit', {
                 method: 'POST',
@@ -345,13 +494,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
             const data = await res.json()
             if (res.ok) {
-                toast.success(`Submitted ${data.submitted} URLs for indexing`)
+                setProgressDialog(prev => ({
+                    ...prev,
+                    current: urlIds.length,
+                    status: 'completed',
+                    successCount: data.submitted || 0,
+                    failedCount: data.failed || 0
+                }))
+                toast.success(`Sent ${data.submitted} URLs to Index Now`)
                 setSelectedUrls(new Set())
                 fetchProjectData()
             } else {
+                setProgressDialog(prev => ({ ...prev, status: 'error' }))
                 toast.error(data.error || 'Failed to submit URLs')
             }
         } catch (error) {
+            setProgressDialog(prev => ({ ...prev, status: 'error' }))
             toast.error('Failed to submit URLs')
         } finally {
             setSubmitting(false)
@@ -360,6 +518,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
     async function handleCheckStatus(urlIds: number[]) {
         setSubmitting(true)
+        setProgressDialog({
+            open: true,
+            title: 'Checking URL Status',
+            current: 0,
+            total: urlIds.length,
+            status: 'running',
+            successCount: 0,
+            failedCount: 0
+        })
+
         try {
             const res = await fetch('/api/seo/urls/inspect', {
                 method: 'POST',
@@ -369,27 +537,53 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
 
             const data = await res.json()
             if (res.ok) {
+                setProgressDialog(prev => ({
+                    ...prev,
+                    current: urlIds.length,
+                    status: 'completed',
+                    successCount: data.checked || 0,
+                    failedCount: data.failed || 0
+                }))
                 toast.success(`Checked status for ${data.checked} URLs`)
                 setSelectedUrls(new Set())
                 fetchProjectData()
             } else {
+                setProgressDialog(prev => ({ ...prev, status: 'error' }))
                 toast.error(data.error || 'Failed to check status')
             }
         } catch (error) {
+            setProgressDialog(prev => ({ ...prev, status: 'error' }))
             toast.error('Failed to check status')
         } finally {
             setSubmitting(false)
         }
     }
 
-    function toggleUrlSelection(urlId: number) {
+    function toggleUrlSelection(urlId: number, index?: number, shiftKey?: boolean) {
         const newSet = new Set(selectedUrls)
-        if (newSet.has(urlId)) {
-            newSet.delete(urlId)
+
+        // Shift+Click: select range
+        if (shiftKey && lastClickedIndex !== null && index !== undefined) {
+            const start = Math.min(lastClickedIndex, index)
+            const end = Math.max(lastClickedIndex, index)
+            for (let i = start; i <= end; i++) {
+                if (filteredUrls[i]) {
+                    newSet.add(filteredUrls[i].id)
+                }
+            }
         } else {
-            newSet.add(urlId)
+            // Normal click: toggle single
+            if (newSet.has(urlId)) {
+                newSet.delete(urlId)
+            } else {
+                newSet.add(urlId)
+            }
         }
+
         setSelectedUrls(newSet)
+        if (index !== undefined) {
+            setLastClickedIndex(index)
+        }
     }
 
     function toggleAllUrls() {
@@ -553,7 +747,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                                     disabled={submitting}
                                 >
                                     <Send className="mr-1 h-3 w-3" />
-                                    Submit
+                                    Index Now
                                 </Button>
                                 <Button
                                     size="sm"
@@ -604,13 +798,59 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                                             />
                                         </TableHead>
                                         <TableHead>URL Path</TableHead>
-                                        <TableHead className="w-[200px]">Status</TableHead>
-                                        <TableHead className="w-[150px]">Last Checked</TableHead>
+                                        <TableHead className="w-[180px]">
+                                            <Button
+                                                variant={sortColumn === 'status' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="h-auto p-1 font-medium"
+                                                onClick={() => toggleSort('status')}
+                                            >
+                                                Status
+                                                {sortColumn === 'status' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
+                                                {sortColumn === 'status' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead className="w-[120px]">
+                                            <Button
+                                                variant={sortColumn === 'lastSubmittedAt' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="h-auto p-1 font-medium"
+                                                onClick={() => toggleSort('lastSubmittedAt')}
+                                            >
+                                                Last Indexed
+                                                {sortColumn === 'lastSubmittedAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
+                                                {sortColumn === 'lastSubmittedAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead className="w-[120px]">
+                                            <Button
+                                                variant={sortColumn === 'lastInspectedAt' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="h-auto p-1 font-medium"
+                                                onClick={() => toggleSort('lastInspectedAt')}
+                                            >
+                                                Last Checked
+                                                {sortColumn === 'lastInspectedAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
+                                                {sortColumn === 'lastInspectedAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
+                                            </Button>
+                                        </TableHead>
+                                        <TableHead className="w-[120px]">
+                                            <Button
+                                                variant={sortColumn === 'lastCrawledAt' ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                className="h-auto p-1 font-medium"
+                                                onClick={() => toggleSort('lastCrawledAt')}
+                                            >
+                                                Last Crawled
+                                                {sortColumn === 'lastCrawledAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
+                                                {sortColumn === 'lastCrawledAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
+                                            </Button>
+                                        </TableHead>
                                         <TableHead className="w-[40px]"></TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredUrls.map((url) => {
+                                    {filteredUrls.map((url, index) => {
                                         const status = url.lastInspectionResult || url.status
                                         const config = getStatusConfig(status)
                                         const StatusIcon = config.icon
@@ -620,7 +860,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                                                 <TableCell>
                                                     <Checkbox
                                                         checked={selectedUrls.has(url.id)}
-                                                        onCheckedChange={() => toggleUrlSelection(url.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            toggleUrlSelection(url.id, index, e.shiftKey)
+                                                        }}
+                                                        onCheckedChange={() => { }}
                                                     />
                                                 </TableCell>
                                                 <TableCell>
@@ -630,7 +874,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                                                                 href={url.url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="text-blue-600 hover:underline text-sm block truncate max-w-[400px]"
+                                                                className="text-blue-600 hover:underline text-sm block truncate max-w-[350px]"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 {getUrlPath(url.url)}
@@ -648,7 +892,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">
+                                                    {formatDate(url.lastSubmittedAt)}
+                                                </TableCell>
+                                                <TableCell className="text-xs text-muted-foreground">
                                                     {formatDate(url.lastInspectedAt)}
+                                                </TableCell>
+                                                <TableCell className="text-xs text-muted-foreground">
+                                                    {formatDate(url.lastCrawledAt)}
                                                 </TableCell>
                                                 <TableCell>
                                                     <DropdownMenu>
@@ -664,7 +914,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuItem onClick={() => handleSubmitForIndexing([url.id])}>
                                                                 <Send className="h-4 w-4 mr-2" />
-                                                                Submit
+                                                                Index Now
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleCheckStatus([url.id])}>
                                                                 <Search className="h-4 w-4 mr-2" />
@@ -775,6 +1025,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Progress Dialog */}
+                <ProgressDialog
+                    open={progressDialog.open}
+                    title={progressDialog.title}
+                    current={progressDialog.current}
+                    total={progressDialog.total}
+                    status={progressDialog.status}
+                    successCount={progressDialog.successCount}
+                    failedCount={progressDialog.failedCount}
+                    onClose={() => setProgressDialog(prev => ({ ...prev, open: false }))}
+                />
             </div>
         </TooltipProvider>
     )

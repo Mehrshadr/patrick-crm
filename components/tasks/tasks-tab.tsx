@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react"
 import { format, isToday, isTomorrow, isPast, isFuture } from "date-fns"
-import { CheckSquare, Plus, Calendar as CalendarIcon, Filter, Search, MoreHorizontal, Trash2, CheckCircle2, Circle } from "lucide-react"
+import { CheckSquare, Plus, Calendar as CalendarIcon, Filter, Search, MoreHorizontal, Trash2, CheckCircle2, Circle, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"

@@ -1,9 +1,10 @@
+
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { CalendarTab } from "@/components/calendar/calendar-tab"
+import { TasksTab } from "@/components/tasks/tasks-tab"
 
-export default async function CalendarPage() {
+export default async function TasksPage() {
     const session = await auth()
 
     if (!session?.user) {
@@ -13,9 +14,9 @@ export default async function CalendarPage() {
     return (
         <DashboardLayout
             user={session.user}
-            title="📅 Calendar"
+            title="✅ Tasks"
         >
-            <CalendarTab />
+            <TasksTab />
         </DashboardLayout>
     )
 }

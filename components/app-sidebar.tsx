@@ -34,11 +34,13 @@ import {
     ChevronDown,
     Search,
     Brain,
+    CheckSquare,
 } from "lucide-react"
 
 // PCRM Menu Items
 const PCRM_ITEMS = [
     { id: 'leads', label: 'Lead Pipeline', icon: LayoutDashboard, href: '/leads' },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { id: 'automation', label: 'Automation', icon: Bot, href: '/automation' },
     { id: 'logs', label: 'Logs', icon: ClipboardList, href: '/logs' },
     { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },

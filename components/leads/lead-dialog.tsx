@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LeadTimeline } from "./lead-timeline"
 import { STAGE_CONFIG, PipelineStage, getStageForStatus } from "@/lib/status-mapping"
+import { TaskDialog } from "@/components/tasks/task-dialog"
 import {
     Dialog,
     DialogContent,
@@ -72,9 +73,11 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const [logs, setLogs] = useState<any[]>([])
     const [links, setLinks] = useState<any[]>([])
     const [notes, setNotes] = useState<any[]>([])
+    const [tasks, setTasks] = useState<any[]>([])
     const [isEditing, setIsEditing] = useState(false)
     const [isAddingLink, setIsAddingLink] = useState(false)
     const [isAddingNote, setIsAddingNote] = useState(false)
+    const [isAddingTask, setIsAddingTask] = useState(false)
     const [linkType, setLinkType] = useState("Meeting Recording")
     const [linkUrl, setLinkUrl] = useState("")
     const [linkTitle, setLinkTitle] = useState("")
@@ -155,6 +158,10 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             setLogs([])
             setLinks([])
             setNotes([])
+            setLogs([])
+            setLinks([])
+            setNotes([])
+            setTasks([])
             setSuggestedWorkflows([])
             setIsEditing(true)
             return
@@ -175,6 +182,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             getLeadLogs(lead.id).then(setLogs)
             getLinks(lead.id).then(setLinks)
             fetch(`/api/notes?leadId=${lead.id}`).then(r => r.json()).then(d => setNotes(d.notes || []))
+            fetch(`/api/tasks?leadId=${lead.id}`).then(r => r.json()).then(d => setTasks(d || []))
             // Fetch signature for email compose
             fetch('/api/settings?key=email_signature').then(r => r.json()).then(d => {
                 if (d.success && d.setting) setSignature(d.setting.value || '')
@@ -945,6 +953,54 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                             </Form>
                         </div>
 
+                        {/* Tasks Section */}
+                        <div className="pt-8 border-t">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="font-semibold text-lg flex items-center gap-3">
+                                    <span className="bg-emerald-100 p-2 rounded-md"><CheckSquare className="h-5 w-5 text-emerald-700" /></span>
+                                    Tasks
+                                </h3>
+                                <Button variant="ghost" size="sm" onClick={() => setIsAddingTask(true)} className="gap-1 text-emerald-600">
+                                    <Plus className="h-4 w-4" /> Add Task
+                                </Button>
+                            </div>
+
+                            {tasks.length === 0 ? (
+                                <div className="text-sm text-slate-500 italic px-2">No active tasks for this lead.</div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {tasks.map(task => (
+                                        <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${task.status === 'COMPLETED' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-500'}`}
+                                                    onClick={async () => {
+                                                        const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+                                                        setTasks(tasks.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+                                                        await fetch(`/api/tasks/${task.id}`, {
+                                                            method: 'PATCH',
+                                                            body: JSON.stringify({ status: newStatus })
+                                                        });
+                                                    }}
+                                                >
+                                                    {task.status === 'COMPLETED' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                                                </button>
+                                                <div className={task.status === 'COMPLETED' ? 'opacity-50 line-through' : ''}>
+                                                    <div className="font-medium text-sm">{task.title}</div>
+                                                    <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                        <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                                                        {task.priority !== 'NORMAL' && (
+                                                            <Badge variant="outline" className="h-4 text-[10px] px-1">{task.priority}</Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="pt-8 border-t">
                             <h3 className="font-semibold text-lg mb-6 flex items-center gap-3">
                                 <span className="bg-indigo-100 text-indigo-600 p-2 rounded-md"><Clock className="h-5 w-5" /></span>
@@ -1330,6 +1386,21 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                             </Button>
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddingTask} onOpenChange={setIsAddingTask}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Task for {lead?.name}</DialogTitle>
+                    </DialogHeader>
+                    <TaskDialog
+                        initialData={{ lead: { id: lead?.id, name: lead?.name } } as any}
+                        onSuccess={() => {
+                            setIsAddingTask(false)
+                            if (lead) fetch(`/api/tasks?leadId=${lead.id}`).then(r => r.json()).then(d => setTasks(d || []))
+                        }}
+                    />
                 </DialogContent>
             </Dialog>
         </Dialog>

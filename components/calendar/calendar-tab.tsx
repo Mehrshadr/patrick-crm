@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { RefreshCw, CalendarDays, Clock, MapPin, Users, ExternalLink, Video, ChevronRight } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { RefreshCw, CalendarDays, Clock, MapPin, Users, ExternalLink, Video, ChevronRight, CheckSquare, CheckCircle2 } from 'lucide-react'
 import { format, isSameDay, startOfMonth, endOfMonth, addMonths, isBefore, isAfter, startOfDay } from 'date-fns'
 import { cn } from '@/lib/utils'
 
@@ -24,11 +26,18 @@ interface CalendarEvent {
     htmlLink?: string
 }
 
+interface LeadSimple {
+    id: number
+    name: string
+    email?: string
+}
+
 export function CalendarTab() {
     const { data: session } = useSession()
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
     const [currentMonth, setCurrentMonth] = useState<Date>(new Date())
     const [events, setEvents] = useState<CalendarEvent[]>([])
+    const [tasks, setTasks] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const accessToken = (session as any)?.accessToken
@@ -37,7 +46,20 @@ export function CalendarTab() {
         if (accessToken) {
             fetchEvents()
         }
+        fetchTasks()
     }, [session, currentMonth])
+
+    async function fetchTasks() {
+        try {
+            const res = await fetch('/api/tasks')
+            const data = await res.json()
+            if (Array.isArray(data)) {
+                setTasks(data)
+            }
+        } catch (e) {
+            console.error(e)
+        }
+    }
 
     async function fetchEvents() {
         if (!accessToken) return
@@ -63,6 +85,7 @@ export function CalendarTab() {
     // Filter Logic
     const today = startOfDay(new Date())
     const selectedDateEvents = events.filter(event => isSameDay(new Date(event.start), selectedDate))
+    const selectedDateTasks = tasks.filter(task => isSameDay(new Date(task.dueDate), selectedDate) && task.status !== 'COMPLETED')
 
     // Sort events by time
     const sortedEvents = [...events].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
@@ -71,7 +94,7 @@ export function CalendarTab() {
     const upcomingEvents = sortedEvents.filter(e => isAfter(new Date(e.start), new Date()))
     const pastEvents = sortedEvents.filter(e => isBefore(new Date(e.start), new Date()))
 
-    const eventDates = events.map(e => new Date(e.start))
+    const eventDates = [...events.map(e => new Date(e.start)), ...tasks.filter(t => t.status !== 'COMPLETED').map(t => new Date(t.dueDate))]
 
     if (!accessToken) {
         return (
@@ -145,6 +168,14 @@ export function CalendarTab() {
                                 day_hidden: "invisible",
                             }}
                             modifiers={{ hasEvent: eventDates }}
+                            modifiersStyles={{
+                                hasEvent: {
+                                    fontWeight: 'bold',
+                                    textDecoration: 'underline',
+                                    textDecorationColor: '#6366f1',
+                                    textDecorationThickness: '2px'
+                                }
+                            }}
                             modifiersClassNames={{
                                 hasEvent: "font-bold relative after:content-[''] after:absolute after:bottom-2 after:w-1.5 after:h-1.5 after:bg-indigo-500 after:rounded-full"
                             }}
@@ -177,7 +208,24 @@ export function CalendarTab() {
                                             Agenda for {format(selectedDate, 'MMMM do')}
                                         </h4>
                                     </div>
-                                    {selectedDateEvents.length === 0 ? (
+
+                                    {/* Tasks for the day */}
+                                    {selectedDateTasks.length > 0 && (
+                                        <div className="mb-4 space-y-2">
+                                            <h5 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">Tasks</h5>
+                                            {selectedDateTasks.map(task => (
+                                                <div key={task.id} className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 flex items-start gap-3">
+                                                    <CheckSquare className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                                                    <div>
+                                                        <div className="text-sm font-medium text-slate-800">{task.title}</div>
+                                                        <div className="text-xs text-emerald-600 mt-0.5">Due today</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {selectedDateEvents.length === 0 && selectedDateTasks.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50">
                                             <Clock className="h-10 w-10 mb-3 opacity-20" />
                                             <p className="font-medium text-sm">No events scheduled</p>
@@ -211,6 +259,39 @@ export function CalendarTab() {
 
 function EventCard({ event, showDate = false }: { event: CalendarEvent, showDate?: boolean }) {
     const isMeeting = (event.attendees?.length || 0) > 0 || (event.htmlLink && event.htmlLink.includes('meet.google'))
+    const [leads, setLeads] = useState<LeadSimple[]>([])
+    const [showLinkDialog, setShowLinkDialog] = useState(false)
+    const [searchLead, setSearchLead] = useState('')
+
+    async function fetchLeads() {
+        if (leads.length > 0) return
+        try {
+            const res = await fetch('/api/leads')
+            const data = await res.json()
+            if (data.success && Array.isArray(data.leads)) {
+                setLeads(data.leads)
+            }
+        } catch (e) {
+            console.error('Failed to fetch leads')
+        }
+    }
+
+    async function linkLead(leadId: number) {
+        try {
+            await fetch('/api/calendar/link-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventId: event.id, eventTitle: event.title, leadId })
+            })
+            // Ideally we'd show success and maybe navigate or show connected state
+            setShowLinkDialog(false)
+            alert('Linked to lead!')
+        } catch (e) {
+            alert('Failed to link')
+        }
+    }
+
+    const filteredLeads = leads.filter(l => l.name.toLowerCase().includes(searchLead.toLowerCase()))
 
     return (
         <div className="group relative bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200 cursor-default overflow-hidden">
@@ -271,6 +352,50 @@ function EventCard({ event, showDate = false }: { event: CalendarEvent, showDate
                             )}
                         </div>
                     )}
+                </div>
+
+                {/* Actions */}
+                <div className="mt-3 pt-3 border-t flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[10px] text-slate-400 hover:text-blue-600"
+                                onClick={fetchLeads}
+                            >
+                                <Users className="h-3 w-3 mr-1" />
+                                Link to Lead
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Link Event to Lead</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <Input
+                                    placeholder="Search leads..."
+                                    value={searchLead}
+                                    onChange={(e) => setSearchLead(e.target.value)}
+                                />
+                                <ScrollArea className="h-[200px]">
+                                    <div className="space-y-1">
+                                        {filteredLeads.map(lead => (
+                                            <Button
+                                                key={lead.id}
+                                                variant="ghost"
+                                                className="w-full justify-start text-sm font-normal"
+                                                onClick={() => linkLead(lead.id)}
+                                            >
+                                                {lead.name}
+                                                {lead.email && <span className="text-slate-400 text-xs ml-2">({lead.email})</span>}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
         </div>

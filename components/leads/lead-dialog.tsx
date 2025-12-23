@@ -320,11 +320,16 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
             else title = 'Meeting Recording'
         }
 
+        // Map UI link types to database enum values
+        let dbType = 'RECORDING'
+        if (linkType === 'Audit Link') dbType = 'AUDIT'
+        else if (linkType === 'Proposal Link') dbType = 'PROPOSAL'
+
         try {
             const response = await fetch('/api/links', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ leadId: lead.id, type: linkType, title, url: linkUrl })
+                body: JSON.stringify({ leadId: lead.id, type: dbType, title, url: linkUrl })
             })
             const res = await response.json()
 

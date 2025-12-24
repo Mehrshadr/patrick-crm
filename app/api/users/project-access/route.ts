@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { requireAdmin } from '@/lib/permissions'
 
@@ -19,18 +19,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Delete all existing access for this user
-        await db.projectAccess.deleteMany({
+        await prisma.projectAccess.deleteMany({
             where: { userId }
         })
 
-        // Create new access entries
-        if (projectIds.length > 0) {
-            await db.projectAccess.createMany({
-                data: projectIds.map((projectId: number) => ({
+        // Create new access entries (SQLite doesn't support createMany, use loop)
+        for (const projectId of projectIds) {
+            await prisma.projectAccess.create({
+                data: {
                     userId,
                     projectId,
                     role: 'MEMBER'
-                }))
+                }
             })
         }
 

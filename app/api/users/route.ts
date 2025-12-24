@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { requireAdmin } from '@/lib/permissions'
 
-// GET - List all users
+// GET - List all users with project access
 export async function GET() {
     try {
         const session = await auth()
@@ -15,6 +15,13 @@ export async function GET() {
                 loginLogs: {
                     orderBy: { createdAt: 'desc' },
                     take: 5
+                },
+                projectAccess: {
+                    include: {
+                        project: {
+                            select: { id: true, name: true }
+                        }
+                    }
                 }
             }
         })
@@ -43,9 +50,9 @@ export async function PUT(request: NextRequest) {
             )
         }
 
-        if (!['ADMIN', 'VIEWER'].includes(role)) {
+        if (!['SUPER_ADMIN', 'ADMIN', 'USER'].includes(role)) {
             return NextResponse.json(
-                { success: false, error: 'Role must be ADMIN or VIEWER' },
+                { success: false, error: 'Role must be SUPER_ADMIN, ADMIN, or USER' },
                 { status: 400 }
             )
         }

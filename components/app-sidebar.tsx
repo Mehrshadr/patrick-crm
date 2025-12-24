@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -33,8 +33,10 @@ import {
     Link2,
     ChevronDown,
     Search,
+    FolderOpen,
     Brain,
     CheckSquare,
+    Activity,
 } from "lucide-react"
 
 // PCRM Menu Items
@@ -46,27 +48,26 @@ const PCRM_ITEMS = [
     { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
 ]
 
-// SEO Tools Menu Items
-const SEO_ITEMS = [
-    {
-        id: 'link-indexing',
-        label: 'Link Indexing',
-        icon: Link2,
-        href: '/seo/link-indexing',
-        children: [
-            { id: 'li-dashboard', label: 'Dashboard', href: '/seo/link-indexing' },
-            { id: 'li-projects', label: 'Projects', href: '/seo/link-indexing/projects' },
-            { id: 'li-logs', label: 'Logs', href: '/seo/link-indexing/logs' },
-        ]
-    },
-    // Future: Link Building, Keyword Tracker, etc.
-]
+interface Project {
+    id: number
+    name: string
+    domain: string | null
+}
 
 export function AppSidebar() {
     const pathname = usePathname()
     const [patrickEnlarged, setPatrickEnlarged] = useState(false)
-    const isPcrm = !pathname.startsWith('/seo')
-    const isSeoActive = pathname.startsWith('/seo')
+    const [projects, setProjects] = useState<Project[]>([])
+    const isPcrm = !pathname.startsWith('/seo') && !pathname.startsWith('/projects')
+    const isProjectsActive = pathname.startsWith('/projects')
+
+    // Fetch projects for sidebar
+    useEffect(() => {
+        fetch('/api/seo/projects')
+            .then(res => res.json())
+            .then(data => setProjects(data))
+            .catch(() => { })
+    }, [])
 
     return (
         <Sidebar collapsible="icon">
@@ -120,57 +121,49 @@ export function AppSidebar() {
                             </SidebarMenuItem>
                         </Collapsible>
 
-                        {/* SEO Tools Section */}
-                        <Collapsible defaultOpen={isSeoActive} className="group/seo">
+                        {/* Projects Section */}
+                        <Collapsible defaultOpen={isProjectsActive} className="group/projects">
                             <SidebarMenuItem>
                                 <CollapsibleTrigger asChild>
                                     <SidebarMenuButton className="font-medium">
-                                        <Search className="h-4 w-4" />
-                                        <span>SEO Tools</span>
-                                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/seo:rotate-180" />
+                                        <FolderOpen className="h-4 w-4" />
+                                        <span>Projects</span>
+                                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/projects:rotate-180" />
                                     </SidebarMenuButton>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
                                     <SidebarMenuSub>
-                                        {SEO_ITEMS.map((item) => (
-                                            <Collapsible key={item.id} defaultOpen={pathname.startsWith(item.href)} className="group/tool">
-                                                <SidebarMenuSubItem>
-                                                    <CollapsibleTrigger asChild>
-                                                        <SidebarMenuSubButton
-                                                            isActive={pathname.startsWith(item.href)}
-                                                            className="justify-between pr-2"
-                                                        >
-                                                            <span className="flex items-center gap-2">
-                                                                <item.icon className="h-4 w-4" />
-                                                                <span>{item.label}</span>
-                                                            </span>
-                                                            {item.children && (
-                                                                <ChevronDown className="h-3 w-3 transition-transform group-data-[state=open]/tool:rotate-180" />
-                                                            )}
-                                                        </SidebarMenuSubButton>
-                                                    </CollapsibleTrigger>
-                                                    {item.children && (
-                                                        <CollapsibleContent>
-                                                            <SidebarMenuSub className="ml-4 border-l border-border/50">
-                                                                {item.children.map((child) => (
-                                                                    <SidebarMenuSubItem key={child.id}>
-                                                                        <SidebarMenuSubButton
-                                                                            asChild
-                                                                            isActive={pathname === child.href}
-                                                                            size="sm"
-                                                                        >
-                                                                            <Link href={child.href}>
-                                                                                <span>{child.label}</span>
-                                                                            </Link>
-                                                                        </SidebarMenuSubButton>
-                                                                    </SidebarMenuSubItem>
-                                                                ))}
-                                                            </SidebarMenuSub>
-                                                        </CollapsibleContent>
-                                                    )}
-                                                </SidebarMenuSubItem>
-                                            </Collapsible>
+                                        {projects.map((project) => (
+                                            <SidebarMenuSubItem key={project.id}>
+                                                <SidebarMenuSubButton
+                                                    asChild
+                                                    isActive={pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`)}
+                                                >
+                                                    <Link href={`/projects/${project.id}`}>
+                                                        <span>{project.name}</span>
+                                                    </Link>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
                                         ))}
+                                        {projects.length === 0 && (
+                                            <SidebarMenuSubItem>
+                                                <span className="text-xs text-muted-foreground px-2">No projects yet</span>
+                                            </SidebarMenuSubItem>
+                                        )}
+                                        {/* Divider */}
+                                        <div className="my-2 border-t"></div>
+                                        {/* Logs Link */}
+                                        <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton
+                                                asChild
+                                                isActive={pathname === '/projects/logs'}
+                                            >
+                                                <Link href="/projects/logs">
+                                                    <Activity className="h-4 w-4" />
+                                                    <span>Activity Logs</span>
+                                                </Link>
+                                            </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
                                     </SidebarMenuSub>
                                 </CollapsibleContent>
                             </SidebarMenuItem>

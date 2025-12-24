@@ -240,12 +240,14 @@ model User {
   id        Int       @id @default(autoincrement())
   email     String    @unique
   name      String?
-  role      String    @default("VIEWER")  // "SUPER_ADMIN", "ADMIN", "VIEWER"
+  role      String    @default("USER")  // "SUPER_ADMIN", "ADMIN", "USER"
   createdAt DateTime  @default(now())
   lastLogin DateTime?
   lastLoginIp String?
   
-  loginLogs LoginLog[]
+  loginLogs     LoginLog[]
+  projectAccess ProjectAccess[]
+  createdTasks  Task[]  @relation("TaskCreator")
 }
 
 // Login History (for security auditing)
@@ -271,10 +273,24 @@ model IndexingProject {
   domain      String?   // "mehrana.agency"
   description String?
   
-  urls        IndexingUrl[]
+  urls          IndexingUrl[]
+  assignedUsers ProjectAccess[]
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// User-Project Access Control
+model ProjectAccess {
+  id        Int             @id @default(autoincrement())
+  userId    Int
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId Int
+  project   IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      String          @default("MEMBER")  // "OWNER", "MEMBER", "VIEWER"
+  createdAt DateTime        @default(now())
+  
+  @@unique([userId, projectId])
 }
 
 model IndexingUrl {
@@ -356,6 +372,7 @@ model Task {
   
   // Creator (for filtering per-user)
   createdById Int?
+  createdBy   User?     @relation("TaskCreator", fields: [createdById], references: [id])
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -240,7 +240,7 @@ model User {
   id        Int       @id @default(autoincrement())
   email     String    @unique
   name      String?
-  role      String    @default("VIEWER")  // "ADMIN", "VIEWER"
+  role      String    @default("VIEWER")  // "SUPER_ADMIN", "ADMIN", "VIEWER"
   createdAt DateTime  @default(now())
   lastLogin DateTime?
   lastLoginIp String?
@@ -353,6 +353,9 @@ model Task {
   // Link to Lead (optional - can be general task)
   leadId      Int?
   lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  // Creator (for filtering per-user)
+  createdById Int?
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

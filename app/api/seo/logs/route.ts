@@ -58,7 +58,7 @@ export async function GET() {
             action: log.action,
             details: log.url.url,
             userId: null,
-            userName: log.performedBy,
+            userName: 'System',
             projectId: log.url.projectId,
             projectName: log.url.project.name,
             createdAt: log.createdAt.toISOString()

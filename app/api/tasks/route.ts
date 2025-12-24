@@ -1,13 +1,12 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 
 // GET /api/tasks - Get all tasks (filtered by user unless SUPER_ADMIN)
 export async function GET(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
+        const session = await auth()
         const userEmail = session?.user?.email
 
         const { searchParams } = new URL(request.url)
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest) {
 // POST /api/tasks - Create a new task
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions)
+        const session = await auth()
         const userEmail = session?.user?.email
 
         // Get current user id

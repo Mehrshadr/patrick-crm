@@ -56,7 +56,7 @@ export async function GET() {
         const formattedLogs = logs.map(log => ({
             id: log.id,
             action: log.action,
-            details: log.details || log.url.url,
+            details: log.url.url,
             userId: null,
             userName: log.performedBy,
             projectId: log.url.projectId,

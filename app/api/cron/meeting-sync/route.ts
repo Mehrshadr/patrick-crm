@@ -99,47 +99,77 @@ export async function GET(request: NextRequest) {
             const durationMs = nextEvent.end.getTime() - nextEvent.start.getTime()
             const durationMinutes = Math.floor(durationMs / (1000 * 60))
 
-            let targetStage = 'Meeting1' // Default
-            let description = '15min Discovery Call Detected'
-
-            // LOGIC: Differentiate Meeting Types based on Duration and History
-            if (durationMinutes >= 45) {
-                // It's a Strategy Call (60m usually)
-                // Decide if M2 or M3 based on history
-                // "If they had a Meeting 2 Outcome (Done, Rescheduled, etc), this is likely M3"
-                if (lead.meeting2Outcome && lead.meeting2Outcome !== '') {
-                    targetStage = 'Meeting3'
-                    description = `60min Proposal Call Detected (History: M2 ${lead.meeting2Outcome})`
-                } else {
-                    targetStage = 'Meeting2'
-                    description = '60min Strategy Call Detected'
-                }
-            } else {
-                // < 45 mins -> Likely the 15min Intro (Meeting 1)
-                targetStage = 'Meeting1'
-            }
+            // Cast lead to any to avoid TS error on server where Prisma client isn't updated yet
+            const leadAny = lead as any;
 
             // Status Protection: Don't revert 'Won' or 'Lost' leads
             const PROTECTED_STATUSES = ['Won', 'Lost', 'Bad Fit']
 
-            // Should we update? 
-            // - If status is NOT protected
-            // - AND (Current Status is different OR nextMeetingAt is not set)
-            // Actually, we should always update the nextMeetingAt time even if status doesn't change
+            if (PROTECTED_STATUSES.includes(lead.status)) continue
 
-            if (!PROTECTED_STATUSES.includes(lead.status)) {
-                // IMPORTANT: Only auto-change status for Meeting 1
-                // Meeting 2 and 3 should be manually managed
-                const shouldAutoChangeStatus = targetStage === 'Meeting1'
+            // LOGIC: Handle Meeting Types based on Duration
+            if (durationMinutes >= 45) {
+                // LONG MEETING (60m Strategy/Proposal Call)
+                // Rule: DON'T change the pipeline stage
+                // Rule: Set subStatus to "Scheduled" or "Rescheduled" based on history
 
-                // Determine if we need to log a major status change
-                const isStatusChange = shouldAutoChangeStatus && lead.status !== targetStage
+                // Determine if this is a reschedule:
+                // - If subStatus is already "Scheduled", "Rescheduled", "No Show", or similar → it's a Reschedule
+                // - If lead already had a meeting before (nextMeetingAt was set or subStatus indicates previous scheduling)
+                const schedulingHistory = ['Scheduled', 'Rescheduled', 'No Show']
+                const hadPreviousMeeting = schedulingHistory.includes(leadAny.subStatus) || leadAny.nextMeetingAt
 
-                // Cast lead to any to avoid TS error on server where Prisma client isn't updated yet
-                const leadAny = lead as any;
+                const newSubStatus = hadPreviousMeeting ? 'Rescheduled' : 'Scheduled'
+                const description = `${durationMinutes}min meeting detected → subStatus: ${newSubStatus} (pipeline unchanged)`
 
-                // For Meeting 1: update status. For Meeting 2/3: only update nextMeetingAt time
-                if (shouldAutoChangeStatus && (isStatusChange || !leadAny.nextMeetingAt)) {
+                console.log(`[MeetingSync] Long meeting for ${lead.email}: ${description}`)
+
+                // Update Lead - Only subStatus and nextMeetingAt, NOT the pipeline status
+                await db.lead.update({
+                    where: { id: lead.id },
+                    data: {
+                        subStatus: newSubStatus,
+                        nextMeetingAt: nextEvent.start,
+                    } as any
+                })
+
+                // Activity Log
+                await logActivity({
+                    category: 'MEETING',
+                    action: 'MEETING_BOOKED',
+                    entityType: 'LEAD',
+                    entityId: lead.id,
+                    entityName: (lead.name || lead.email) || undefined,
+                    description: description,
+                })
+
+                // Timeline Log
+                await db.log.create({
+                    data: {
+                        leadId: lead.id,
+                        type: 'MEETING',
+                        status: 'BOOKED',
+                        title: `Meeting ${newSubStatus}`,
+                        content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. SubStatus → ${newSubStatus}. Pipeline unchanged.`,
+                        stage: lead.status, // Keep current stage
+                        meta: JSON.stringify({
+                            eventId: nextEvent.id,
+                            startTime: nextEvent.start,
+                            topic: nextEvent.title
+                        })
+                    }
+                })
+
+                updatedCount++
+
+            } else {
+                // SHORT MEETING (15min Discovery Call) - Keep existing Meeting1 logic
+                const targetStage = 'Meeting1'
+                const description = '15min Discovery Call Detected'
+
+                const isStatusChange = lead.status !== targetStage
+
+                if (isStatusChange || !leadAny.nextMeetingAt) {
                     console.log(`[MeetingSync] Updating lead ${lead.email} to ${targetStage} (${description})`)
 
                     // Update Lead (full status change for Meeting 1)
@@ -148,8 +178,8 @@ export async function GET(request: NextRequest) {
                         data: {
                             status: targetStage,
                             subStatus: 'Scheduled',
-                            nextMeetingAt: nextEvent.start, // Store the exact time
-                            nextNurtureAt: null // Clear any pending nurture
+                            nextMeetingAt: nextEvent.start,
+                            nextNurtureAt: null
                         } as any
                     })
 
@@ -168,98 +198,85 @@ export async function GET(request: NextRequest) {
                             }
                         })
                     }
-                } else if (!shouldAutoChangeStatus) {
-                    // For Meeting 2/3: Just update the meeting time, don't change status
-                    console.log(`[MeetingSync] ${targetStage} detected for ${lead.email} - updating nextMeetingAt only (no status change)`)
+
+                    // Activity Log
+                    if (isStatusChange) {
+                        await logActivity({
+                            category: 'MEETING',
+                            action: 'MEETING_BOOKED',
+                            entityType: 'LEAD',
+                            entityId: lead.id,
+                            entityName: (lead.name || lead.email) || undefined,
+                            description: `Meeting detected: ${description}. Status → ${targetStage}`,
+                        })
+
+                        // Timeline Log
+                        await db.log.create({
+                            data: {
+                                leadId: lead.id,
+                                type: 'MEETING',
+                                status: 'BOOKED',
+                                title: `${targetStage} Confirmed`,
+                                content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. Status → ${targetStage}.`,
+                                stage: targetStage,
+                                meta: JSON.stringify({
+                                    eventId: nextEvent.id,
+                                    startTime: nextEvent.start,
+                                    topic: nextEvent.title
+                                })
+                            }
+                        })
+                    }
+
+                    updatedCount++
+                }
+            }
+
+            // 6. Detect Cancellations
+            // Find leads who THINK they have a meeting in the fetched window, but don't anymore.
+            const trackedLeads = await db.lead.findMany({
+                where: {
+                    nextMeetingAt: {
+                        gte: now,
+                        lte: nextThirtyDays
+                    }
+                }
+            })
+
+            let cancelledCount = 0
+            for (const L of trackedLeads) {
+                // Check if L's email appears in ANY event in 'events'
+                const hasMeeting = events.some(e => e.attendees?.some(att => att.toLowerCase() === L.email?.toLowerCase()))
+
+                if (!hasMeeting) {
+                    // Meeting disappeared!
+                    console.log(`[MeetingSync] Cancellation detected for ${L.email}. Clearing status.`)
+
                     await db.lead.update({
-                        where: { id: lead.id },
+                        where: { id: L.id },
                         data: {
-                            nextMeetingAt: nextEvent.start
+                            nextMeetingAt: null,
+                            meetingId: null,
+                            subStatus: L.subStatus === 'Scheduled' ? null : L.subStatus, // Clear 'Scheduled' tag, keep others if weird
                         } as any
                     })
+
+                    // We don't change the Stage back automatically (too risky), 
+                    // but removing 'Scheduled' + Date Badge effectively "un-confirms" is visually.
+                    cancelledCount++
                 }
-
-                // Activity Log
-                if (isStatusChange) {
-                    await logActivity({
-                        category: 'MEETING',
-                        action: 'MEETING_BOOKED',
-                        entityType: 'LEAD',
-                        entityId: lead.id,
-                        entityName: (lead.name || lead.email) || undefined,
-                        description: `Meeting detected: ${description}. Status -> ${targetStage}`,
-                    })
-
-                    // Timeline Log
-                    await db.log.create({
-                        data: {
-                            leadId: lead.id,
-                            type: 'MEETING',
-                            status: 'BOOKED',
-                            title: `${targetStage} Confirmed`,
-                            content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. Updates status to ${targetStage}.`,
-                            stage: targetStage,
-                            meta: JSON.stringify({
-                                eventId: nextEvent.id,
-                                startTime: nextEvent.start,
-                                topic: nextEvent.title
-                            })
-                        }
-                    })
-                } else {
-                    // Just update time, maybe silent log?
-                    // No need to spam logs if just updating time
-                }
-
-                updatedCount++
             }
+
+            return NextResponse.json({
+                success: true,
+                eventsFound: events.length,
+                leadsMatched: leads.length,
+                leadsUpdated: updatedCount,
+                cancellations: cancelledCount
+            })
+
+        } catch (error: any) {
+            console.error('[MeetingSync] Error:', error)
+            return NextResponse.json({ success: false, error: error.message }, { status: 500 })
         }
-
-        // 6. Detect Cancellations
-        // Find leads who THINK they have a meeting in the fetched window, but don't anymore.
-        const trackedLeads = await db.lead.findMany({
-            where: {
-                nextMeetingAt: {
-                    gte: now,
-                    lte: nextThirtyDays
-                }
-            }
-        })
-
-        let cancelledCount = 0
-        for (const L of trackedLeads) {
-            // Check if L's email appears in ANY event in 'events'
-            const hasMeeting = events.some(e => e.attendees?.some(att => att.toLowerCase() === L.email?.toLowerCase()))
-
-            if (!hasMeeting) {
-                // Meeting disappeared!
-                console.log(`[MeetingSync] Cancellation detected for ${L.email}. Clearing status.`)
-
-                await db.lead.update({
-                    where: { id: L.id },
-                    data: {
-                        nextMeetingAt: null,
-                        meetingId: null,
-                        subStatus: L.subStatus === 'Scheduled' ? null : L.subStatus, // Clear 'Scheduled' tag, keep others if weird
-                    } as any
-                })
-
-                // We don't change the Stage back automatically (too risky), 
-                // but removing 'Scheduled' + Date Badge effectively "un-confirms" is visually.
-                cancelledCount++
-            }
-        }
-
-        return NextResponse.json({
-            success: true,
-            eventsFound: events.length,
-            leadsMatched: leads.length,
-            leadsUpdated: updatedCount,
-            cancellations: cancelledCount
-        })
-
-    } catch (error: any) {
-        console.error('[MeetingSync] Error:', error)
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
-}

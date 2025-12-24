@@ -320,6 +320,26 @@ function TaskGroup({ title, tasks, variant = "default", onToggle, onEdit, onDele
                     >
                         <CardContent className="p-3">
                             <div className="flex items-center gap-3">
+                                {/* Checkbox to toggle status */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        onToggle(task)
+                                    }}
+                                    className={cn(
+                                        "w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                                        task.status === 'COMPLETED'
+                                            ? "bg-green-500 border-green-500 text-white"
+                                            : "border-slate-300 hover:border-slate-400"
+                                    )}
+                                >
+                                    {task.status === 'COMPLETED' && (
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                </button>
+
                                 {/* Title */}
                                 <span className={cn(
                                     "font-medium text-sm flex-1 truncate",

@@ -7,14 +7,15 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { Save, Mail, Eye, EyeOff, Users, Shield } from 'lucide-react'
+import { Save, Mail, Eye, EyeOff, Users, Search, Brain } from 'lucide-react'
 import { UsersTab } from './users-tab'
+import { GoogleConnectionCard } from '@/components/seo/google-connection-card'
 
 export function SettingsTab() {
     const [loading, setLoading] = useState(false)
     const [showPreview, setShowPreview] = useState(false)
 
-    // Email settings - only signature (sender name/reply-to moved to per-email step)
+    // Email settings - only signature
     const [signature, setSignature] = useState('')
 
     useEffect(() => {
@@ -46,23 +47,24 @@ export function SettingsTab() {
     }
 
     return (
-        <Tabs defaultValue="users" className="space-y-6">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+        <Tabs defaultValue="patrick" className="space-y-6">
+            <TabsList className="grid w-full max-w-lg grid-cols-3">
+                <TabsTrigger value="patrick" className="flex items-center gap-2">
+                    <Brain className="h-4 w-4" />
+                    Patrick CRM
+                </TabsTrigger>
+                <TabsTrigger value="seo" className="flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    SEO Tools
+                </TabsTrigger>
                 <TabsTrigger value="users" className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    Users & Access
-                </TabsTrigger>
-                <TabsTrigger value="email" className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email Settings
+                    Users
                 </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="users">
-                <UsersTab />
-            </TabsContent>
-
-            <TabsContent value="email" className="space-y-6 max-w-3xl">
+            {/* Patrick CRM Settings */}
+            <TabsContent value="patrick" className="space-y-6 max-w-3xl">
                 {/* Email Signature Card */}
                 <Card>
                     <CardHeader>
@@ -121,6 +123,29 @@ Your Title | <a href="https://mehrana.agency">Mehrana Agency</a></p>`}
                         </p>
                     </CardContent>
                 </Card>
+            </TabsContent>
+
+            {/* SEO Tools Settings */}
+            <TabsContent value="seo" className="space-y-6 max-w-3xl">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Search className="h-5 w-5" />
+                            Google Search Console
+                        </CardTitle>
+                        <CardDescription>
+                            Connect your Google Search Console for URL indexing and status checks
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <GoogleConnectionCard />
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
+            {/* Users Tab */}
+            <TabsContent value="users">
+                <UsersTab />
             </TabsContent>
         </Tabs>
     )

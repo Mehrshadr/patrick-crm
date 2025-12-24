@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { GoogleConnectionCard } from "@/components/seo/google-connection-card"
 import {
     Link2,
     FolderOpen,
@@ -153,8 +152,6 @@ async function DashboardContent() {
 
     return (
         <div className="space-y-6">
-            {/* Google Connection Status */}
-            <GoogleConnectionCard />
 
             {/* Daily Quota Card */}
             <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200">

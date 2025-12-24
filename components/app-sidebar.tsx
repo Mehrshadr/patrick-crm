@@ -44,7 +44,6 @@ const PCRM_ITEMS = [
     { id: 'automation', label: 'Automation', icon: Bot, href: '/automation' },
     { id: 'logs', label: 'Logs', icon: ClipboardList, href: '/logs' },
     { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
-    { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ]
 
 // SEO Tools Menu Items
@@ -181,6 +180,15 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter className="p-4">
+                {/* Settings Link */}
+                <Link
+                    href="/settings"
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium mb-3 transition-colors ${pathname === '/settings' ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                >
+                    <Settings className="h-4 w-4" />
+                    <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+                </Link>
+
                 {/* Patrick Easter Egg */}
                 <div className="flex justify-center mb-2">
                     <img

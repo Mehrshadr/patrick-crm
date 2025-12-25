@@ -331,6 +331,10 @@ model IndexingLog {
   status    String       // "SUCCESS", "FAILED"
   response  String?      // API response JSON
   
+  // User tracking
+  userId    Int?
+  userName  String?
+  
   createdAt DateTime     @default(now())
 }
 

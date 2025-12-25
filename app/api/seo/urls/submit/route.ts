@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getGoogleAccessToken } from "@/lib/google-search-console"
+import { auth } from "@/lib/auth"
 
 // POST /api/seo/urls/submit - Submit URLs to Google Indexing API
 export async function POST(request: NextRequest) {
     try {
+        // Get current user for tracking
+        const session = await auth()
+        const userEmail = session?.user?.email
+        let userId: number | undefined
+        let userName: string | undefined
+
+        if (userEmail) {
+            const user = await prisma.user.findUnique({
+                where: { email: userEmail },
+                select: { id: true, name: true }
+            })
+            if (user) {
+                userId = user.id
+                userName = user.name || userEmail
+            }
+        }
+
         const body = await request.json()
         const { urlIds } = body
 
@@ -68,13 +86,15 @@ export async function POST(request: NextRequest) {
                     }
                 })
 
-                // Log the action
+                // Log the action with user tracking
                 await prisma.indexingLog.create({
                     data: {
                         urlId: urlRecord.id,
                         action: 'SUBMIT',
                         status: 'SUCCESS',
-                        response: JSON.stringify(responseData)
+                        response: JSON.stringify(responseData),
+                        userId,
+                        userName
                     }
                 })
 
@@ -84,13 +104,15 @@ export async function POST(request: NextRequest) {
             } catch (apiError: any) {
                 console.error(`Failed to submit ${urlRecord.url}:`, apiError)
 
-                // Log the error
+                // Log the error with user tracking
                 await prisma.indexingLog.create({
                     data: {
                         urlId: urlRecord.id,
                         action: 'SUBMIT',
                         status: 'FAILED',
-                        response: JSON.stringify({ error: apiError.message })
+                        response: JSON.stringify({ error: apiError.message }),
+                        userId,
+                        userName
                     }
                 })
 
@@ -105,3 +127,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to submit URLs' }, { status: 500 })
     }
 }
+

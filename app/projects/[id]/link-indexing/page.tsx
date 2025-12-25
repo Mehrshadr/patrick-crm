@@ -71,6 +71,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { ProgressDialog } from "@/components/seo/progress-dialog"
+import { QuotaCounter } from "@/components/seo/quota-counter"
 
 interface IndexingUrl {
     id: number
@@ -683,7 +684,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                 {project.domain || 'No domain'} · {urls.length} URLs
                             </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
+                            <QuotaCounter />
                             <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                                 <Upload className="mr-1 h-3 w-3" />
                                 Import

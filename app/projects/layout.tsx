@@ -3,6 +3,7 @@
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Separator } from '@/components/ui/separator'
+import { UserMenuWrapper } from '@/components/user-menu-wrapper'
 
 export default function ProjectsLayout({
     children,
@@ -19,6 +20,7 @@ export default function ProjectsLayout({
                     <SidebarTrigger className="shrink-0" />
                     <Separator orientation="vertical" className="mr-2 h-4" />
                     <h1 className="text-lg font-semibold flex-1">📁 Projects</h1>
+                    <UserMenuWrapper />
                 </header>
 
                 {/* Main Content */}
@@ -29,3 +31,4 @@ export default function ProjectsLayout({
         </SidebarProvider>
     )
 }
+

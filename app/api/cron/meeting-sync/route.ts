@@ -120,6 +120,19 @@ export async function GET(request: NextRequest) {
                 const hadPreviousMeeting = schedulingHistory.includes(leadAny.subStatus) || leadAny.nextMeetingAt
 
                 const newSubStatus = hadPreviousMeeting ? 'Rescheduled' : 'Scheduled'
+
+                // Check if meeting is already synced (same time and subStatus)
+                const existingMeetingTime = leadAny.nextMeetingAt ? new Date(leadAny.nextMeetingAt).getTime() : null
+                const newMeetingTime = nextEvent.start.getTime()
+                const isSameSubStatus = leadAny.subStatus === newSubStatus
+                const isSameMeetingTime = existingMeetingTime === newMeetingTime
+
+                // Skip if nothing changed
+                if (isSameSubStatus && isSameMeetingTime) {
+                    console.log(`[MeetingSync] Skipping ${lead.email} - already synced (${newSubStatus}, same time)`)
+                    continue
+                }
+
                 const description = `${durationMinutes}min meeting detected → subStatus: ${newSubStatus} (pipeline unchanged)`
 
                 console.log(`[MeetingSync] Long meeting for ${lead.email}: ${description}`)

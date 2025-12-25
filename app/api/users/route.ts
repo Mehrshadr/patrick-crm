@@ -35,31 +35,46 @@ export async function GET() {
     }
 }
 
-// PUT - Update user role
+// PUT - Update user role or patrickAccess
 export async function PUT(request: NextRequest) {
     try {
         const session = await auth()
         await requireAdmin(session)
 
-        const { userId, role } = await request.json()
+        const { userId, role, patrickAccess } = await request.json()
 
-        if (!userId || !role) {
+        if (!userId) {
             return NextResponse.json(
-                { success: false, error: 'userId and role are required' },
+                { success: false, error: 'userId is required' },
                 { status: 400 }
             )
         }
 
-        if (!['SUPER_ADMIN', 'ADMIN', 'USER'].includes(role)) {
-            return NextResponse.json(
-                { success: false, error: 'Role must be SUPER_ADMIN, ADMIN, or USER' },
-                { status: 400 }
-            )
+        const updateData: { role?: string; patrickAccess?: string } = {}
+
+        if (role) {
+            if (!['SUPER_ADMIN', 'ADMIN', 'USER'].includes(role)) {
+                return NextResponse.json(
+                    { success: false, error: 'Role must be SUPER_ADMIN, ADMIN, or USER' },
+                    { status: 400 }
+                )
+            }
+            updateData.role = role
+        }
+
+        if (patrickAccess) {
+            if (!['EDITOR', 'VIEWER', 'HIDDEN'].includes(patrickAccess)) {
+                return NextResponse.json(
+                    { success: false, error: 'patrickAccess must be EDITOR, VIEWER, or HIDDEN' },
+                    { status: 400 }
+                )
+            }
+            updateData.patrickAccess = patrickAccess
         }
 
         const updatedUser = await db.user.update({
             where: { id: userId },
-            data: { role }
+            data: updateData
         })
 
         return NextResponse.json({ success: true, user: updatedUser })

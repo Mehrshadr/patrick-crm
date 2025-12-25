@@ -25,6 +25,7 @@ interface User {
     email: string
     name: string | null
     role: 'SUPER_ADMIN' | 'ADMIN' | 'USER'
+    patrickAccess: 'EDITOR' | 'VIEWER' | 'HIDDEN'
     createdAt: string
     lastLogin: string | null
     lastLoginIp: string | null
@@ -96,6 +97,25 @@ export function UsersTab() {
             }
         } catch (e) {
             toast.error('Failed to update role')
+        }
+    }
+
+    async function updatePatrickAccess(userId: number, newAccess: string) {
+        try {
+            const res = await fetch('/api/users', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, patrickAccess: newAccess })
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('Patrick CRM access updated!')
+                setUsers(users.map(u => u.id === userId ? { ...u, patrickAccess: newAccess as User['patrickAccess'] } : u))
+            } else {
+                toast.error(res.error)
+            }
+        } catch (e) {
+            toast.error('Failed to update access')
         }
     }
 
@@ -247,7 +267,7 @@ export function UsersTab() {
                             >
                                 <div className="flex items-center gap-4">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${user.role === 'SUPER_ADMIN' ? 'bg-purple-500' :
-                                            user.role === 'ADMIN' ? 'bg-amber-500' : 'bg-slate-400'
+                                        user.role === 'ADMIN' ? 'bg-amber-500' : 'bg-slate-400'
                                         }`}>
                                         {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
                                     </div>
@@ -312,6 +332,36 @@ export function UsersTab() {
                                         </SelectContent>
                                     </Select>
 
+                                    {/* Patrick CRM Access */}
+                                    <Select
+                                        value={user.patrickAccess}
+                                        onValueChange={(val) => updatePatrickAccess(user.id, val)}
+                                    >
+                                        <SelectTrigger className="w-28">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="EDITOR">
+                                                <div className="flex items-center gap-2">
+                                                    <Shield className="h-3 w-3 text-green-500" />
+                                                    Editor
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="VIEWER">
+                                                <div className="flex items-center gap-2">
+                                                    <Eye className="h-3 w-3 text-blue-500" />
+                                                    Viewer
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="HIDDEN">
+                                                <div className="flex items-center gap-2">
+                                                    <Eye className="h-3 w-3 text-slate-300" />
+                                                    Hidden
+                                                </div>
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
                                     {/* Edit Access Button */}
                                     {user.role !== 'SUPER_ADMIN' && (
                                         <Button
@@ -320,7 +370,7 @@ export function UsersTab() {
                                             onClick={() => openAccessDialog(user)}
                                         >
                                             <FolderOpen className="h-4 w-4 mr-1" />
-                                            Access
+                                            Projects
                                             <ChevronRight className="h-4 w-4 ml-1" />
                                         </Button>
                                     )}

@@ -241,6 +241,7 @@ model User {
   email     String    @unique
   name      String?
   role      String    @default("USER")  // "SUPER_ADMIN", "ADMIN", "USER"
+  patrickAccess String @default("HIDDEN")  // "EDITOR", "VIEWER", "HIDDEN"
   createdAt DateTime  @default(now())
   lastLogin DateTime?
   lastLoginIp String?

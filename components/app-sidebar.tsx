@@ -54,12 +54,30 @@ interface Project {
     domain: string | null
 }
 
+interface UserInfo {
+    role: string
+    patrickAccess: string
+}
+
 export function AppSidebar() {
     const pathname = usePathname()
     const [patrickEnlarged, setPatrickEnlarged] = useState(false)
     const [projects, setProjects] = useState<Project[]>([])
+    const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
     const isPcrm = !pathname.startsWith('/seo') && !pathname.startsWith('/projects')
     const isProjectsActive = pathname.startsWith('/projects')
+
+    // Fetch user info for access control
+    useEffect(() => {
+        fetch('/api/users/me')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setUserInfo(data.user)
+                }
+            })
+            .catch(() => { })
+    }, [])
 
     // Fetch projects for sidebar
     useEffect(() => {
@@ -91,35 +109,37 @@ export function AppSidebar() {
             <SidebarContent>
                 <SidebarGroup className="py-0">
                     <SidebarMenu>
-                        {/* PCRM Section */}
-                        <Collapsible defaultOpen={isPcrm} className="group/pcrm">
-                            <SidebarMenuItem>
-                                <CollapsibleTrigger asChild>
-                                    <SidebarMenuButton className="font-medium">
-                                        <Brain className="h-4 w-4" />
-                                        <span>Patrick</span>
-                                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/pcrm:rotate-180" />
-                                    </SidebarMenuButton>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <SidebarMenuSub>
-                                        {PCRM_ITEMS.map((item) => (
-                                            <SidebarMenuSubItem key={item.id}>
-                                                <SidebarMenuSubButton
-                                                    asChild
-                                                    isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
-                                                >
-                                                    <Link href={item.href}>
-                                                        <item.icon className="h-4 w-4" />
-                                                        <span>{item.label}</span>
-                                                    </Link>
-                                                </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
-                                        ))}
-                                    </SidebarMenuSub>
-                                </CollapsibleContent>
-                            </SidebarMenuItem>
-                        </Collapsible>
+                        {/* PCRM Section - Only show if user has access */}
+                        {(userInfo?.role === 'SUPER_ADMIN' || userInfo?.patrickAccess !== 'HIDDEN') && (
+                            <Collapsible defaultOpen={isPcrm} className="group/pcrm">
+                                <SidebarMenuItem>
+                                    <CollapsibleTrigger asChild>
+                                        <SidebarMenuButton className="font-medium">
+                                            <Brain className="h-4 w-4" />
+                                            <span>Patrick</span>
+                                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/pcrm:rotate-180" />
+                                        </SidebarMenuButton>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                        <SidebarMenuSub>
+                                            {PCRM_ITEMS.map((item) => (
+                                                <SidebarMenuSubItem key={item.id}>
+                                                    <SidebarMenuSubButton
+                                                        asChild
+                                                        isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
+                                                    >
+                                                        <Link href={item.href}>
+                                                            <item.icon className="h-4 w-4" />
+                                                            <span>{item.label}</span>
+                                                        </Link>
+                                                    </SidebarMenuSubButton>
+                                                </SidebarMenuSubItem>
+                                            ))}
+                                        </SidebarMenuSub>
+                                    </CollapsibleContent>
+                                </SidebarMenuItem>
+                            </Collapsible>
+                        )}
 
                         {/* Projects Section */}
                         <Collapsible defaultOpen={isProjectsActive} className="group/projects">

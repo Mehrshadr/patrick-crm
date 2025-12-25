@@ -4,19 +4,19 @@ const prisma = new PrismaClient()
 
 // Users to create
 const users = [
-    { email: 'mehrdad@mehrana.agency', name: 'Mehrdad Salehi', role: 'SUPER_ADMIN' },
-    { email: 'mehrshad@mehrana.agency', name: 'Mehrshad Rostami', role: 'SUPER_ADMIN' },
-    { email: 'alireza@mehrana.agency', name: 'Alireza Saberi', role: 'USER' },
-    { email: 'amirhossein@mehrana.agency', name: 'Amirhossein Sheydaei', role: 'USER' },
-    { email: 'anahita@mehrana.agency', name: 'Anahita Yaghoubi', role: 'USER' },
-    { email: 'fatemeh@mehrana.agency', name: 'Fatemeh Malmir', role: 'USER' },
-    { email: 'fereshteh@mehrana.agency', name: 'Fereshteh', role: 'USER' },
-    { email: 'info@mehrana.agency', name: 'Mehrana Marketing', role: 'USER' },
-    { email: 'parastoo@mehrana.agency', name: 'Parastoo Rabiei', role: 'USER' },
-    { email: 'sajedeh@mehrana.agency', name: 'Sajedeh Moghimbeyk', role: 'USER' },
-    { email: 'shahab@mehrana.agency', name: 'Shahab Mohammad Hosseini', role: 'USER' },
-    { email: 'shima@mehrana.agency', name: 'Shima Zahabi', role: 'USER' },
-    { email: 'siavash@mehrana.agency', name: 'Siavash Malek Hosseini', role: 'USER' },
+    { email: 'mehrdad@mehrana.agency', name: 'Mehrdad Salehi', role: 'SUPER_ADMIN', patrickAccess: 'EDITOR' },
+    { email: 'mehrshad@mehrana.agency', name: 'Mehrshad Rostami', role: 'SUPER_ADMIN', patrickAccess: 'EDITOR' },
+    { email: 'alireza@mehrana.agency', name: 'Alireza Saberi', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'amirhossein@mehrana.agency', name: 'Amirhossein Sheydaei', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'anahita@mehrana.agency', name: 'Anahita Yaghoubi', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'fatemeh@mehrana.agency', name: 'Fatemeh Malmir', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'fereshteh@mehrana.agency', name: 'Fereshteh', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'info@mehrana.agency', name: 'Mehrana Marketing', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'parastoo@mehrana.agency', name: 'Parastoo Rabiei', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'sajedeh@mehrana.agency', name: 'Sajedeh Moghimbeyk', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'shahab@mehrana.agency', name: 'Shahab Mohammad Hosseini', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'shima@mehrana.agency', name: 'Shima Zahabi', role: 'USER', patrickAccess: 'HIDDEN' },
+    { email: 'siavash@mehrana.agency', name: 'Siavash Malek Hosseini', role: 'USER', patrickAccess: 'HIDDEN' },
 ]
 
 // Missing projects to create
@@ -65,10 +65,10 @@ async function main() {
     for (const userData of users) {
         const user = await prisma.user.upsert({
             where: { email: userData.email },
-            update: { name: userData.name, role: userData.role },
+            update: { name: userData.name, role: userData.role, patrickAccess: userData.patrickAccess },
             create: userData,
         })
-        console.log(`  ✓ ${user.name} (${user.email}) - ${user.role}`)
+        console.log(`  ✓ ${user.name} (${user.email}) - ${user.role} - Patrick: ${user.patrickAccess}`)
     }
 
     // 2. Create missing projects

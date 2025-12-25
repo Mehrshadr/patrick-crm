@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Link2, BarChart3, FileText } from "lucide-react"
+import { ArrowLeft, Link2, BarChart3, FileText, Sparkles } from "lucide-react"
 
 async function getProject(id: number) {
     return prisma.indexingProject.findUnique({
@@ -62,6 +62,24 @@ export default async function ProjectDashboard({
                         <CardContent>
                             <p className="text-2xl font-bold">{project._count.urls}</p>
                             <p className="text-sm text-muted-foreground">URLs tracked</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                {/* Content Factory */}
+                <Link href={`/seo/content-factory/projects/${id}`}>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow h-full border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-amber-600" />
+                                Content Factory
+                            </CardTitle>
+                            <CardDescription>
+                                Generate AI-powered content
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-amber-700 font-medium">✨ NEW</p>
                         </CardContent>
                     </Card>
                 </Link>

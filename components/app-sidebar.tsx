@@ -37,6 +37,7 @@ import {
     Brain,
     CheckSquare,
     Activity,
+    Sparkles,
 } from "lucide-react"
 import { useUserAccess } from "@/lib/user-access"
 
@@ -144,16 +145,44 @@ export function AppSidebar() {
                                 <CollapsibleContent>
                                     <SidebarMenuSub>
                                         {projects.map((project) => (
-                                            <SidebarMenuSubItem key={project.id}>
-                                                <SidebarMenuSubButton
-                                                    asChild
-                                                    isActive={pathname === `/projects/${project.id}` || pathname.startsWith(`/projects/${project.id}/`)}
-                                                >
-                                                    <Link href={`/projects/${project.id}`}>
-                                                        <span>{project.name}</span>
-                                                    </Link>
-                                                </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
+                                            <Collapsible key={project.id} className="group/project">
+                                                <SidebarMenuSubItem>
+                                                    <CollapsibleTrigger asChild>
+                                                        <SidebarMenuSubButton
+                                                            isActive={pathname.includes(`/projects/${project.id}`) || pathname.includes(`/${project.id}`)}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            <FolderOpen className="h-3 w-3 shrink-0" />
+                                                            <span className="truncate">{project.name}</span>
+                                                            <ChevronDown className="ml-auto h-3 w-3 shrink-0 transition-transform group-data-[state=open]/project:rotate-180" />
+                                                        </SidebarMenuSubButton>
+                                                    </CollapsibleTrigger>
+                                                    <CollapsibleContent>
+                                                        <div className="pl-4 space-y-1 py-1">
+                                                            <Link
+                                                                href={`/seo/link-indexing/projects/${project.id}`}
+                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-indexing/projects/${project.id}`
+                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                    : 'text-slate-600 hover:bg-slate-50'
+                                                                    }`}
+                                                            >
+                                                                <Link2 className="h-3 w-3" />
+                                                                Link Indexing
+                                                            </Link>
+                                                            <Link
+                                                                href={`/seo/content-factory/projects/${project.id}`}
+                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/content-factory/projects/${project.id}`
+                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                    : 'text-slate-600 hover:bg-slate-50'
+                                                                    }`}
+                                                            >
+                                                                <Sparkles className="h-3 w-3" />
+                                                                Content Factory
+                                                            </Link>
+                                                        </div>
+                                                    </CollapsibleContent>
+                                                </SidebarMenuSubItem>
+                                            </Collapsible>
                                         ))}
                                         {projects.length === 0 && (
                                             <SidebarMenuSubItem>

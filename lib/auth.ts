@@ -138,6 +138,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return token
         },
         async session({ session, token }: any) {
+            // DEV_BYPASS: Return fake SUPER_ADMIN session for local development
+            if (process.env.DEV_BYPASS === 'true') {
+                return {
+                    user: {
+                        email: 'dev@mehrana.agency',
+                        name: 'Dev User',
+                        role: 'SUPER_ADMIN'
+                    },
+                    accessToken: 'dev-token',
+                    refreshToken: 'dev-token',
+                    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                }
+            }
+
             session.accessToken = token.accessToken
             session.refreshToken = token.refreshToken
             session.user.role = token.role || 'VIEWER'

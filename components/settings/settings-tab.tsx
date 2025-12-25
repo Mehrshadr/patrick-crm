@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
-import { Save, Mail, Eye, EyeOff, Users, Search, Brain } from 'lucide-react'
+import { Save, Mail, Eye, EyeOff, Users, Search, Brain, FileText, Sparkles, ChevronDown } from 'lucide-react'
 import { UsersTab } from './users-tab'
 import { GoogleConnectionCard } from '@/components/seo/google-connection-card'
 
@@ -18,8 +19,15 @@ export function SettingsTab() {
     // Email settings - only signature
     const [signature, setSignature] = useState('')
 
+    // Content Generator settings
+    const [guidelines, setGuidelines] = useState('')
+    const [aiRules, setAiRules] = useState('')
+    const [contentGenLoading, setContentGenLoading] = useState(false)
+    const [contentGenOpen, setContentGenOpen] = useState(true)
+
     useEffect(() => {
         loadSettings()
+        loadContentGenSettings()
     }, [])
 
     async function loadSettings() {
@@ -28,6 +36,18 @@ export function SettingsTab() {
             if (sigRes.success && sigRes.setting) setSignature(sigRes.setting.value)
         } catch (e) {
             console.error('Failed to load settings:', e)
+        }
+    }
+
+    async function loadContentGenSettings() {
+        try {
+            const res = await fetch('/api/settings/content-generator').then(r => r.json())
+            if (res.success && res.config) {
+                setGuidelines(res.config.guidelines || '')
+                setAiRules(res.config.aiRules || '')
+            }
+        } catch (e) {
+            console.error('Failed to load content generator settings:', e)
         }
     }
 
@@ -44,6 +64,26 @@ export function SettingsTab() {
             toast.error('Failed to save settings')
         }
         setLoading(false)
+    }
+
+    async function saveContentGenSettings() {
+        setContentGenLoading(true)
+        try {
+            const res = await fetch('/api/settings/content-generator', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guidelines, aiRules })
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('Content Generator settings saved!')
+            } else {
+                toast.error(res.error || 'Failed to save')
+            }
+        } catch (e) {
+            toast.error('Failed to save settings')
+        }
+        setContentGenLoading(false)
     }
 
     return (
@@ -127,6 +167,7 @@ Your Title | <a href="https://mehrana.agency">Mehrana Agency</a></p>`}
 
             {/* SEO Tools Settings */}
             <TabsContent value="seo" className="space-y-6 max-w-3xl">
+                {/* Google Search Console */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -140,6 +181,82 @@ Your Title | <a href="https://mehrana.agency">Mehrana Agency</a></p>`}
                     <CardContent>
                         <GoogleConnectionCard />
                     </CardContent>
+                </Card>
+
+                {/* Content Generator Settings */}
+                <Card>
+                    <Collapsible open={contentGenOpen} onOpenChange={setContentGenOpen}>
+                        <CardHeader className="cursor-pointer" onClick={() => setContentGenOpen(!contentGenOpen)}>
+                            <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between w-full">
+                                    <div>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Sparkles className="h-5 w-5" />
+                                            Content Factory Settings
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Global guidelines and AI rules for content generation
+                                        </CardDescription>
+                                    </div>
+                                    <ChevronDown className={`h-5 w-5 transition-transform ${contentGenOpen ? 'rotate-180' : ''}`} />
+                                </div>
+                            </CollapsibleTrigger>
+                        </CardHeader>
+                        <CollapsibleContent>
+                            <CardContent className="space-y-6">
+                                {/* Content Guidelines */}
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-2">
+                                        <FileText className="h-4 w-4" />
+                                        Content Guidelines
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        General guidelines for content creation (tone, style, formatting rules, etc.)
+                                    </p>
+                                    <Textarea
+                                        value={guidelines}
+                                        onChange={(e) => setGuidelines(e.target.value)}
+                                        className="h-[200px] font-mono text-sm"
+                                        placeholder={`Example:
+- Write in a professional but friendly tone
+- Use short paragraphs (2-3 sentences max)
+- Include relevant keywords naturally
+- Add internal links where appropriate
+- Use H2 and H3 headings to structure content`}
+                                    />
+                                </div>
+
+                                {/* AI Rules */}
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4" />
+                                        AI Rules
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Specific instructions for the AI during content generation
+                                    </p>
+                                    <Textarea
+                                        value={aiRules}
+                                        onChange={(e) => setAiRules(e.target.value)}
+                                        className="h-[200px] font-mono text-sm"
+                                        placeholder={`Example:
+- Never use generic phrases like "In today's world"
+- Avoid starting paragraphs with "However" or "Additionally"
+- Don't use more than one exclamation mark per article
+- Always include a clear call-to-action at the end
+- Output content in HTML format with proper tags`}
+                                    />
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <Button onClick={saveContentGenSettings} disabled={contentGenLoading}>
+                                        <Save className="mr-2 h-4 w-4" />
+                                        {contentGenLoading ? 'Saving...' : 'Save Settings'}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Collapsible>
                 </Card>
             </TabsContent>
 

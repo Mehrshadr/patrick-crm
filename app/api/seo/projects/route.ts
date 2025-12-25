@@ -5,6 +5,19 @@ import { auth } from "@/lib/auth"
 // GET /api/seo/projects - List projects (filtered by user access)
 export async function GET() {
     try {
+        // DEV_BYPASS: Return all projects for testing
+        if (process.env.DEV_BYPASS === 'true') {
+            const projects = await prisma.indexingProject.findMany({
+                orderBy: { name: 'asc' },
+                include: {
+                    _count: {
+                        select: { urls: true }
+                    }
+                }
+            })
+            return NextResponse.json(projects)
+        }
+
         const session = await auth()
         const userEmail = session?.user?.email
 

@@ -246,9 +246,10 @@ model User {
   lastLogin DateTime?
   lastLoginIp String?
   
-  loginLogs     LoginLog[]
-  projectAccess ProjectAccess[]
-  createdTasks  Task[]  @relation("TaskCreator")
+  loginLogs         LoginLog[]
+  projectAccess     ProjectAccess[]
+  createdTasks      Task[]  @relation("TaskCreator")
+  generatedContents GeneratedContent[]
 }
 
 // Login History (for security auditing)
@@ -276,6 +277,8 @@ model IndexingProject {
   
   urls          IndexingUrl[]
   assignedUsers ProjectAccess[]
+  settings      ProjectSettings?
+  contents      GeneratedContent[]
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -289,6 +292,7 @@ model ProjectAccess {
   projectId Int
   project   IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   role      String          @default("MEMBER")  // "OWNER", "MEMBER", "VIEWER"
+  appAccess ProjectAppAccess[]
   createdAt DateTime        @default(now())
   
   @@unique([userId, projectId])
@@ -382,4 +386,65 @@ model Task {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
+}
+
+// ============================================
+// SEO TOOLS: Content Factory
+// ============================================
+
+// Global Content Generator Settings
+model ContentGeneratorConfig {
+  id           Int      @id @default(autoincrement())
+  guidelines   String?  // Content Guidelines text
+  aiRules      String?  // AI Rules text
+  llmProvider  String   @default("openai")  // openai, anthropic, google
+  llmModel     String   @default("gpt-4")
+  updatedAt    DateTime @updatedAt
+}
+
+// Per-Project Settings (Brand Statement, etc.)
+model ProjectSettings {
+  id             Int              @id @default(autoincrement())
+  projectId      Int              @unique
+  project        IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  brandStatement String?
+  updatedAt      DateTime         @updatedAt
+}
+
+// Per-App Access for each Project-User assignment
+model ProjectAppAccess {
+  id         Int              @id @default(autoincrement())
+  accessId   Int
+  access     ProjectAccess    @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  appType    String           // "LINK_INDEXING", "CONTENT_FACTORY", "DASHBOARD"
+  createdAt  DateTime         @default(now())
+  
+  @@unique([accessId, appType])
+}
+
+// Generated Content Items
+model GeneratedContent {
+  id            Int              @id @default(autoincrement())
+  projectId     Int
+  project       IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title         String?
+  contentType   String           // "BLOG_POST", "SERVICE_PAGE"
+  brief         String           // User's brief/prompt
+  
+  content       String?          // Generated content (can be long)
+  status        String           @default("DRAFT")  // "DRAFT", "GENERATING", "DONE"
+  
+  useGuidelines Boolean          @default(true)
+  useAiRules    Boolean          @default(true)
+  
+  // Conversation history for feedback loop (JSON array)
+  conversation  String?
+  
+  // User tracking
+  createdById   Int?
+  createdBy     User?            @relation(fields: [createdById], references: [id])
+  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 }

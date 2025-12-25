@@ -20,7 +20,8 @@ export async function GET() {
                     include: {
                         project: {
                             select: { id: true, name: true }
-                        }
+                        },
+                        appAccess: true
                     }
                 }
             }

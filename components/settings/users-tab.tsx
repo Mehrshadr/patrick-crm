@@ -11,6 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Users, Shield, Eye, Clock, RefreshCw, FolderOpen, Star, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface AppAccess {
+    id: number
+    appType: string
+}
+
 interface ProjectAccess {
     id: number
     projectId: number
@@ -18,7 +23,15 @@ interface ProjectAccess {
         id: number
         name: string
     }
+    appAccess: AppAccess[]
 }
+
+// Available apps for project access
+const AVAILABLE_APPS = [
+    { id: 'LINK_INDEXING', name: 'Link Indexing', icon: '🔗' },
+    { id: 'CONTENT_FACTORY', name: 'Content Factory', icon: '✨' },
+    { id: 'DASHBOARD', name: 'Dashboard', icon: '📊', disabled: true, comingSoon: true }
+]
 
 interface User {
     id: number
@@ -49,7 +62,8 @@ export function UsersTab() {
     const [loading, setLoading] = useState(true)
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [showAccessDialog, setShowAccessDialog] = useState(false)
-    const [userProjects, setUserProjects] = useState<number[]>([])
+    // Map of projectId -> selected app types
+    const [projectApps, setProjectApps] = useState<Record<number, string[]>>({})
     const [savingAccess, setSavingAccess] = useState(false)
 
     useEffect(() => {
@@ -121,7 +135,12 @@ export function UsersTab() {
 
     function openAccessDialog(user: User) {
         setSelectedUser(user)
-        setUserProjects(user.projectAccess.map(pa => pa.projectId))
+        // Build projectApps from user's current access
+        const apps: Record<number, string[]> = {}
+        for (const pa of user.projectAccess) {
+            apps[pa.projectId] = pa.appAccess.map(a => a.appType)
+        }
+        setProjectApps(apps)
         setShowAccessDialog(true)
     }
 
@@ -129,12 +148,20 @@ export function UsersTab() {
         if (!selectedUser) return
         setSavingAccess(true)
         try {
+            // Convert projectApps to projectsWithApps format
+            const projectsWithApps = Object.entries(projectApps)
+                .filter(([_, apps]) => apps.length > 0)
+                .map(([projectId, apps]) => ({
+                    projectId: parseInt(projectId),
+                    apps
+                }))
+
             const res = await fetch('/api/users/project-access', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: selectedUser.id,
-                    projectIds: userProjects
+                    projectsWithApps
                 })
             }).then(r => r.json())
 
@@ -151,12 +178,31 @@ export function UsersTab() {
         setSavingAccess(false)
     }
 
-    function toggleProject(projectId: number) {
-        if (userProjects.includes(projectId)) {
-            setUserProjects(userProjects.filter(id => id !== projectId))
-        } else {
-            setUserProjects([...userProjects, projectId])
-        }
+    function toggleProjectApp(projectId: number, appType: string) {
+        setProjectApps(prev => {
+            const currentApps = prev[projectId] || []
+            if (currentApps.includes(appType)) {
+                // Remove app
+                const newApps = currentApps.filter(a => a !== appType)
+                if (newApps.length === 0) {
+                    // Remove project entirely if no apps selected
+                    const { [projectId]: _, ...rest } = prev
+                    return rest
+                }
+                return { ...prev, [projectId]: newApps }
+            } else {
+                // Add app
+                return { ...prev, [projectId]: [...currentApps, appType] }
+            }
+        })
+    }
+
+    function isProjectSelected(projectId: number): boolean {
+        return (projectApps[projectId]?.length || 0) > 0
+    }
+
+    function isAppSelected(projectId: number, appType: string): boolean {
+        return projectApps[projectId]?.includes(appType) || false
     }
 
     function formatDate(dateStr: string | null) {
@@ -399,28 +445,56 @@ export function UsersTab() {
 
             {/* Project Access Dialog */}
             <Dialog open={showAccessDialog} onOpenChange={setShowAccessDialog}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[600px]">
                     <DialogHeader>
-                        <DialogTitle>Project Access</DialogTitle>
+                        <DialogTitle>Project & App Access</DialogTitle>
                         <DialogDescription>
-                            Select which projects {selectedUser?.name || selectedUser?.email} can access
+                            Select which projects and tools {selectedUser?.name || selectedUser?.email} can access
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="h-[300px] pr-4">
-                        <div className="space-y-2">
+                    <ScrollArea className="h-[400px] pr-4">
+                        <div className="space-y-4">
                             {projects.map(project => (
-                                <label
+                                <div
                                     key={project.id}
-                                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-slate-50 cursor-pointer"
+                                    className={`p-4 rounded-lg border transition-colors ${isProjectSelected(project.id)
+                                            ? 'border-blue-300 bg-blue-50/50'
+                                            : 'border-slate-200 hover:border-slate-300'
+                                        }`}
                                 >
-                                    <Checkbox
-                                        checked={userProjects.includes(project.id)}
-                                        onCheckedChange={() => toggleProject(project.id)}
-                                    />
-                                    <FolderOpen className="h-4 w-4 text-slate-400" />
-                                    <span className="font-medium">{project.name}</span>
-                                </label>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <FolderOpen className={`h-4 w-4 ${isProjectSelected(project.id) ? 'text-blue-500' : 'text-slate-400'}`} />
+                                        <span className="font-medium">{project.name}</span>
+                                    </div>
+
+                                    {/* App checkboxes */}
+                                    <div className="grid grid-cols-3 gap-2 pl-7">
+                                        {AVAILABLE_APPS.map(app => (
+                                            <label
+                                                key={app.id}
+                                                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${app.disabled
+                                                        ? 'opacity-50 cursor-not-allowed bg-slate-100'
+                                                        : isAppSelected(project.id, app.id)
+                                                            ? 'border-blue-300 bg-blue-100'
+                                                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                    }`}
+                                            >
+                                                <Checkbox
+                                                    checked={isAppSelected(project.id, app.id)}
+                                                    onCheckedChange={() => !app.disabled && toggleProjectApp(project.id, app.id)}
+                                                    disabled={app.disabled}
+                                                />
+                                                <span className="text-sm">
+                                                    {app.icon} {app.name}
+                                                </span>
+                                                {app.comingSoon && (
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 ml-auto">Soon</Badge>
+                                                )}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </ScrollArea>

@@ -5,6 +5,20 @@ import { auth } from '@/lib/auth'
 // GET /api/users/me - Get current user info
 export async function GET() {
     try {
+        // DEV_BYPASS: Return fake SUPER_ADMIN user
+        if (process.env.DEV_BYPASS === 'true') {
+            return NextResponse.json({
+                success: true,
+                user: {
+                    id: 0,
+                    email: 'dev@mehrana.agency',
+                    name: 'Dev User',
+                    role: 'SUPER_ADMIN',
+                    patrickAccess: 'EDITOR'
+                }
+            })
+        }
+
         const session = await auth()
         const userEmail = session?.user?.email
 

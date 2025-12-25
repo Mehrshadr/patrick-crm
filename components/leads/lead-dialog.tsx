@@ -656,6 +656,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                         }}
                                                         defaultValue={field.value}
                                                         value={field.value}
+                                                        disabled={readOnly}
                                                     >
                                                         <FormControl>
                                                             <SelectTrigger className="bg-white">
@@ -698,12 +699,14 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                                 {options.map((option) => (
                                                                     <div
                                                                         key={option}
-                                                                        onClick={() => field.onChange(option === field.value ? "" : option)}
+                                                                        onClick={() => !readOnly && field.onChange(option === field.value ? "" : option)}
                                                                         className={`
-                                                                            cursor-pointer px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1
+                                                                            ${readOnly ? '' : 'cursor-pointer'} px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1
                                                                             ${field.value === option
                                                                                 ? getSubStatusColor(option)
-                                                                                : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                                                                                : readOnly
+                                                                                    ? "bg-slate-100 text-slate-500 border-slate-200"
+                                                                                    : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
                                                                             }
                                                                         `}
                                                                     >
@@ -757,21 +760,23 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                             <span className="text-slate-400 font-normal truncate flex-1">{link.url}</span>
                                                             <ExternalLink className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100" />
                                                         </a>
-                                                        <button
-                                                            type="button"
-                                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-500"
-                                                            onClick={async (e) => {
-                                                                e.preventDefault();
-                                                                if (!confirm('Delete this link?')) return;
-                                                                const res = await fetch(`/api/links?id=${link.id}`, { method: 'DELETE' }).then(r => r.json());
-                                                                if (res.success) {
-                                                                    setLinks(links.filter((l: any) => l.id !== link.id));
-                                                                    toast.success('Link deleted');
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </button>
+                                                        {!readOnly && (
+                                                            <button
+                                                                type="button"
+                                                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-500"
+                                                                onClick={async (e) => {
+                                                                    e.preventDefault();
+                                                                    if (!confirm('Delete this link?')) return;
+                                                                    const res = await fetch(`/api/links?id=${link.id}`, { method: 'DELETE' }).then(r => r.json());
+                                                                    if (res.success) {
+                                                                        setLinks(links.filter((l: any) => l.id !== link.id));
+                                                                        toast.success('Link deleted');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
@@ -868,20 +873,22 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                                 {note.stage && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded text-xs font-medium">{note.stage}</span>}
                                                                 <span>{new Date(note.createdAt).toLocaleString()}</span>
                                                             </div>
-                                                            <button
-                                                                type="button"
-                                                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-500"
-                                                                onClick={async () => {
-                                                                    if (!confirm('Delete this note?')) return;
-                                                                    const res = await fetch(`/api/notes?id=${note.id}`, { method: 'DELETE' }).then(r => r.json());
-                                                                    if (res.success) {
-                                                                        setNotes(notes.filter((n: any) => n.id !== note.id));
-                                                                        toast.success('Note deleted');
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </button>
+                                                            {!readOnly && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-500"
+                                                                    onClick={async () => {
+                                                                        if (!confirm('Delete this note?')) return;
+                                                                        const res = await fetch(`/api/notes?id=${note.id}`, { method: 'DELETE' }).then(r => r.json());
+                                                                        if (res.success) {
+                                                                            setNotes(notes.filter((n: any) => n.id !== note.id));
+                                                                            toast.success('Note deleted');
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                         <div className="text-slate-700 whitespace-pre-wrap">{note.content}</div>
                                                     </div>

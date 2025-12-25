@@ -7,6 +7,7 @@ import { AddLeadButton } from "./add-lead-button"
 import { Input } from "@/components/ui/input"
 import { Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useUserAccess } from "@/lib/user-access"
 
 interface LeadsClientWrapperProps {
     leads: Lead[]
@@ -14,6 +15,7 @@ interface LeadsClientWrapperProps {
 
 export function LeadsClientWrapper({ leads }: LeadsClientWrapperProps) {
     const [searchQuery, setSearchQuery] = useState("")
+    const userAccess = useUserAccess()
 
     const filteredLeads = useMemo(() => {
         if (!searchQuery.trim()) return leads
@@ -57,9 +59,12 @@ export function LeadsClientWrapper({ leads }: LeadsClientWrapperProps) {
                         {filteredLeads.length} of {leads.length} leads
                     </span>
                 )}
-                <div className="ml-auto">
-                    <AddLeadButton />
-                </div>
+                {/* Only show Add Lead button for EDITOR */}
+                {userAccess.isEditor && (
+                    <div className="ml-auto">
+                        <AddLeadButton />
+                    </div>
+                )}
             </div>
 
             {/* Kanban Board */}
@@ -67,3 +72,4 @@ export function LeadsClientWrapper({ leads }: LeadsClientWrapperProps) {
         </div>
     )
 }
+

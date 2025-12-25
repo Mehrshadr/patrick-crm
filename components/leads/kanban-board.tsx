@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Zap, CheckCircle2 } from "lucide-react"
 import { FileText, ClipboardList } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { useUserAccess } from "@/lib/user-access"
 
 import { LeadDialog } from "./lead-dialog"
 
@@ -39,6 +40,8 @@ const STAGE_TO_OUTCOME_MAP: Record<string, Partial<LeadUpdateValues>> = {
 
 export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
     const { data: session } = useSession()
+    const userAccess = useUserAccess()
+    const readOnly = userAccess.isViewer
     const [leads, setLeads] = useState(initialLeads)
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -70,6 +73,12 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
     }, [leads])
 
     const onDragEnd = async (result: DropResult) => {
+        // Viewers cannot drag
+        if (readOnly) {
+            toast.error("You don't have permission to move leads")
+            return
+        }
+
         const { destination, source, draggableId } = result
 
         if (!destination) return
@@ -146,13 +155,13 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                             className="space-y-2 min-h-[100px]"
                                         >
                                             {columns[stage as PipelineStage].map((lead, index) => (
-                                                <Draggable key={lead.id} draggableId={String(lead.id)} index={index}>
+                                                <Draggable key={lead.id} draggableId={String(lead.id)} index={index} isDragDisabled={readOnly}>
                                                     {(provided) => (
                                                         <Card
                                                             ref={provided.innerRef}
                                                             {...provided.draggableProps}
-                                                            {...provided.dragHandleProps}
-                                                            className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+                                                            {...(readOnly ? {} : provided.dragHandleProps)}
+                                                            className={readOnly ? "hover:shadow-md transition-shadow" : "cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"}
                                                         >
                                                             <CardHeader className="p-3 pb-1">
                                                                 <div className="flex justify-between items-center">
@@ -180,7 +189,7 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                             )}
                                                                         </div>
                                                                     </div>
-                                                                    <LeadActions lead={lead} />
+                                                                    {!readOnly && <LeadActions lead={lead} />}
                                                                 </div>
                                                             </CardHeader>
                                                             <CardContent

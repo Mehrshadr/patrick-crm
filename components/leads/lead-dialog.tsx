@@ -49,6 +49,7 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { useUserAccess } from "@/lib/user-access"
 
 const formSchema = z.object({
     name: z.string().min(2),
@@ -70,6 +71,8 @@ interface LeadDialogProps {
 export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
     const router = useRouter()
     const { data: session } = useSession()
+    const userAccess = useUserAccess()
+    const readOnly = userAccess.isViewer
     const [logs, setLogs] = useState<any[]>([])
     const [links, setLinks] = useState<any[]>([])
     const [notes, setNotes] = useState<any[]>([])
@@ -425,8 +428,12 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                         <DialogDescription className="text-xs text-slate-500">Manage details, automation, and history.</DialogDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button size="sm" type="submit" form="lead-form">Save Changes</Button>
+                        <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+                            {readOnly ? 'Close' : 'Cancel'}
+                        </Button>
+                        {!readOnly && (
+                            <Button size="sm" type="submit" form="lead-form">Save Changes</Button>
+                        )}
                     </div>
                 </div>
 
@@ -507,7 +514,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                     ) : (
                                                         <div className="flex items-center gap-2">
                                                             <div className="text-sm font-medium py-2 px-1 flex-1">{field.value || "-"}</div>
-                                                            {lead?.email && (
+                                                            {lead?.email && !readOnly && (
                                                                 <Button
                                                                     type="button"
                                                                     variant="ghost"
@@ -561,7 +568,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                     ) : (
                                                         <div className="flex items-center gap-2">
                                                             <div className="text-sm font-medium py-2 px-1 flex-1">{field.value || "-"}</div>
-                                                            {lead?.phone && (
+                                                            {lead?.phone && !readOnly && (
                                                                 <Button
                                                                     type="button"
                                                                     variant="ghost"
@@ -770,78 +777,80 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                             </div>
                                         )}
 
-                                        {!isAddingLink ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-fit h-6 text-xs text-slate-500 hover:text-indigo-600 px-2 -ml-2 flex items-center gap-1"
-                                                onClick={() => setIsAddingLink(true)}
-                                            >
-                                                <Plus className="h-3 w-3" /> Add Link
-                                            </Button>
-                                        ) : (
-                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 animate-in slide-in-from-top-1">
-                                                <div className="text-xs font-semibold text-slate-700 mb-2">New Link</div>
-                                                <div className="grid grid-cols-2 gap-2 mb-2">
-                                                    <Select value={linkType} onValueChange={setLinkType}>
-                                                        <SelectTrigger className="h-8 text-xs bg-white">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Meeting Recording">Meeting Recording</SelectItem>
-                                                            <SelectItem value="Audit Link">Audit Link</SelectItem>
-                                                            <SelectItem value="Proposal Link">Proposal Link</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-
-                                                    {linkType === 'Meeting Recording' && (
-                                                        <Select value={linkTitle} onValueChange={setLinkTitle}>
+                                        {!readOnly && (
+                                            !isAddingLink ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="w-fit h-6 text-xs text-slate-500 hover:text-indigo-600 px-2 -ml-2 flex items-center gap-1"
+                                                    onClick={() => setIsAddingLink(true)}
+                                                >
+                                                    <Plus className="h-3 w-3" /> Add Link
+                                                </Button>
+                                            ) : (
+                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 animate-in slide-in-from-top-1">
+                                                    <div className="text-xs font-semibold text-slate-700 mb-2">New Link</div>
+                                                    <div className="grid grid-cols-2 gap-2 mb-2">
+                                                        <Select value={linkType} onValueChange={setLinkType}>
                                                             <SelectTrigger className="h-8 text-xs bg-white">
-                                                                <SelectValue placeholder="Select Meeting..." />
+                                                                <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="Meeting 1">Meeting 1</SelectItem>
-                                                                <SelectItem value="Meeting 2">Meeting 2</SelectItem>
-                                                                <SelectItem value="Meeting 3">Meeting 3</SelectItem>
+                                                                <SelectItem value="Meeting Recording">Meeting Recording</SelectItem>
+                                                                <SelectItem value="Audit Link">Audit Link</SelectItem>
+                                                                <SelectItem value="Proposal Link">Proposal Link</SelectItem>
                                                             </SelectContent>
                                                         </Select>
-                                                    )}
-                                                </div>
 
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        placeholder="https://..."
-                                                        value={linkUrl}
-                                                        onChange={e => setLinkUrl(e.target.value)}
-                                                        className="h-8 text-xs bg-white flex-1"
-                                                    />
-                                                </div>
+                                                        {linkType === 'Meeting Recording' && (
+                                                            <Select value={linkTitle} onValueChange={setLinkTitle}>
+                                                                <SelectTrigger className="h-8 text-xs bg-white">
+                                                                    <SelectValue placeholder="Select Meeting..." />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="Meeting 1">Meeting 1</SelectItem>
+                                                                    <SelectItem value="Meeting 2">Meeting 2</SelectItem>
+                                                                    <SelectItem value="Meeting 3">Meeting 3</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    </div>
 
-                                                <div className="flex justify-end gap-2 mt-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-7 text-xs"
-                                                        onClick={() => setIsAddingLink(false)}
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            handleAddLink();
-                                                        }}
-                                                    >
-                                                        Attach Link
-                                                    </Button>
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            placeholder="https://..."
+                                                            value={linkUrl}
+                                                            onChange={e => setLinkUrl(e.target.value)}
+                                                            className="h-8 text-xs bg-white flex-1"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex justify-end gap-2 mt-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 text-xs"
+                                                            onClick={() => setIsAddingLink(false)}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                handleAddLink();
+                                                            }}
+                                                        >
+                                                            Attach Link
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )
                                         )}
                                     </div>
 
@@ -880,73 +889,75 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                             </div>
                                         )}
 
-                                        {!isAddingNote ? (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="w-fit h-6 text-xs text-slate-500 hover:text-indigo-600 px-2 -ml-2 flex items-center gap-1"
-                                                onClick={() => setIsAddingNote(true)}
-                                            >
-                                                <Plus className="h-3 w-3" /> Add Note
-                                            </Button>
-                                        ) : (
-                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                <div className="mb-2">
-                                                    <Select value={noteStage} onValueChange={setNoteStage}>
-                                                        <SelectTrigger className="h-8 text-xs bg-white w-full">
-                                                            <SelectValue placeholder="Select stage (optional)..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Meeting 1">Meeting 1</SelectItem>
-                                                            <SelectItem value="Meeting 2">Meeting 2</SelectItem>
-                                                            <SelectItem value="Meeting 3">Meeting 3</SelectItem>
-                                                            <SelectItem value="Other">Other</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                        {!readOnly && (
+                                            !isAddingNote ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="w-fit h-6 text-xs text-slate-500 hover:text-indigo-600 px-2 -ml-2 flex items-center gap-1"
+                                                    onClick={() => setIsAddingNote(true)}
+                                                >
+                                                    <Plus className="h-3 w-3" /> Add Note
+                                                </Button>
+                                            ) : (
+                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                    <div className="mb-2">
+                                                        <Select value={noteStage} onValueChange={setNoteStage}>
+                                                            <SelectTrigger className="h-8 text-xs bg-white w-full">
+                                                                <SelectValue placeholder="Select stage (optional)..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="Meeting 1">Meeting 1</SelectItem>
+                                                                <SelectItem value="Meeting 2">Meeting 2</SelectItem>
+                                                                <SelectItem value="Meeting 3">Meeting 3</SelectItem>
+                                                                <SelectItem value="Other">Other</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <Textarea
+                                                        placeholder="Write your note..."
+                                                        value={noteContent}
+                                                        onChange={e => setNoteContent(e.target.value)}
+                                                        className="min-h-[80px] text-sm bg-white"
+                                                    />
+                                                    <div className="flex justify-end gap-2 mt-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 text-xs"
+                                                            onClick={() => { setIsAddingNote(false); setNoteContent(""); setNoteStage(""); }}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                            onClick={async () => {
+                                                                if (!lead || !noteContent) return;
+                                                                const res = await fetch('/api/notes', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ leadId: lead.id, stage: noteStage || null, content: noteContent })
+                                                                }).then(r => r.json());
+                                                                if (res.success && res.note) {
+                                                                    setNotes([res.note, ...notes]);
+                                                                    setIsAddingNote(false);
+                                                                    setNoteContent("");
+                                                                    setNoteStage("");
+                                                                    toast.success("Note added");
+                                                                } else {
+                                                                    toast.error("Failed to add note");
+                                                                }
+                                                            }}
+                                                        >
+                                                            Save Note
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                                <Textarea
-                                                    placeholder="Write your note..."
-                                                    value={noteContent}
-                                                    onChange={e => setNoteContent(e.target.value)}
-                                                    className="min-h-[80px] text-sm bg-white"
-                                                />
-                                                <div className="flex justify-end gap-2 mt-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-7 text-xs"
-                                                        onClick={() => { setIsAddingNote(false); setNoteContent(""); setNoteStage(""); }}
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                        onClick={async () => {
-                                                            if (!lead || !noteContent) return;
-                                                            const res = await fetch('/api/notes', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ leadId: lead.id, stage: noteStage || null, content: noteContent })
-                                                            }).then(r => r.json());
-                                                            if (res.success && res.note) {
-                                                                setNotes([res.note, ...notes]);
-                                                                setIsAddingNote(false);
-                                                                setNoteContent("");
-                                                                setNoteStage("");
-                                                                toast.success("Note added");
-                                                            } else {
-                                                                toast.error("Failed to add note");
-                                                            }
-                                                        }}
-                                                    >
-                                                        Save Note
-                                                    </Button>
-                                                </div>
-                                            </div>
+                                            )
                                         )}
                                     </div>
                                 </form>
@@ -960,9 +971,11 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                     <span className="bg-emerald-100 p-2 rounded-md"><CheckSquare className="h-5 w-5 text-emerald-700" /></span>
                                     Tasks
                                 </h3>
-                                <Button variant="ghost" size="sm" onClick={() => setIsAddingTask(true)} className="gap-1 text-emerald-600">
-                                    <Plus className="h-4 w-4" /> Add Task
-                                </Button>
+                                {!readOnly && (
+                                    <Button variant="ghost" size="sm" onClick={() => setIsAddingTask(true)} className="gap-1 text-emerald-600">
+                                        <Plus className="h-4 w-4" /> Add Task
+                                    </Button>
+                                )}
                             </div>
 
                             {tasks.length === 0 ? (
@@ -1022,35 +1035,37 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                             <div className="mt-2 text-sm bg-indigo-100 text-indigo-700 px-2 py-1 rounded inline-block">
                                                 Stage {lead.nurtureStage ? lead.nurtureStage + 1 : 1}
                                             </div>
-                                            <div className="flex gap-2 mt-3">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-xs h-7 bg-white hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
-                                                    onClick={handleFastForward}
-                                                >
-                                                    <FastForward className="h-3 w-3 mr-1" />
-                                                    Fast Forward
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-xs h-7 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-300"
-                                                    onClick={async () => {
-                                                        if (!lead || !confirm('Stop this automation? This cannot be undone.')) return;
-                                                        const res = await fetch(`/api/leads/${lead.id}/stop-automation`, { method: 'POST' }).then(r => r.json());
-                                                        if (res.success) {
-                                                            toast.success('Automation stopped');
-                                                            router.refresh();
-                                                        } else {
-                                                            toast.error('Failed to stop: ' + (res.error || 'Unknown error'));
-                                                        }
-                                                    }}
-                                                >
-                                                    <StopCircle className="h-3 w-3 mr-1" />
-                                                    Stop
-                                                </Button>
-                                            </div>
+                                            {!readOnly && (
+                                                <div className="flex gap-2 mt-3">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-xs h-7 bg-white hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+                                                        onClick={handleFastForward}
+                                                    >
+                                                        <FastForward className="h-3 w-3 mr-1" />
+                                                        Fast Forward
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="text-xs h-7 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                                                        onClick={async () => {
+                                                            if (!lead || !confirm('Stop this automation? This cannot be undone.')) return;
+                                                            const res = await fetch(`/api/leads/${lead.id}/stop-automation`, { method: 'POST' }).then(r => r.json());
+                                                            if (res.success) {
+                                                                toast.success('Automation stopped');
+                                                                router.refresh();
+                                                            } else {
+                                                                toast.error('Failed to stop: ' + (res.error || 'Unknown error'));
+                                                            }
+                                                        }}
+                                                    >
+                                                        <StopCircle className="h-3 w-3 mr-1" />
+                                                        Stop
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="text-slate-500 text-sm">All automation caught up.</div>
@@ -1125,22 +1140,24 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                onClick={() => runWorkflow(workflow.id)}
-                                                disabled={runningWorkflow === workflow.id}
-                                                className={`h-9 px-5 rounded-xl shadow-lg shadow-blue-100 border-none transition-all duration-300 ${runningWorkflow === workflow.id
-                                                    ? 'bg-slate-100 text-slate-400'
-                                                    : 'bg-blue-600 hover:bg-black text-white'
-                                                    }`}
-                                            >
-                                                {runningWorkflow === workflow.id ? (
-                                                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
-                                                ) : (
-                                                    <Zap className="h-3.5 w-3.5 mr-2" />
-                                                )}
-                                                {runningWorkflow === workflow.id ? 'Running...' : 'Run Automation'}
-                                            </Button>
+                                            {!readOnly && (
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => runWorkflow(workflow.id)}
+                                                    disabled={runningWorkflow === workflow.id}
+                                                    className={`h-9 px-5 rounded-xl shadow-lg shadow-blue-100 border-none transition-all duration-300 ${runningWorkflow === workflow.id
+                                                        ? 'bg-slate-100 text-slate-400'
+                                                        : 'bg-blue-600 hover:bg-black text-white'
+                                                        }`}
+                                                >
+                                                    {runningWorkflow === workflow.id ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                                                    ) : (
+                                                        <Zap className="h-3.5 w-3.5 mr-2" />
+                                                    )}
+                                                    {runningWorkflow === workflow.id ? 'Running...' : 'Run Automation'}
+                                                </Button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

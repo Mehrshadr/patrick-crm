@@ -38,14 +38,15 @@ import {
     CheckSquare,
     Activity,
 } from "lucide-react"
+import { useUserAccess } from "@/lib/user-access"
 
-// PCRM Menu Items
+// PCRM Menu Items - viewerVisible: true means VIEWER can see this item
 const PCRM_ITEMS = [
-    { id: 'leads', label: 'Lead Pipeline', icon: LayoutDashboard, href: '/leads' },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, href: '/tasks' },
-    { id: 'automation', label: 'Automation', icon: Bot, href: '/automation' },
-    { id: 'logs', label: 'Logs', icon: ClipboardList, href: '/logs' },
-    { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
+    { id: 'leads', label: 'Lead Pipeline', icon: LayoutDashboard, href: '/leads', viewerVisible: true },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, href: '/tasks', viewerVisible: false },
+    { id: 'automation', label: 'Automation', icon: Bot, href: '/automation', viewerVisible: false },
+    { id: 'logs', label: 'Logs', icon: ClipboardList, href: '/logs', viewerVisible: false },
+    { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar', viewerVisible: false },
 ]
 
 interface Project {
@@ -54,30 +55,18 @@ interface Project {
     domain: string | null
 }
 
-interface UserInfo {
-    role: string
-    patrickAccess: string
-}
-
 export function AppSidebar() {
     const pathname = usePathname()
     const [patrickEnlarged, setPatrickEnlarged] = useState(false)
     const [projects, setProjects] = useState<Project[]>([])
-    const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+    const userAccess = useUserAccess()
     const isPcrm = !pathname.startsWith('/seo') && !pathname.startsWith('/projects')
     const isProjectsActive = pathname.startsWith('/projects')
 
-    // Fetch user info for access control
-    useEffect(() => {
-        fetch('/api/users/me')
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    setUserInfo(data.user)
-                }
-            })
-            .catch(() => { })
-    }, [])
+    // Filter menu items based on user access
+    const visibleMenuItems = PCRM_ITEMS.filter(item =>
+        userAccess.isEditor || item.viewerVisible
+    )
 
     // Fetch projects for sidebar
     useEffect(() => {
@@ -86,6 +75,7 @@ export function AppSidebar() {
             .then(data => setProjects(data))
             .catch(() => { })
     }, [])
+
 
     return (
         <Sidebar collapsible="icon">
@@ -110,7 +100,7 @@ export function AppSidebar() {
                 <SidebarGroup className="py-0">
                     <SidebarMenu>
                         {/* PCRM Section - Only show if user has access */}
-                        {(userInfo?.role === 'SUPER_ADMIN' || userInfo?.patrickAccess !== 'HIDDEN') && (
+                        {!userAccess.isHidden && (
                             <Collapsible defaultOpen={isPcrm} className="group/pcrm">
                                 <SidebarMenuItem>
                                     <CollapsibleTrigger asChild>
@@ -122,7 +112,7 @@ export function AppSidebar() {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent>
                                         <SidebarMenuSub>
-                                            {PCRM_ITEMS.map((item) => (
+                                            {visibleMenuItems.map((item) => (
                                                 <SidebarMenuSubItem key={item.id}>
                                                     <SidebarMenuSubButton
                                                         asChild

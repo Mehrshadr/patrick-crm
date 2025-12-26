@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 import {
     Table,
     TableBody,
@@ -26,11 +25,10 @@ import {
     Plus,
     Trash2,
     Play,
-    Search,
     ExternalLink,
     CheckCircle2,
     XCircle,
-    Link2,
+    ChevronDown,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -58,11 +56,10 @@ interface Log {
 }
 
 const PAGE_TYPES = [
-    { value: 'blog', label: 'Blog' },
-    { value: 'service', label: 'Service' },
-    { value: 'product', label: 'Product' },
-    { value: 'page', label: 'Page' },
-    { value: 'category', label: 'Category' },
+    { value: 'service', label: 'Service Pages' },
+    { value: 'blog', label: 'Blog Posts' },
+    { value: 'landing', label: 'Landing Pages' },
+    { value: 'page', label: 'Other Pages' },
 ]
 
 export default function LinkBuildingPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -205,25 +202,43 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                     onChange={e => setNewUrl(e.target.value)}
                     className="flex-1 h-9 bg-white"
                 />
-                <div className="flex items-center gap-1 px-2 py-1 bg-white border rounded-md">
-                    {PAGE_TYPES.map(pt => (
-                        <label key={pt.value} className="flex items-center gap-1 px-2 py-1 text-xs cursor-pointer hover:bg-slate-50 rounded">
-                            <input
-                                type="checkbox"
-                                checked={newPageTypes.includes(pt.value)}
-                                onChange={e => {
-                                    if (e.target.checked) {
-                                        setNewPageTypes([...newPageTypes, pt.value])
-                                    } else {
-                                        setNewPageTypes(newPageTypes.filter(p => p !== pt.value))
-                                    }
-                                }}
-                                className="w-3.5 h-3.5 rounded border-slate-300"
-                            />
-                            {pt.label}
-                        </label>
-                    ))}
-                </div>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-9 min-w-[140px] justify-between">
+                            <span className="text-sm truncate">
+                                {newPageTypes.length === 0
+                                    ? 'Select pages...'
+                                    : newPageTypes.length === PAGE_TYPES.length
+                                        ? 'All pages'
+                                        : `${newPageTypes.length} selected`
+                                }
+                            </span>
+                            <ChevronDown className="h-4 w-4 ml-2 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2" align="start">
+                        <div className="space-y-1">
+                            {PAGE_TYPES.map(pt => (
+                                <label
+                                    key={pt.value}
+                                    className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-100 rounded"
+                                >
+                                    <Checkbox
+                                        checked={newPageTypes.includes(pt.value)}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setNewPageTypes([...newPageTypes, pt.value])
+                                            } else {
+                                                setNewPageTypes(newPageTypes.filter(p => p !== pt.value))
+                                            }
+                                        }}
+                                    />
+                                    {pt.label}
+                                </label>
+                            ))}
+                        </div>
+                    </PopoverContent>
+                </Popover>
                 <Button size="sm" onClick={addKeyword} className="h-9 px-4">
                     <Plus className="h-4 w-4 mr-1" /> Add
                 </Button>

@@ -63,51 +63,93 @@ export async function getGoogleDocsAccessToken(): Promise<string | null> {
     }
 }
 
+interface ContentBlock {
+    type: 'heading1' | 'heading2' | 'heading3' | 'paragraph' | 'list-item' | 'image'
+    text: string
+    imageUrl?: string
+}
+
 /**
- * Convert HTML content to Google Docs format requests.
- * Returns an array of insertText and updateParagraphStyle requests.
+ * Parse HTML into structured content blocks for Google Docs formatting.
  */
-export function htmlToGoogleDocsRequests(html: string): any[] {
-    const requests: any[] = []
-    let currentIndex = 1 // Docs index starts at 1
+function parseHtmlToBlocks(html: string): ContentBlock[] {
+    const blocks: ContentBlock[] = []
 
-    // Parse HTML and convert to docs format
-    // Simple parser - handles common tags
-    const parser = new DOMParser()
-
-    // For server-side, we'll use regex-based parsing
-    const lines = html
-        .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
-        .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
-        .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
-        .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
-        .replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n')
-        .replace(/<ul[^>]*>|<\/ul>/gi, '\n')
-        .replace(/<ol[^>]*>|<\/ol>/gi, '\n')
-        .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '$1')
-        .replace(/<em[^>]*>(.*?)<\/em>/gi, '$1')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]+>/g, '') // Remove remaining tags
+    // Clean up HTML entities
+    let content = html
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
-        .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
-        .trim()
+        .replace(/&quot;/g, '"')
 
-    // Insert all text at once
-    requests.push({
-        insertText: {
-            location: { index: currentIndex },
-            text: lines
+    // Extract elements with regex (order matters)
+    const patterns = [
+        { regex: /<h1[^>]*>([\s\S]*?)<\/h1>/gi, type: 'heading1' as const },
+        { regex: /<h2[^>]*>([\s\S]*?)<\/h2>/gi, type: 'heading2' as const },
+        { regex: /<h3[^>]*>([\s\S]*?)<\/h3>/gi, type: 'heading3' as const },
+        { regex: /<li[^>]*>([\s\S]*?)<\/li>/gi, type: 'list-item' as const },
+        { regex: /<p[^>]*>([\s\S]*?)<\/p>/gi, type: 'paragraph' as const },
+        { regex: /<figure[^>]*class="content-image"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[^>]*>[\s\S]*?<\/figure>/gi, type: 'image' as const },
+    ]
+
+    // Find all matches with their positions
+    interface Match {
+        type: ContentBlock['type']
+        text: string
+        imageUrl?: string
+        index: number
+    }
+
+    const matches: Match[] = []
+
+    for (const pattern of patterns) {
+        let match
+        const tempContent = content
+        while ((match = pattern.regex.exec(tempContent)) !== null) {
+            if (pattern.type === 'image') {
+                matches.push({
+                    type: 'image',
+                    text: '',
+                    imageUrl: match[1],
+                    index: match.index
+                })
+            } else {
+                // Strip inner HTML tags
+                const text = match[1]
+                    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '$1')
+                    .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '$1')
+                    .replace(/<[^>]+>/g, '')
+                    .trim()
+
+                if (text) {
+                    matches.push({
+                        type: pattern.type,
+                        text,
+                        index: match.index
+                    })
+                }
+            }
         }
-    })
+    }
 
-    return requests
+    // Sort by position in document
+    matches.sort((a, b) => a.index - b.index)
+
+    // Convert to blocks
+    for (const match of matches) {
+        blocks.push({
+            type: match.type,
+            text: match.text,
+            imageUrl: match.imageUrl
+        })
+    }
+
+    return blocks
 }
 
 /**
- * Create a new Google Doc with the given content.
+ * Create a new Google Doc with the given content, preserving formatting.
  * Returns the document URL.
  */
 export async function createGoogleDoc(
@@ -133,29 +175,77 @@ export async function createGoogleDoc(
     const doc = await createResponse.json()
     const documentId = doc.documentId
 
-    // Step 2: Convert HTML to plain text for insertion
-    const plainText = htmlContent
-        .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '$1\n\n')
-        .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '$1\n\n')
-        .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '$1\n\n')
-        .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
-        .replace(/<li[^>]*>(.*?)<\/li>/gi, '• $1\n')
-        .replace(/<ul[^>]*>|<\/ul>/gi, '\n')
-        .replace(/<ol[^>]*>|<\/ol>/gi, '\n')
-        .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '$1')
-        .replace(/<em[^>]*>(.*?)<\/em>/gi, '$1')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '[IMAGE]\n\n') // Show image placeholder
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
+    // Step 2: Parse HTML into blocks
+    const blocks = parseHtmlToBlocks(htmlContent)
 
-    // Step 3: Insert content
-    const batchUpdateResponse = await fetch(
+    if (blocks.length === 0) {
+        return `https://docs.google.com/document/d/${documentId}/edit`
+    }
+
+    // Step 3: Build requests for inserting text and applying styles
+    // We insert in REVERSE order because each insert shifts existing content
+    const requests: any[] = []
+    const styleRequests: any[] = []
+
+    // Build the full text and track positions for styling
+    let fullText = ""
+    const blockPositions: { start: number; end: number; type: ContentBlock['type']; imageUrl?: string }[] = []
+
+    for (const block of blocks) {
+        const start = fullText.length + 1 // +1 because Docs is 1-indexed
+
+        if (block.type === 'image' && block.imageUrl) {
+            // Add placeholder for image
+            fullText += "[Image]\n\n"
+        } else if (block.type === 'list-item') {
+            fullText += `• ${block.text}\n`
+        } else {
+            fullText += block.text + "\n\n"
+        }
+
+        const end = fullText.length
+        blockPositions.push({ start, end, type: block.type, imageUrl: block.imageUrl })
+    }
+
+    // Insert all text at once
+    requests.push({
+        insertText: {
+            location: { index: 1 },
+            text: fullText
+        }
+    })
+
+    // Apply styles to each block
+    for (const pos of blockPositions) {
+        if (pos.type === 'heading1') {
+            styleRequests.push({
+                updateParagraphStyle: {
+                    range: { startIndex: pos.start, endIndex: pos.end },
+                    paragraphStyle: { namedStyleType: 'HEADING_1' },
+                    fields: 'namedStyleType'
+                }
+            })
+        } else if (pos.type === 'heading2') {
+            styleRequests.push({
+                updateParagraphStyle: {
+                    range: { startIndex: pos.start, endIndex: pos.end },
+                    paragraphStyle: { namedStyleType: 'HEADING_2' },
+                    fields: 'namedStyleType'
+                }
+            })
+        } else if (pos.type === 'heading3') {
+            styleRequests.push({
+                updateParagraphStyle: {
+                    range: { startIndex: pos.start, endIndex: pos.end },
+                    paragraphStyle: { namedStyleType: 'HEADING_3' },
+                    fields: 'namedStyleType'
+                }
+            })
+        }
+    }
+
+    // Step 4: Execute batch update - first insert text
+    const insertResponse = await fetch(
         `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
         {
             method: "POST",
@@ -163,21 +253,37 @@ export async function createGoogleDoc(
                 "Authorization": `Bearer ${accessToken}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                requests: [{
-                    insertText: {
-                        location: { index: 1 },
-                        text: plainText
-                    }
-                }]
-            })
+            body: JSON.stringify({ requests })
         }
     )
 
-    if (!batchUpdateResponse.ok) {
-        console.error("Failed to insert content:", await batchUpdateResponse.text())
-        // Continue anyway, doc is created
+    if (!insertResponse.ok) {
+        console.error("Failed to insert content:", await insertResponse.text())
     }
+
+    // Step 5: Apply styles in a second batch
+    if (styleRequests.length > 0) {
+        const styleResponse = await fetch(
+            `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ requests: styleRequests })
+            }
+        )
+
+        if (!styleResponse.ok) {
+            console.error("Failed to apply styles:", await styleResponse.text())
+        }
+    }
+
+    // Step 6: Insert images (requires absolute URLs)
+    // Note: Images must be publicly accessible for Google Docs to fetch them
+    // For local images, we'd need to upload them to Google Drive first
+    // For now, we show [Image] placeholder
 
     return `https://docs.google.com/document/d/${documentId}/edit`
 }

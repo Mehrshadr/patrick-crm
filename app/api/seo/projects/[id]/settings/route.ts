@@ -1,42 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
 
-// GET - Get project settings (brand statement, etc.)
+// GET - Fetch project settings
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params
+
     try {
-        // DEV_BYPASS: Skip auth check
-        if (process.env.DEV_BYPASS !== 'true') {
-            const session = await auth()
-            if (!session?.user) {
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-            }
-        }
-
-        const { id } = await params
-        const projectId = parseInt(id)
-
-        // Get or create settings
-        let settings = await prisma.projectSettings.findUnique({
-            where: { projectId }
+        const settings = await prisma.projectSettings.findUnique({
+            where: { projectId: parseInt(id) }
         })
 
-        if (!settings) {
-            settings = await prisma.projectSettings.create({
-                data: {
-                    projectId,
-                    brandStatement: null
-                }
-            })
-        }
-
-        return NextResponse.json(settings)
-    } catch (error: any) {
-        console.error("Failed to get project settings:", error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ settings })
+    } catch (error) {
+        console.error('Error fetching settings:', error)
+        return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
     }
 }
 
@@ -45,33 +25,36 @@ export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params
+    const data = await request.json()
+
     try {
-        // DEV_BYPASS: Skip auth check
-        if (process.env.DEV_BYPASS !== 'true') {
-            const session = await auth()
-            if (!session?.user) {
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-            }
-        }
-
-        const { id } = await params
-        const projectId = parseInt(id)
-        const body = await request.json()
-        const { brandStatement } = body
-
-        // Upsert settings
         const settings = await prisma.projectSettings.upsert({
-            where: { projectId },
-            update: { brandStatement },
+            where: { projectId: parseInt(id) },
+            update: {
+                cmsType: data.cmsType,
+                cmsUrl: data.cmsUrl,
+                cmsUsername: data.cmsUsername,
+                cmsAppPassword: data.cmsAppPassword,
+                shopifyToken: data.shopifyToken,
+                shopifyStore: data.shopifyStore,
+                brandStatement: data.brandStatement
+            },
             create: {
-                projectId,
-                brandStatement
+                projectId: parseInt(id),
+                cmsType: data.cmsType,
+                cmsUrl: data.cmsUrl,
+                cmsUsername: data.cmsUsername,
+                cmsAppPassword: data.cmsAppPassword,
+                shopifyToken: data.shopifyToken,
+                shopifyStore: data.shopifyStore,
+                brandStatement: data.brandStatement
             }
         })
 
         return NextResponse.json({ success: true, settings })
-    } catch (error: any) {
-        console.error("Failed to update project settings:", error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+    } catch (error) {
+        console.error('Error updating settings:', error)
+        return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
     }
 }

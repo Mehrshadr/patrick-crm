@@ -814,9 +814,9 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                                     <SelectValue placeholder="Select Meeting..." />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    <SelectItem value="Meeting 1">Meeting 1</SelectItem>
-                                                                    <SelectItem value="Meeting 2">Meeting 2</SelectItem>
-                                                                    <SelectItem value="Meeting 3">Meeting 3</SelectItem>
+                                                                    <SelectItem value="Data Gathering">Data Gathering</SelectItem>
+                                                                    <SelectItem value="Audit Reveal">Audit Reveal</SelectItem>
+                                                                    <SelectItem value="Proposal Session">Proposal Session</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                         )}
@@ -915,9 +915,9 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                                 <SelectValue placeholder="Select stage (optional)..." />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="Meeting 1">Meeting 1</SelectItem>
-                                                                <SelectItem value="Meeting 2">Meeting 2</SelectItem>
-                                                                <SelectItem value="Meeting 3">Meeting 3</SelectItem>
+                                                                <SelectItem value="Data Gathering">Data Gathering</SelectItem>
+                                                                <SelectItem value="Audit Reveal">Audit Reveal</SelectItem>
+                                                                <SelectItem value="Proposal Session">Proposal Session</SelectItem>
                                                                 <SelectItem value="Other">Other</SelectItem>
                                                             </SelectContent>
                                                         </Select>

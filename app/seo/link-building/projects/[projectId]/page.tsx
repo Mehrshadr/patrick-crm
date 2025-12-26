@@ -13,6 +13,12 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { Label } from "@/components/ui/label"
+import {
     Table,
     TableBody,
     TableCell,
@@ -78,6 +84,12 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     const [crawling, setCrawling] = useState(false)
     const [crawlResult, setCrawlResult] = useState<{ totalPages: number; byType: Record<string, { count: number }> } | null>(null)
 
+    // Settings
+    const [showSettings, setShowSettings] = useState(false)
+    const [cmsUsername, setCmsUsername] = useState('')
+    const [cmsAppPassword, setCmsAppPassword] = useState('')
+    const [savingSettings, setSavingSettings] = useState(false)
+
     useEffect(() => {
         fetchData()
     }, [projectId])
@@ -104,6 +116,16 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
             if (logsRes.ok) {
                 const data = await logsRes.json()
                 setLogs(data.logs || [])
+            }
+
+            // Fetch settings
+            const settingsRes = await fetch(`/api/seo/projects/${projectId}/settings`)
+            if (settingsRes.ok) {
+                const data = await settingsRes.json()
+                if (data.settings) {
+                    setCmsUsername(data.settings.cmsUsername || '')
+                    setCmsAppPassword(data.settings.cmsAppPassword || '')
+                }
             }
         } catch (e) {
             toast.error('Failed to load data')
@@ -395,6 +417,69 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                     </div>
                 </div>
             )}
+
+            {/* Settings */}
+            <Collapsible open={showSettings} onOpenChange={setShowSettings} className="border rounded-lg">
+                <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center justify-between p-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                        <span>⚙️ WordPress Settings</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
+                    </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="px-3 pb-3">
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <Label className="text-xs">WordPress Username</Label>
+                            <Input
+                                value={cmsUsername}
+                                onChange={e => setCmsUsername(e.target.value)}
+                                placeholder="admin"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Application Password</Label>
+                            <Input
+                                value={cmsAppPassword}
+                                onChange={e => setCmsAppPassword(e.target.value)}
+                                placeholder="xxxx xxxx xxxx xxxx"
+                                type="password"
+                                className="mt-1"
+                            />
+                        </div>
+                    </div>
+                    <Button
+                        size="sm"
+                        className="mt-3"
+                        disabled={savingSettings}
+                        onClick={async () => {
+                            setSavingSettings(true)
+                            try {
+                                const res = await fetch(`/api/seo/projects/${projectId}/settings`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        cmsType: 'wordpress',
+                                        cmsUrl: project?.domain?.startsWith('http') ? project.domain : `https://${project?.domain}`,
+                                        cmsUsername,
+                                        cmsAppPassword
+                                    })
+                                })
+                                if (res.ok) {
+                                    toast.success('Settings saved')
+                                } else {
+                                    toast.error('Failed to save')
+                                }
+                            } catch (e) {
+                                toast.error('Failed to save')
+                            }
+                            setSavingSettings(false)
+                        }}
+                    >
+                        {savingSettings ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     )
 }

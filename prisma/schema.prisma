@@ -433,6 +433,7 @@ model GeneratedContent {
   brief         String           // User's brief/prompt
   
   content       String?          // Generated content (can be long)
+  llmPrompt     String?          // Full prompt sent to LLM (for debugging)
   status        String           @default("DRAFT")  // "DRAFT", "GENERATING", "DONE"
   
   useGuidelines Boolean          @default(true)

@@ -32,7 +32,7 @@ function extractWordCount(brief: string): { min: number; max: number } | null {
     return null
 }
 
-export async function generateContent(options: GenerateContentOptions): Promise<{ title: string; content: string }> {
+export async function generateContent(options: GenerateContentOptions): Promise<{ title: string; content: string; fullPrompt: string }> {
     const {
         brief,
         contentType,
@@ -135,9 +135,13 @@ ${brief}`
         const actualWordCount = content.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length
         console.log(`[LLM] Generated content: ${actualWordCount} words (target: ${targetWords})`)
 
+        // Build full prompt for debugging/transparency
+        const fullPrompt = `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER PROMPT ===\n${userPrompt}`
+
         return {
             title: parsed.title || 'Untitled',
-            content: content || '<p>Content generation failed.</p>'
+            content: content || '<p>Content generation failed.</p>',
+            fullPrompt
         }
     } catch (error: any) {
         console.error('OpenAI API Error:', error)

@@ -55,6 +55,7 @@ interface GeneratedContent {
     contentType: string
     brief: string
     content: string | null
+    llmPrompt: string | null
     status: string
     useGuidelines: boolean
     useAiRules: boolean
@@ -566,6 +567,20 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 </div>
                             )}
                         </ScrollArea>
+
+                        {/* View Prompt Section (Collapsible) */}
+                        {selectedContent?.llmPrompt && (
+                            <details className="shrink-0 border rounded-lg">
+                                <summary className="px-4 py-2 cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground bg-slate-50 rounded-t-lg">
+                                    🔍 View Prompt Sent to AI
+                                </summary>
+                                <div className="p-4 max-h-[200px] overflow-auto bg-slate-50 rounded-b-lg">
+                                    <pre className="text-xs whitespace-pre-wrap font-mono text-slate-700">
+                                        {selectedContent.llmPrompt}
+                                    </pre>
+                                </div>
+                            </details>
+                        )}
 
                         {/* Chat Refinement Section */}
                         {selectedContent?.status === 'DONE' && selectedContent?.content && (

@@ -63,6 +63,7 @@ export async function POST(
                 data: {
                     title: content.title || result.title,
                     content: result.content,
+                    llmPrompt: result.fullPrompt,
                     status: 'DONE'
                 }
             })

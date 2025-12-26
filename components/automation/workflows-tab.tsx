@@ -14,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { WorkflowBuilder } from './workflow-builder'
+import { STAGE_CONFIG, PipelineStage } from '@/lib/status-mapping'
 import { toast } from 'sonner'
 
 export function WorkflowsTab() {
@@ -123,8 +124,8 @@ export function WorkflowsTab() {
                                 {/* Left side: Icon & Title */}
                                 <div className="p-6 flex-1 flex items-start gap-5">
                                     <div className={`mt-1 p-3 rounded-xl transition-colors duration-200 ${workflow.isActive
-                                            ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-100'
-                                            : 'bg-slate-100 text-slate-400 ring-1 ring-slate-200'
+                                        ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-100'
+                                        : 'bg-slate-100 text-slate-400 ring-1 ring-slate-200'
                                         }`}>
                                         <Zap className="h-6 w-6" />
                                     </div>
@@ -139,8 +140,8 @@ export function WorkflowsTab() {
                                             <Badge
                                                 variant="secondary"
                                                 className={`text-[10px] uppercase tracking-wider font-bold py-0.5 px-2 ${workflow.isActive
-                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                        : 'bg-slate-100 text-slate-500 border-slate-200'
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                    : 'bg-slate-100 text-slate-500 border-slate-200'
                                                     }`}
                                             >
                                                 {workflow.isActive ? 'Active' : 'Paused'}
@@ -152,7 +153,7 @@ export function WorkflowsTab() {
                                         <div className="flex items-center gap-4 pt-2">
                                             <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
                                                 <div className={`w-2 h-2 rounded-full ${workflow.pipelineStage ? 'bg-indigo-400' : 'bg-slate-300'}`} />
-                                                {workflow.pipelineStage || 'General'}
+                                                {workflow.pipelineStage ? (STAGE_CONFIG[workflow.pipelineStage as PipelineStage]?.label || workflow.pipelineStage) : 'General'}
                                             </div>
                                             <Separator orientation="vertical" className="h-3 mx-1 bg-slate-200" />
                                             <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">

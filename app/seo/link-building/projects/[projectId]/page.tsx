@@ -89,6 +89,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     const [cmsUsername, setCmsUsername] = useState('')
     const [cmsAppPassword, setCmsAppPassword] = useState('')
     const [savingSettings, setSavingSettings] = useState(false)
+    const [running, setRunning] = useState(false)
+    const [runResult, setRunResult] = useState<{ linked: number; processed: number } | null>(null)
 
     useEffect(() => {
         fetchData()
@@ -218,6 +220,41 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
         setCrawling(false)
     }
 
+    async function handleRun() {
+        if (keywords.length === 0) {
+            toast.error('Add keywords first')
+            return
+        }
+        if (!cmsUsername || !cmsAppPassword) {
+            toast.error('Configure WordPress settings first')
+            setShowSettings(true)
+            return
+        }
+
+        setRunning(true)
+        setRunResult(null)
+        try {
+            const res = await fetch('/api/seo/link-building/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: parseInt(projectId) })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                setRunResult(data.results)
+                toast.success(`Linked ${data.results?.linked || 0} times across ${data.results?.processed || 0} pages`)
+                fetchData() // Refresh logs
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Run failed')
+            }
+        } catch (e) {
+            toast.error('Run failed')
+        }
+        setRunning(false)
+    }
+
     if (loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -247,8 +284,13 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                         {crawling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                         {crawling ? 'Crawling...' : 'Crawl Site'}
                     </Button>
-                    <Button disabled className="gap-2">
-                        <Play className="h-4 w-4" /> Run All
+                    <Button
+                        onClick={handleRun}
+                        disabled={running || keywords.length === 0}
+                        className="gap-2"
+                    >
+                        {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                        {running ? 'Running...' : 'Run All'}
                     </Button>
                 </div>
             </div>

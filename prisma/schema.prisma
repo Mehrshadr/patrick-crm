@@ -459,3 +459,11 @@ model GeneratedContent {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 }
+
+// Analytics counters for tracking various metrics
+model AnalyticsCounter {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique // e.g. 'patrick_clicks'
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}

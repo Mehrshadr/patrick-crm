@@ -147,16 +147,20 @@ export function AppSidebar() {
                                         {projects.map((project) => (
                                             <Collapsible key={project.id} className="group/project">
                                                 <SidebarMenuSubItem>
-                                                    <CollapsibleTrigger asChild>
-                                                        <SidebarMenuSubButton
-                                                            isActive={pathname.includes(`/projects/${project.id}`) || pathname.includes(`/${project.id}`)}
-                                                            className="cursor-pointer"
+                                                    <div className="flex items-center">
+                                                        <Link
+                                                            href={`/projects/${project.id}`}
+                                                            className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l"
                                                         >
                                                             <FolderOpen className="h-3 w-3 shrink-0" />
                                                             <span className="truncate">{project.name}</span>
-                                                            <ChevronDown className="ml-auto h-3 w-3 shrink-0 transition-transform group-data-[state=open]/project:rotate-180" />
-                                                        </SidebarMenuSubButton>
-                                                    </CollapsibleTrigger>
+                                                        </Link>
+                                                        <CollapsibleTrigger asChild>
+                                                            <button className="p-1.5 hover:bg-slate-100 rounded-r">
+                                                                <ChevronDown className="h-3 w-3 shrink-0 transition-transform group-data-[state=open]/project:rotate-180" />
+                                                            </button>
+                                                        </CollapsibleTrigger>
+                                                    </div>
                                                     <CollapsibleContent>
                                                         <div className="pl-4 space-y-1 py-1">
                                                             <Link
@@ -212,14 +216,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter className="p-4">
-                {/* Settings Link */}
-                <Link
-                    href="/settings"
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium mb-3 transition-colors ${pathname === '/settings' ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-                >
-                    <Settings className="h-4 w-4" />
-                    <span className="group-data-[collapsible=icon]:hidden">Settings</span>
-                </Link>
 
                 {/* Patrick Easter Egg */}
                 <div className="flex justify-center mb-2">
@@ -229,6 +225,8 @@ export function AppSidebar() {
                         onClick={() => {
                             setPatrickEnlarged(true)
                             setTimeout(() => setPatrickEnlarged(false), 1500)
+                            // Hidden counter - track Patrick clicks
+                            fetch('/api/analytics/patrick-click', { method: 'POST' }).catch(() => { })
                         }}
                         className={`cursor-pointer select-none transition-all duration-500 ease-out ${patrickEnlarged
                             ? 'h-20 w-20 opacity-100 rotate-12 scale-125'

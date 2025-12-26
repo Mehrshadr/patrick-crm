@@ -10,7 +10,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, User } from "lucide-react"
+import { LogOut, User, Settings } from "lucide-react"
 
 interface UserMenuProps {
     user: {
@@ -49,6 +49,12 @@ export function UserMenu({ user }: UserMenuProps) {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <a href="/settings">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                    </a>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                     className="cursor-pointer text-red-600 focus:text-red-600"
                     onClick={() => signOut({ callbackUrl: "/login" })}

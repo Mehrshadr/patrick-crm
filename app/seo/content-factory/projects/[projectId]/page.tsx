@@ -112,6 +112,10 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
     const [brandStatement, setBrandStatement] = useState('')
     const [savingSettings, setSavingSettings] = useState(false)
 
+    // Refinement
+    const [refineFeedback, setRefineFeedback] = useState('')
+    const [refining, setRefining] = useState(false)
+
     useEffect(() => {
         fetchProjectData()
     }, [projectId])
@@ -245,7 +249,44 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
 
     function openViewDialog(content: GeneratedContent) {
         setSelectedContent(content)
+        setRefineFeedback('')
         setViewDialogOpen(true)
+    }
+
+    async function handleRefineContent(contentId: number) {
+        if (!refineFeedback.trim()) return
+
+        setRefining(true)
+        try {
+            const res = await fetch(`/api/seo/content/${projectId}/${contentId}/refine`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ feedback: refineFeedback })
+            })
+
+            if (res.ok) {
+                const updated = await res.json()
+                toast.success('Content refined!')
+                setRefineFeedback('')
+                // Update selectedContent and contents list
+                setSelectedContent(updated)
+                setContents(prev => prev.map(c => c.id === updated.id ? updated : c))
+            } else {
+                const data = await res.json()
+                toast.error(data.error || 'Refinement failed')
+            }
+        } catch (error) {
+            toast.error('Refinement failed')
+        } finally {
+            setRefining(false)
+        }
+    }
+
+    function handleCopyContent(content: GeneratedContent) {
+        if (content.content) {
+            navigator.clipboard.writeText(content.content)
+            toast.success('HTML copied to clipboard!')
+        }
     }
 
     if (loading) {
@@ -482,35 +523,87 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
 
             {/* View Content Dialog */}
             <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-                <DialogContent className="sm:max-w-[800px] max-h-[80vh]">
-                    <DialogHeader>
-                        <DialogTitle>{selectedContent?.title || 'Generated Content'}</DialogTitle>
-                        <DialogDescription>
-                            {contentTypes.find(t => t.id === selectedContent?.contentType)?.name}
+                <DialogContent className="sm:max-w-[900px] max-h-[90vh] flex flex-col">
+                    <DialogHeader className="shrink-0">
+                        <DialogTitle className="text-xl">{selectedContent?.title || 'Generated Content'}</DialogTitle>
+                        <DialogDescription className="flex items-center gap-3 flex-wrap">
+                            <span>{contentTypes.find(t => t.id === selectedContent?.contentType)?.name}</span>
+                            <span className="text-xs">•</span>
+                            <span className="text-xs">
+                                {selectedContent?.content ?
+                                    `${selectedContent.content.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length} words`
+                                    : '0 words'}
+                            </span>
+                            {selectedContent?.useGuidelines && (
+                                <Badge variant="outline" className="text-xs bg-blue-50">✓ Guidelines</Badge>
+                            )}
+                            {selectedContent?.useAiRules && (
+                                <Badge variant="outline" className="text-xs bg-purple-50">✓ AI Rules</Badge>
+                            )}
+                            {brandStatement && (
+                                <Badge variant="outline" className="text-xs bg-green-50">✓ Brand</Badge>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="h-[400px] pr-4">
-                        {selectedContent?.status === 'GENERATING' ? (
-                            <div className="flex items-center justify-center h-full">
-                                <div className="text-center">
-                                    <Clock className="h-8 w-8 mx-auto mb-2 animate-spin text-blue-500" />
-                                    <p>Generating content...</p>
+                    <div className="flex-1 overflow-hidden flex flex-col gap-4 min-h-0">
+                        <ScrollArea className="flex-1 border rounded-lg p-4 bg-white">
+                            {selectedContent?.status === 'GENERATING' ? (
+                                <div className="flex items-center justify-center h-full py-12">
+                                    <div className="text-center">
+                                        <Clock className="h-8 w-8 mx-auto mb-2 animate-spin text-blue-500" />
+                                        <p>Generating content...</p>
+                                    </div>
+                                </div>
+                            ) : selectedContent?.content ? (
+                                <article
+                                    className="content-article max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: selectedContent.content }}
+                                />
+                            ) : (
+                                <div className="text-center text-muted-foreground py-8">
+                                    No content generated yet
+                                </div>
+                            )}
+                        </ScrollArea>
+
+                        {/* Chat Refinement Section */}
+                        {selectedContent?.status === 'DONE' && selectedContent?.content && (
+                            <div className="shrink-0 space-y-2">
+                                <Label className="text-sm flex items-center gap-2">
+                                    <Pencil className="h-3 w-3" />
+                                    Refine Content
+                                </Label>
+                                <div className="flex gap-2">
+                                    <Textarea
+                                        value={refineFeedback}
+                                        onChange={(e) => setRefineFeedback(e.target.value)}
+                                        placeholder="Enter your feedback to refine this content... e.g., 'Make the introduction more engaging' or 'Add more details about maintenance tips'"
+                                        className="flex-1 h-[60px] resize-none"
+                                    />
+                                    <Button
+                                        className="shrink-0"
+                                        onClick={() => handleRefineContent(selectedContent.id)}
+                                        disabled={refining || !refineFeedback.trim()}
+                                    >
+                                        {refining ? (
+                                            <>
+                                                <Clock className="mr-2 h-4 w-4 animate-spin" />
+                                                Refining...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="mr-2 h-4 w-4" />
+                                                Refine
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
                             </div>
-                        ) : selectedContent?.content ? (
-                            <div
-                                className="prose prose-sm max-w-none dark:prose-invert"
-                                dangerouslySetInnerHTML={{ __html: selectedContent.content }}
-                            />
-                        ) : (
-                            <div className="text-center text-muted-foreground py-8">
-                                No content generated yet
-                            </div>
                         )}
-                    </ScrollArea>
+                    </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="shrink-0">
                         <Button variant="destructive" size="sm" onClick={() => { setViewDialogOpen(false); handleDeleteContent(selectedContent?.id || 0) }}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
@@ -519,14 +612,30 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                             Close
                         </Button>
                         {selectedContent?.status === 'DONE' && (
-                            <Button>
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Mark as Done
+                            <Button onClick={() => handleCopyContent(selectedContent)}>
+                                Copy HTML
                             </Button>
                         )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* CSS for content article */}
+            <style jsx global>{`
+                .content-article h1 { font-size: 2rem; font-weight: 700; margin: 1.5rem 0 1rem; line-height: 1.2; }
+                .content-article h2 { font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 0.75rem; line-height: 1.3; color: #1a1a1a; }
+                .content-article h3 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; line-height: 1.4; color: #333; }
+                .content-article h4 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+                .content-article p { margin: 0.75rem 0; line-height: 1.7; color: #374151; }
+                .content-article ul, .content-article ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+                .content-article li { margin: 0.25rem 0; line-height: 1.6; }
+                .content-article strong { font-weight: 600; color: #1a1a1a; }
+                .content-article em { font-style: italic; }
+                .content-article blockquote { border-left: 3px solid #e5e7eb; padding-left: 1rem; margin: 1rem 0; font-style: italic; color: #6b7280; }
+                .content-article a { color: #2563eb; text-decoration: underline; }
+                .content-article code { background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875em; }
+                .content-article pre { background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+            `}</style>
         </div>
     )
 }

@@ -184,7 +184,11 @@ async function fetchWordPressPages(siteUrl: string, auth: string, keywords: any[
 async function updateWordPressPage(siteUrl: string, auth: string, page: any, content: string) {
     try {
         const endpoint = page._type === 'post' ? 'posts' : 'pages'
-        const res = await fetch(`${siteUrl}/wp-json/wp/v2/${endpoint}/${page.id}`, {
+        const url = `${siteUrl}/wp-json/wp/v2/${endpoint}/${page.id}`
+
+        console.log(`[LinkBuilding] Updating ${endpoint}/${page.id}: ${page.link}`)
+
+        const res = await fetch(url, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${auth}`,
@@ -192,9 +196,18 @@ async function updateWordPressPage(siteUrl: string, auth: string, page: any, con
             },
             body: JSON.stringify({ content })
         })
-        return res.ok
+
+        if (!res.ok) {
+            const errorText = await res.text()
+            console.error(`[LinkBuilding] Failed to update ${page.link}: ${res.status}`, errorText)
+            return false
+        }
+
+        const responseData = await res.json()
+        console.log(`[LinkBuilding] Successfully updated ${page.link}, new content length: ${responseData.content?.rendered?.length}`)
+        return true
     } catch (e) {
-        console.error('Failed to update page:', e)
+        console.error('[LinkBuilding] Failed to update page:', e)
         return false
     }
 }

@@ -153,7 +153,7 @@ ${brief}`
                 { role: 'user', content: userPrompt }
             ],
             temperature: 0.7,
-            max_tokens: 16000, // Maximum for longer content
+            max_tokens: 4096, // gpt-4.1 max output tokens
             response_format: { type: 'json_object' }
         })
 

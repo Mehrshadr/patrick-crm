@@ -467,3 +467,12 @@ model AnalyticsCounter {
   value     Int      @default(0)
   updatedAt DateTime @updatedAt
 }
+
+// Patrick Easter Egg click logs (for fun analytics!)
+model PatrickClick {
+  id        Int      @id @default(autoincrement())
+  clickedAt DateTime @default(now())
+  hour      Int      // 0-23
+  dayOfWeek Int      // 0=Sunday, 1=Monday, ... 6=Saturday
+  date      String   // YYYY-MM-DD for easy grouping
+}

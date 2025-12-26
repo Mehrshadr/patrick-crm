@@ -217,7 +217,7 @@ export async function generateImages(
                 quality: "standard"
             })
 
-            const imageUrl = response.data[0]?.url
+            const imageUrl = response.data?.[0]?.url
             if (imageUrl) {
                 // Download and save the image
                 const imageRes = await fetch(imageUrl)

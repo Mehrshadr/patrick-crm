@@ -279,6 +279,8 @@ model IndexingProject {
   assignedUsers ProjectAccess[]
   settings      ProjectSettings?
   contents      GeneratedContent[]
+  linkBuildingKeywords LinkBuildingKeyword[]
+  linkBuildingLogs     LinkBuildingLog[]
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -412,12 +414,21 @@ model ContentGeneratorConfig {
   updatedAt    DateTime @updatedAt
 }
 
-// Per-Project Settings (Brand Statement, etc.)
+// Per-Project Settings (Brand Statement, CMS Credentials, etc.)
 model ProjectSettings {
   id             Int              @id @default(autoincrement())
   projectId      Int              @unique
   project        IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   brandStatement String?
+  
+  // CMS Integration
+  cmsType        String?  // "wordpress", "shopify"
+  cmsUrl         String?  // API Base URL
+  cmsUsername    String?  // WordPress username
+  cmsAppPassword String?  // WordPress Application Password
+  shopifyToken   String?  // Shopify Admin API Token
+  shopifyStore   String?  // Shopify store name (xyz.myshopify.com)
+  
   updatedAt      DateTime         @updatedAt
 }
 
@@ -475,4 +486,49 @@ model PatrickClick {
   hour      Int      // 0-23
   dayOfWeek Int      // 0=Sunday, 1=Monday, ... 6=Saturday
   date      String   // YYYY-MM-DD for easy grouping
+}
+
+// ============================================
+// SEO TOOLS: Link Building
+// ============================================
+
+model LinkBuildingKeyword {
+  id          Int              @id @default(autoincrement())
+  projectId   Int
+  project     IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  keyword     String           // Keyword to find and link
+  targetUrl   String           // URL to link to
+  priority    Int              @default(0)  // Higher = processed first (for longer phrases)
+  isEnabled   Boolean          @default(true)
+  
+  // Rules
+  pageTypes   String?          // JSON: ["blog", "service", "product"]
+  onlyFirst   Boolean          @default(true)   // Only first occurrence per page
+  onlyFirstP  Boolean          @default(false)  // Only in first paragraph
+  
+  // Stats
+  linksCreated Int             @default(0)
+  lastRunAt    DateTime?
+  
+  logs        LinkBuildingLog[]
+  
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model LinkBuildingLog {
+  id          Int                  @id @default(autoincrement())
+  projectId   Int
+  project     IndexingProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keywordId   Int
+  keyword     LinkBuildingKeyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  
+  pageUrl     String               // Full URL of the page
+  pageTitle   String?              // Title of the page
+  anchorId    String?              // e.g., "lb-5-1" for direct navigation
+  status      String               // "linked", "skipped", "error"
+  message     String?              // Additional info
+  
+  createdAt   DateTime             @default(now())
 }

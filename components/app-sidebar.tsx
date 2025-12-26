@@ -174,6 +174,16 @@ export function AppSidebar() {
                                                                 Link Indexing
                                                             </Link>
                                                             <Link
+                                                                href={`/seo/link-building/projects/${project.id}`}
+                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-building/projects/${project.id}`
+                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                    : 'text-slate-600 hover:bg-slate-50'
+                                                                    }`}
+                                                            >
+                                                                <Link2 className="h-3 w-3" />
+                                                                Link Building
+                                                            </Link>
+                                                            <Link
                                                                 href={`/seo/content-factory/projects/${project.id}`}
                                                                 className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/content-factory/projects/${project.id}`
                                                                     ? 'bg-slate-100 text-slate-900 font-medium'

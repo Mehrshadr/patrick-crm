@@ -307,3 +307,67 @@ Only return the JSON object, no markdown or code blocks.`
         throw new Error(`Failed to refine content: ${error.message}`)
     }
 }
+
+interface ImproveSectionOptions {
+    selectedText: string
+    feedback: string
+    surroundingContext?: string
+    brandStatement?: string | null
+}
+
+export async function improveSection(options: ImproveSectionOptions): Promise<{ improvedText: string }> {
+    const { selectedText, feedback, surroundingContext, brandStatement } = options
+
+    let systemPrompt = `You are an expert content editor. Your task is to improve a SPECIFIC SECTION of text based on user feedback.
+
+## Rules
+1. ONLY return the improved version of the selected text
+2. Maintain the same HTML structure (if the original has tags, keep them)
+3. Keep roughly the same length unless asked otherwise
+4. Preserve the tone and style of the original`
+
+    if (brandStatement) {
+        systemPrompt += `\n\n## Brand Context\n${brandStatement}`
+    }
+
+    systemPrompt += `\n\n## Output Format
+Return ONLY a JSON object:
+{
+  "improvedText": "The improved version of the text"
+}
+
+Do NOT include any explanation or extra text.`
+
+    const userPrompt = `## Selected Text to Improve:
+${selectedText}
+
+## User Feedback:
+${feedback}
+
+${surroundingContext ? `## Surrounding Context:\n${surroundingContext}` : ''}
+
+Please improve the selected text according to the feedback.`
+
+    try {
+        const response = await openai.chat.completions.create({
+            model: process.env.OPENAI_MODEL || 'gpt-4.1',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+            response_format: { type: 'json_object' }
+        })
+
+        const responseText = response.choices[0]?.message?.content || '{}'
+        const parsed = JSON.parse(responseText)
+
+        return {
+            improvedText: parsed.improvedText || selectedText
+        }
+    } catch (error: any) {
+        console.error('OpenAI API Error:', error)
+        throw new Error(`Failed to improve section: ${error.message}`)
+    }
+}

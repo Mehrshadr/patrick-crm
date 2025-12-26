@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -121,6 +121,13 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
 
     // Export
     const [exporting, setExporting] = useState(false)
+
+    // Inline Selection Improvement
+    const [selectedText, setSelectedText] = useState('')
+    const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null)
+    const [improveFeedback, setImproveFeedback] = useState('')
+    const [improving, setImproving] = useState(false)
+    const contentRef = useRef<HTMLElement>(null)
 
     useEffect(() => {
         fetchProjectData()
@@ -319,6 +326,63 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
             toast.error('Export failed')
         } finally {
             setExporting(false)
+        }
+    }
+
+    function handleTextSelection() {
+        const selection = window.getSelection()
+        if (selection && selection.toString().trim().length > 10) {
+            const text = selection.toString().trim()
+            const range = selection.getRangeAt(0)
+            const rect = range.getBoundingClientRect()
+
+            setSelectedText(text)
+            setSelectionPosition({
+                x: rect.left + (rect.width / 2),
+                y: rect.top - 10
+            })
+        } else {
+            // Only hide if clicking outside the popup
+            if (!improving) {
+                setSelectedText('')
+                setSelectionPosition(null)
+            }
+        }
+    }
+
+    async function handleImproveSection() {
+        if (!selectedContent || !selectedText) return
+
+        setImproving(true)
+        try {
+            const res = await fetch(`/api/seo/content/${projectId}/${selectedContent.id}/improve-section`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    selectedText,
+                    feedback: improveFeedback
+                })
+            })
+
+            const data = await res.json()
+
+            if (res.ok) {
+                toast.success('Section improved!')
+                // Update the selected content in state
+                setSelectedContent(data.content)
+                // Also update in list
+                setContents(prev => prev.map(c => c.id === data.content.id ? data.content : c))
+                // Clear selection
+                setSelectedText('')
+                setSelectionPosition(null)
+                setImproveFeedback('')
+            } else {
+                toast.error(data.error || 'Failed to improve section')
+            }
+        } catch (error) {
+            toast.error('Failed to improve section')
+        } finally {
+            setImproving(false)
         }
     }
 
@@ -590,8 +654,10 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 </div>
                             ) : selectedContent?.content ? (
                                 <article
+                                    ref={contentRef as any}
                                     className="content-article max-w-none"
                                     dangerouslySetInnerHTML={{ __html: selectedContent.content }}
+                                    onMouseUp={handleTextSelection}
                                 />
                             ) : (
                                 <div className="text-center text-muted-foreground py-8">
@@ -599,6 +665,60 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 </div>
                             )}
                         </ScrollArea>
+
+                        {/* Inline Selection Improvement Popup */}
+                        {selectedText && selectionPosition && (
+                            <div
+                                className="fixed z-50 bg-white border rounded-lg shadow-xl p-3 w-80"
+                                style={{
+                                    left: Math.max(16, Math.min(selectionPosition.x - 160, window.innerWidth - 340)),
+                                    top: Math.max(16, selectionPosition.y - 150)
+                                }}
+                            >
+                                <div className="text-xs text-muted-foreground mb-2 font-medium">
+                                    ✏️ Improve Selection ({selectedText.length} chars)
+                                </div>
+                                <div className="text-xs bg-slate-50 p-2 rounded mb-2 max-h-16 overflow-hidden text-ellipsis">
+                                    "{selectedText.substring(0, 100)}..."
+                                </div>
+                                <Textarea
+                                    value={improveFeedback}
+                                    onChange={(e) => setImproveFeedback(e.target.value)}
+                                    placeholder="How should this be improved?"
+                                    className="text-sm h-16 mb-2"
+                                />
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setSelectedText('')
+                                            setSelectionPosition(null)
+                                            setImproveFeedback('')
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleImproveSection}
+                                        disabled={improving || !improveFeedback.trim()}
+                                    >
+                                        {improving ? (
+                                            <>
+                                                <Clock className="mr-1 h-3 w-3 animate-spin" />
+                                                Improving...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="mr-1 h-3 w-3" />
+                                                Improve
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* View Prompt Section (Collapsible) */}
                         {selectedContent?.llmPrompt && (

@@ -228,7 +228,8 @@ export async function generateImages(
                 const filepath = path.join(uploadDir, filename)
                 fs.writeFileSync(filepath, buffer)
 
-                const publicUrl = `/uploads/content/${contentId}/${filename}`
+                // Use API route for serving images (avoids nginx config)
+                const publicUrl = `/api/images/content/${contentId}/${filename}`
 
                 results.push({
                     position: image.position,

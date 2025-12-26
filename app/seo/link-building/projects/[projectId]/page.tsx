@@ -91,6 +91,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     const [savingSettings, setSavingSettings] = useState(false)
     const [running, setRunning] = useState(false)
     const [runResult, setRunResult] = useState<{ linked: number; processed: number } | null>(null)
+    const [selectedKeywords, setSelectedKeywords] = useState<number[]>([])
 
     useEffect(() => {
         fetchData()
@@ -290,7 +291,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                         className="gap-2"
                     >
                         {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                        {running ? 'Running...' : 'Run All'}
+                        {running ? 'Running...' : selectedKeywords.length > 0 ? `Run ${selectedKeywords.length}` : 'Run All'}
                     </Button>
                 </div>
             </div>
@@ -369,18 +370,30 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-slate-50">
-                            <TableHead className="w-[200px]">Keyword</TableHead>
+                            <TableHead className="w-[40px]">
+                                <Checkbox
+                                    checked={selectedKeywords.length === keywords.length && keywords.length > 0}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                            setSelectedKeywords(keywords.map(k => k.id))
+                                        } else {
+                                            setSelectedKeywords([])
+                                        }
+                                    }}
+                                />
+                            </TableHead>
+                            <TableHead className="w-[180px]">Keyword</TableHead>
                             <TableHead>Target URL</TableHead>
                             <TableHead className="w-[100px]">Pages</TableHead>
-                            <TableHead className="w-[80px] text-center">Links</TableHead>
+                            <TableHead className="w-[60px] text-center">Links</TableHead>
                             <TableHead className="w-[60px] text-center">Active</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
+                            <TableHead className="w-[80px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {keywords.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-slate-400 py-8">
+                                <TableCell colSpan={7} className="text-center text-slate-400 py-8">
                                     No keywords yet. Add your first one above.
                                 </TableCell>
                             </TableRow>
@@ -389,6 +402,18 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                 const pageTypes = kw.pageTypes ? JSON.parse(kw.pageTypes) : []
                                 return (
                                     <TableRow key={kw.id} className={!kw.isEnabled ? 'opacity-50' : ''}>
+                                        <TableCell>
+                                            <Checkbox
+                                                checked={selectedKeywords.includes(kw.id)}
+                                                onCheckedChange={(checked) => {
+                                                    if (checked) {
+                                                        setSelectedKeywords([...selectedKeywords, kw.id])
+                                                    } else {
+                                                        setSelectedKeywords(selectedKeywords.filter(id => id !== kw.id))
+                                                    }
+                                                }}
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-medium">{kw.keyword}</TableCell>
                                         <TableCell className="text-sm text-slate-600">
                                             <a href={kw.targetUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
@@ -413,14 +438,16 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-400 hover:text-red-500"
-                                                onClick={() => deleteKeyword(kw.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-400 hover:text-red-500"
+                                                    onClick={() => deleteKeyword(kw.id)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 )

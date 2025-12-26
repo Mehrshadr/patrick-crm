@@ -100,8 +100,8 @@ ${brief}`
         // Use GPT-4-turbo for best quality content
         const model = process.env.OPENAI_MODEL || 'gpt-4-turbo'
 
-        // Calculate tokens needed: ~1.3 tokens per word + overhead
-        const estimatedTokens = Math.max(8000, (wordCount?.max || 2000) * 2)
+        // Calculate tokens needed: ~1.3 tokens per word + overhead, but cap at model limit
+        const estimatedTokens = Math.min(4096, Math.max(3000, (wordCount?.max || 2000) * 2))
 
         const response = await openai.chat.completions.create({
             model,

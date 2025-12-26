@@ -97,11 +97,11 @@ BRIEF:
 ${brief}`
 
     try {
-        // Use GPT-4-turbo for best quality content
-        const model = process.env.OPENAI_MODEL || 'gpt-4-turbo'
+        // Use GPT-4o for best quality and longer output (16k tokens max)
+        const model = process.env.OPENAI_MODEL || 'gpt-4o'
 
-        // Calculate tokens needed: ~1.3 tokens per word + overhead, but cap at model limit
-        const estimatedTokens = Math.min(4096, Math.max(3000, (wordCount?.max || 2000) * 2))
+        // Calculate tokens needed - gpt-4o supports up to 16k output tokens
+        const estimatedTokens = Math.min(8192, Math.max(4096, (wordCount?.max || 2000) * 2))
 
         const response = await openai.chat.completions.create({
             model,

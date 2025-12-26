@@ -548,7 +548,7 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                     </DialogHeader>
 
                     <div className="flex-1 overflow-hidden flex flex-col gap-4 min-h-0">
-                        <ScrollArea className="flex-1 border rounded-lg p-4 bg-white">
+                        <ScrollArea className="h-[350px] border rounded-lg p-4 bg-white">
                             {selectedContent?.status === 'GENERATING' ? (
                                 <div className="flex items-center justify-center h-full py-12">
                                     <div className="text-center">

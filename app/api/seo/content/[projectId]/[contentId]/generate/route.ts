@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { generateContent } from "@/lib/llm"
+import { generateContent, generateImages, replaceImagePlaceholders } from "@/lib/llm"
 
-// POST - Generate content using LLM
+// POST - Generate content using LLM with optional image generation
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ projectId: string; contentId: string }> }
@@ -18,6 +18,10 @@ export async function POST(
         }
 
         const { projectId, contentId } = await params
+
+        // Check query param for image generation
+        const url = new URL(request.url)
+        const skipImages = url.searchParams.get('skipImages') === 'true'
 
         // Get the content record
         const content = await prisma.generatedContent.findFirst({
@@ -46,7 +50,8 @@ export async function POST(
             // Get global content generator config
             const config = await prisma.contentGeneratorConfig.findFirst()
 
-            // Generate content
+            // Generate text content
+            console.log(`[Generate] Starting text generation for content ${content.id}`)
             const result = await generateContent({
                 brief: content.brief,
                 contentType: content.contentType as 'BLOG_POST' | 'SERVICE_PAGE',
@@ -57,12 +62,32 @@ export async function POST(
                 useAiRules: content.useAiRules
             })
 
+            let finalContent = result.content
+
+            // Generate images if available and not skipped
+            if (result.images && result.images.length > 0 && !skipImages) {
+                console.log(`[Generate] Starting image generation: ${result.images.length} images`)
+
+                // Update status to show image generation
+                await prisma.generatedContent.update({
+                    where: { id: content.id },
+                    data: { status: 'GENERATING_IMAGES' }
+                })
+
+                const generatedImages = await generateImages(result.images, content.id)
+
+                // Replace placeholders with actual images
+                finalContent = replaceImagePlaceholders(result.content, generatedImages)
+
+                console.log(`[Generate] Generated ${generatedImages.length} images`)
+            }
+
             // Update content with result
             const updated = await prisma.generatedContent.update({
                 where: { id: content.id },
                 data: {
                     title: content.title || result.title,
-                    content: result.content,
+                    content: finalContent,
                     llmPrompt: result.fullPrompt,
                     status: 'DONE'
                 }

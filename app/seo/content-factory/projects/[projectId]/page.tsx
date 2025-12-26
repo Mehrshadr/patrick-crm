@@ -76,7 +76,8 @@ interface ProjectSettings {
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
     'DRAFT': { label: 'Draft', icon: FileText, color: 'bg-slate-100 text-slate-700' },
-    'GENERATING': { label: 'Generating...', icon: Clock, color: 'bg-blue-100 text-blue-700' },
+    'GENERATING': { label: 'Generating text...', icon: Clock, color: 'bg-blue-100 text-blue-700' },
+    'GENERATING_IMAGES': { label: 'Generating images...', icon: Sparkles, color: 'bg-purple-100 text-purple-700' },
     'DONE': { label: 'Completed', icon: CheckCircle2, color: 'bg-green-100 text-green-700' },
     'ERROR': { label: 'Error', icon: AlertCircle, color: 'bg-red-100 text-red-700' },
 }
@@ -650,6 +651,9 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                 .content-article a { color: #2563eb; text-decoration: underline; }
                 .content-article code { background: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; font-size: 0.875em; }
                 .content-article pre { background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+                .content-article .content-image { margin: 1.5rem 0; }
+                .content-article .content-image img { width: 100%; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                .content-article .content-image figcaption { text-align: center; font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem; font-style: italic; }
             `}</style>
         </div>
     )

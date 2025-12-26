@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
                     // Replace first occurrence only (if onlyFirst is true)
                     let replaced = false
-                    content = content.replace(keywordRegex, (match) => {
+                    content = content.replace(keywordRegex, (match: string) => {
                         if (replaced && kw.onlyFirst) return match
                         replaced = true
                         return `<a href="${kw.targetUrl}" id="${anchorId}" class="lb-auto-link">${match}</a>`

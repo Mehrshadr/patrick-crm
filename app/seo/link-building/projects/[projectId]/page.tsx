@@ -29,6 +29,8 @@ import {
     CheckCircle2,
     XCircle,
     ChevronDown,
+    Search,
+    Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -72,7 +74,9 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     // New keyword form
     const [newKeyword, setNewKeyword] = useState('')
     const [newUrl, setNewUrl] = useState('')
-    const [newPageTypes, setNewPageTypes] = useState<string[]>(['blog'])
+    const [newPageTypes, setNewPageTypes] = useState<string[]>(['service'])
+    const [crawling, setCrawling] = useState(false)
+    const [crawlResult, setCrawlResult] = useState<{ totalPages: number; byType: Record<string, { count: number }> } | null>(null)
 
     useEffect(() => {
         fetchData()
@@ -164,6 +168,34 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
         }
     }
 
+    async function handleCrawl() {
+        if (!project?.domain) return
+
+        setCrawling(true)
+        setCrawlResult(null)
+        try {
+            const res = await fetch('/api/seo/link-building/crawl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: parseInt(projectId),
+                    siteUrl: project.domain
+                })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                setCrawlResult(data)
+                toast.success(`Found ${data.totalPages} pages`)
+            } else {
+                toast.error('Failed to crawl site')
+            }
+        } catch (e) {
+            toast.error('Crawl failed')
+        }
+        setCrawling(false)
+    }
+
     if (loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -183,10 +215,34 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                         <p className="text-sm text-slate-500">{project?.domain}</p>
                     </div>
                 </div>
-                <Button disabled className="gap-2">
-                    <Play className="h-4 w-4" /> Run All
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={handleCrawl}
+                        disabled={crawling || !project?.domain}
+                        className="gap-2"
+                    >
+                        {crawling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        {crawling ? 'Crawling...' : 'Crawl Site'}
+                    </Button>
+                    <Button disabled className="gap-2">
+                        <Play className="h-4 w-4" /> Run All
+                    </Button>
+                </div>
             </div>
+
+            {/* Crawl Results */}
+            {crawlResult && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                    <span className="font-medium text-blue-800">Crawl complete:</span>
+                    <span className="ml-2 text-blue-600">
+                        {crawlResult.totalPages} pages found
+                        {Object.entries(crawlResult.byType).map(([type, info]) => (
+                            <span key={type} className="ml-2">• {type}: {info.count}</span>
+                        ))}
+                    </span>
+                </div>
+            )}
 
             {/* Add Keyword */}
             <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border">

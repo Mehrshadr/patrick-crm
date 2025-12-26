@@ -360,6 +360,16 @@ model GoogleOAuthToken {
   updatedAt    DateTime @updatedAt
 }
 
+// Google Docs API OAuth Tokens
+model GoogleDocsToken {
+  id           Int      @id @default(autoincrement())
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 // ============================================
 // TASKS
 // ============================================

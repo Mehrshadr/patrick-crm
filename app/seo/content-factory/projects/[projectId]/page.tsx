@@ -46,6 +46,7 @@ import {
     Pencil,
     Eye,
     Settings,
+    FileUp,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -117,6 +118,9 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
     // Refinement
     const [refineFeedback, setRefineFeedback] = useState('')
     const [refining, setRefining] = useState(false)
+
+    // Export
+    const [exporting, setExporting] = useState(false)
 
     useEffect(() => {
         fetchProjectData()
@@ -288,6 +292,33 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
         if (content.content) {
             navigator.clipboard.writeText(content.content)
             toast.success('HTML copied to clipboard!')
+        }
+    }
+
+    async function handleExportToDocs(content: GeneratedContent) {
+        setExporting(true)
+        try {
+            const res = await fetch(`/api/seo/content/${projectId}/${content.id}/export-gdocs`, {
+                method: 'POST'
+            })
+
+            const data = await res.json()
+
+            if (res.ok) {
+                toast.success('Exported to Google Docs!')
+                // Open the document in a new tab
+                window.open(data.url, '_blank')
+            } else {
+                if (data.error?.includes('not connected')) {
+                    toast.error('Google Docs not connected. Please connect in Settings first.')
+                } else {
+                    toast.error(data.error || 'Export failed')
+                }
+            }
+        } catch (error) {
+            toast.error('Export failed')
+        } finally {
+            setExporting(false)
         }
     }
 
@@ -630,6 +661,16 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                         {selectedContent?.status === 'DONE' && (
                             <Button onClick={() => handleCopyContent(selectedContent)}>
                                 Copy HTML
+                            </Button>
+                        )}
+                        {selectedContent?.status === 'DONE' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => handleExportToDocs(selectedContent)}
+                                disabled={exporting}
+                            >
+                                <FileUp className="mr-2 h-4 w-4" />
+                                {exporting ? 'Exporting...' : 'Export to Docs'}
                             </Button>
                         )}
                     </DialogFooter>

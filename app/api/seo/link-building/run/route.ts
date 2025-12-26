@@ -63,8 +63,14 @@ export async function POST(request: NextRequest) {
                 continue
             }
 
-            let content = page.content?.rendered || ''
+            let content = page.content?.raw || page.content?.rendered || ''
             let modified = false
+
+            // Skip if no content
+            if (!content) {
+                console.log(`[LinkBuilding] Skipping ${page.link} - no content`)
+                continue
+            }
 
             for (const kw of keywords) {
                 // Check page type filter
@@ -151,22 +157,24 @@ export async function POST(request: NextRequest) {
 async function fetchWordPressPages(siteUrl: string, auth: string, keywords: any[]) {
     const allPages: any[] = []
 
-    // Fetch pages
+    // Fetch pages with raw content
     try {
-        const pagesRes = await fetch(`${siteUrl}/wp-json/wp/v2/pages?per_page=100`, {
+        const pagesRes = await fetch(`${siteUrl}/wp-json/wp/v2/pages?per_page=100&context=edit`, {
             headers: { 'Authorization': `Basic ${auth}` }
         })
         if (pagesRes.ok) {
             const pages = await pagesRes.json()
             allPages.push(...pages)
+        } else {
+            console.error('[LinkBuilding] Failed to fetch pages:', await pagesRes.text())
         }
     } catch (e) {
         console.error('Failed to fetch pages:', e)
     }
 
-    // Fetch posts
+    // Fetch posts with raw content
     try {
-        const postsRes = await fetch(`${siteUrl}/wp-json/wp/v2/posts?per_page=100`, {
+        const postsRes = await fetch(`${siteUrl}/wp-json/wp/v2/posts?per_page=100&context=edit`, {
             headers: { 'Authorization': `Basic ${auth}` }
         })
         if (postsRes.ok) {

@@ -194,7 +194,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
             {/* Add Keyword */}
             <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border">
                 <Input
-                    placeholder="کلمه کلیدی"
+                    placeholder="Keyword"
                     value={newKeyword}
                     onChange={e => setNewKeyword(e.target.value)}
                     className="flex-1 h-9 bg-white"
@@ -205,19 +205,25 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                     onChange={e => setNewUrl(e.target.value)}
                     className="flex-1 h-9 bg-white"
                 />
-                <Select
-                    value={newPageTypes[0]}
-                    onValueChange={v => setNewPageTypes([v])}
-                >
-                    <SelectTrigger className="w-32 h-9 bg-white">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {PAGE_TYPES.map(pt => (
-                            <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1 px-2 py-1 bg-white border rounded-md">
+                    {PAGE_TYPES.map(pt => (
+                        <label key={pt.value} className="flex items-center gap-1 px-2 py-1 text-xs cursor-pointer hover:bg-slate-50 rounded">
+                            <input
+                                type="checkbox"
+                                checked={newPageTypes.includes(pt.value)}
+                                onChange={e => {
+                                    if (e.target.checked) {
+                                        setNewPageTypes([...newPageTypes, pt.value])
+                                    } else {
+                                        setNewPageTypes(newPageTypes.filter(p => p !== pt.value))
+                                    }
+                                }}
+                                className="w-3.5 h-3.5 rounded border-slate-300"
+                            />
+                            {pt.label}
+                        </label>
+                    ))}
+                </div>
                 <Button size="sm" onClick={addKeyword} className="h-9 px-4">
                     <Plus className="h-4 w-4 mr-1" /> Add
                 </Button>

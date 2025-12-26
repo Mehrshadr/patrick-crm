@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Link2, BarChart3, FileText, Sparkles } from "lucide-react"
+import { ArrowLeft, Link2, BarChart3, FileText, Sparkles, Anchor } from "lucide-react"
 
 async function getProject(id: number) {
     return prisma.indexingProject.findUnique({
@@ -62,6 +62,24 @@ export default async function ProjectDashboard({
                         <CardContent>
                             <p className="text-2xl font-bold">{project._count.urls}</p>
                             <p className="text-sm text-muted-foreground">URLs tracked</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                {/* Link Building */}
+                <Link href={`/seo/link-building/projects/${id}`}>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Anchor className="h-5 w-5 text-indigo-600" />
+                                Link Building
+                            </CardTitle>
+                            <CardDescription>
+                                Internal linking automation
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-indigo-700 font-medium">✨ NEW</p>
                         </CardContent>
                     </Card>
                 </Link>

@@ -38,6 +38,7 @@ import {
     CheckSquare,
     Activity,
     Sparkles,
+    Anchor,
 } from "lucide-react"
 import { useUserAccess } from "@/lib/user-access"
 
@@ -180,7 +181,7 @@ export function AppSidebar() {
                                                                     : 'text-slate-600 hover:bg-slate-50'
                                                                     }`}
                                                             >
-                                                                <Link2 className="h-3 w-3" />
+                                                                <Anchor className="h-3 w-3" />
                                                                 Link Building
                                                             </Link>
                                                             <Link

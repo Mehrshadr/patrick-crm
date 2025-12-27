@@ -278,11 +278,11 @@ export async function generateImages(
             console.log(`[GPT-Image] Generating image ${image.position}: ${image.filename}`)
 
             const response = await openai.images.generate({
-                model: "gpt-image-1",
+                model: "dall-e-3",
                 prompt: image.prompt,
                 n: 1,
-                size: "1536x1024", // Closest to 16:9 ratio for gpt-image-1
-                quality: "high"
+                size: "1792x1024", // 16:9 ratio for DALL-E 3
+                quality: "standard"
             })
 
             const imageUrl = response.data?.[0]?.url

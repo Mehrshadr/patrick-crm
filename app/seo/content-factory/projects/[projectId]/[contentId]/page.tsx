@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { RichEditor } from "@/components/editor/rich-editor"
 import {
     ArrowLeft,
@@ -226,7 +225,6 @@ export default function ContentEditorPage({
             const data = await res.json()
 
             if (res.ok && data.newSrc) {
-                // Replace old image src with new one
                 const newHtml = htmlContent.replace(imageSrc, data.newSrc)
                 setHtmlContent(newHtml)
                 toast.success('Image regenerated!')
@@ -296,86 +294,109 @@ export default function ContentEditorPage({
     const wordCount = htmlContent.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length
 
     return (
-        <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
-            {/* Top Bar */}
-            <header className="shrink-0 h-14 border-b bg-white flex items-center justify-between px-4">
-                <div className="flex items-center gap-4">
-                    <Link href={`/seo/content-factory/projects/${projectId}`}>
-                        <Button variant="ghost" size="sm">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back
+        <>
+            <div className="fixed inset-0 flex flex-col bg-slate-50">
+                {/* Top Bar */}
+                <header className="h-14 border-b bg-white flex items-center justify-between px-4 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <Link href={`/seo/content-factory/projects/${projectId}`}>
+                            <Button variant="ghost" size="sm">
+                                <ArrowLeft className="h-4 w-4 mr-2" />
+                                Back
+                            </Button>
+                        </Link>
+
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Badge variant="outline">{content.contentType}</Badge>
+                            <span>·</span>
+                            <span>{wordCount} words</span>
+                            {images.length > 0 && (
+                                <>
+                                    <span>·</span>
+                                    <span>{images.length} images</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setPreviewMode(!previewMode)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            {previewMode ? 'Edit' : 'Preview'}
                         </Button>
-                    </Link>
-
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Badge variant="outline">{content.contentType}</Badge>
-                        <span>·</span>
-                        <span>{wordCount} words</span>
-                        <span>·</span>
-                        <span>{images.length} images</span>
+                        <Button variant="ghost" size="sm" onClick={handleCopy}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleExport}>
+                            <FileUp className="h-4 w-4 mr-2" />
+                            Export
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={handleDelete}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" onClick={handleSave} disabled={saving}>
+                            <Save className="h-4 w-4 mr-2" />
+                            {saving ? 'Saving...' : 'Save'}
+                        </Button>
                     </div>
-                </div>
+                </header>
 
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setPreviewMode(!previewMode)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        {previewMode ? 'Edit' : 'Preview'}
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleCopy}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy HTML
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleExport}>
-                        <FileUp className="h-4 w-4 mr-2" />
-                        Export
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={handleDelete}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" onClick={handleSave} disabled={saving}>
-                        <Save className="h-4 w-4 mr-2" />
-                        {saving ? 'Saving...' : 'Save'}
-                    </Button>
-                </div>
-            </header>
-
-            {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden min-h-0">
-                {/* Editor Area */}
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Title */}
-                    <div className="shrink-0 p-4 bg-white border-b">
-                        <Input
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="Enter title..."
-                            className="text-2xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
-                        />
-                    </div>
-
-                    {/* Content - Scrollable */}
-                    <div className="flex-1 overflow-y-auto p-4" ref={contentRef} onMouseUp={handleTextSelection}>
-                        {previewMode ? (
-                            <article
-                                className="prose prose-lg max-w-4xl mx-auto bg-white p-8 rounded-lg shadow"
-                                dangerouslySetInnerHTML={{ __html: htmlContent }}
+                {/* Main Content */}
+                <div className="flex-1 flex min-h-0">
+                    {/* Editor Area */}
+                    <div className="flex-1 flex flex-col min-w-0">
+                        {/* Title */}
+                        <div className="p-4 bg-white border-b shrink-0">
+                            <Input
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="Enter title..."
+                                className="text-2xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
                             />
-                        ) : (
-                            <div className="max-w-4xl mx-auto">
-                                <RichEditor
-                                    content={htmlContent}
-                                    onChange={setHtmlContent}
-                                    placeholder="Start writing your content..."
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
+                        </div>
 
-                {/* Right Sidebar - Scrollable */}
-                <div className="w-80 border-l bg-white flex flex-col overflow-hidden">
-                    <ScrollArea className="flex-1">
-                        <div className="p-4 space-y-4">
+                        {/* Content - Scrollable */}
+                        <div
+                            className="flex-1 overflow-y-auto p-4"
+                            ref={contentRef}
+                            onMouseUp={handleTextSelection}
+                        >
+                            {previewMode ? (
+                                <article className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow">
+                                    <style>{`
+                                        .preview-content h1 { font-size: 2rem; font-weight: bold; margin: 1rem 0; }
+                                        .preview-content h2 { font-size: 1.5rem; font-weight: bold; margin: 0.75rem 0; }
+                                        .preview-content h3 { font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0; }
+                                        .preview-content p { margin: 0.5rem 0; line-height: 1.7; }
+                                        .preview-content ul, .preview-content ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+                                        .preview-content li { margin: 0.25rem 0; }
+                                        .preview-content blockquote { border-left: 3px solid #e2e8f0; padding-left: 1rem; margin: 0.5rem 0; color: #64748b; font-style: italic; }
+                                        .preview-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+                                        .preview-content a { color: #2563eb; text-decoration: underline; }
+                                        .preview-content strong { font-weight: bold; }
+                                        .preview-content em { font-style: italic; }
+                                    `}</style>
+                                    <div
+                                        className="preview-content"
+                                        dangerouslySetInnerHTML={{ __html: htmlContent }}
+                                    />
+                                </article>
+                            ) : (
+                                <div className="max-w-4xl mx-auto">
+                                    <RichEditor
+                                        content={htmlContent}
+                                        onChange={setHtmlContent}
+                                        placeholder="Start writing your content..."
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Sidebar */}
+                    <div className="w-72 border-l bg-white flex flex-col shrink-0">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {/* Content Info */}
                             <div>
                                 <h3 className="font-semibold mb-2 text-sm">Content Info</h3>
@@ -395,8 +416,8 @@ export default function ContentEditorPage({
                                 <Textarea
                                     value={refineFeedback}
                                     onChange={(e) => setRefineFeedback(e.target.value)}
-                                    placeholder="Describe what you want to change..."
-                                    className="h-20 text-sm resize-none"
+                                    placeholder="Describe changes..."
+                                    className="h-16 text-sm resize-none"
                                 />
                                 <Button
                                     size="sm"
@@ -412,7 +433,7 @@ export default function ContentEditorPage({
                                     ) : (
                                         <>
                                             <Sparkles className="h-4 w-4 mr-2" />
-                                            Refine Content
+                                            Refine
                                         </>
                                     )}
                                 </Button>
@@ -425,29 +446,26 @@ export default function ContentEditorPage({
                                         <ImageIcon className="h-4 w-4" />
                                         Images ({images.length})
                                     </h3>
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {images.map((img) => (
-                                            <div key={img.index} className="border rounded-lg p-2 bg-slate-50">
+                                            <div key={img.index} className="border rounded p-2 bg-slate-50">
                                                 <img
                                                     src={img.src}
                                                     alt={img.alt}
-                                                    className="w-full h-24 object-cover rounded mb-2"
+                                                    className="w-full h-20 object-cover rounded mb-1"
                                                 />
-                                                <p className="text-xs text-muted-foreground truncate mb-2" title={img.alt}>
+                                                <p className="text-[10px] text-muted-foreground truncate mb-1" title={img.alt}>
                                                     {img.alt}
                                                 </p>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="w-full text-xs"
+                                                    className="w-full text-xs h-7"
                                                     onClick={() => handleRegenerateImage(img.index, img.src)}
                                                     disabled={regeneratingImage === img.index}
                                                 >
                                                     {regeneratingImage === img.index ? (
-                                                        <>
-                                                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                                                            Regenerating...
-                                                        </>
+                                                        <RefreshCw className="h-3 w-3 animate-spin" />
                                                     ) : (
                                                         <>
                                                             <RefreshCw className="h-3 w-3 mr-1" />
@@ -464,40 +482,41 @@ export default function ContentEditorPage({
                             {/* Original Brief */}
                             <div>
                                 <h3 className="font-semibold mb-2 text-sm">Original Brief</h3>
-                                <p className="text-xs text-muted-foreground bg-slate-50 p-2 rounded max-h-32 overflow-auto">
+                                <p className="text-xs text-muted-foreground bg-slate-50 p-2 rounded max-h-24 overflow-auto">
                                     {content.brief}
                                 </p>
                             </div>
                         </div>
-                    </ScrollArea>
+                    </div>
                 </div>
             </div>
 
             {/* Inline Selection Improvement Popup */}
             {selectedText && selectionPosition && (
                 <div
-                    className="fixed z-50 bg-white border rounded-lg shadow-xl p-3 w-80"
+                    className="fixed z-[100] bg-white border rounded-lg shadow-xl p-3 w-72"
                     style={{
-                        left: Math.max(16, Math.min(selectionPosition.x - 160, window.innerWidth - 340)),
+                        left: Math.max(16, Math.min(selectionPosition.x - 140, window.innerWidth - 300)),
                         top: Math.max(16, selectionPosition.y - 180)
                     }}
                 >
                     <div className="text-xs text-muted-foreground mb-2 font-medium">
-                        ✏️ Improve Selection ({selectedText.length} chars)
+                        ✏️ Improve Selection
                     </div>
-                    <div className="text-xs bg-slate-50 p-2 rounded mb-2 max-h-16 overflow-hidden text-ellipsis">
-                        "{selectedText.substring(0, 100)}{selectedText.length > 100 ? '...' : ''}"
+                    <div className="text-xs bg-slate-50 p-2 rounded mb-2 max-h-12 overflow-hidden">
+                        "{selectedText.substring(0, 80)}{selectedText.length > 80 ? '...' : ''}"
                     </div>
                     <Textarea
                         value={improveFeedback}
                         onChange={(e) => setImproveFeedback(e.target.value)}
-                        placeholder="How should this be improved?"
-                        className="text-sm h-16 mb-2"
+                        placeholder="How to improve?"
+                        className="text-sm h-14 mb-2"
                     />
                     <div className="flex gap-2">
                         <Button
                             size="sm"
                             variant="outline"
+                            className="flex-1"
                             onClick={() => {
                                 setSelectedText('')
                                 setSelectionPosition(null)
@@ -508,35 +527,15 @@ export default function ContentEditorPage({
                         </Button>
                         <Button
                             size="sm"
+                            className="flex-1"
                             onClick={handleImproveSection}
                             disabled={improving || !improveFeedback.trim()}
                         >
-                            {improving ? (
-                                <>
-                                    <Clock className="mr-1 h-3 w-3 animate-spin" />
-                                    Improving...
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles className="mr-1 h-3 w-3" />
-                                    Improve
-                                </>
-                            )}
+                            {improving ? 'Working...' : 'Improve'}
                         </Button>
                     </div>
                 </div>
             )}
-
-            {/* Custom styles for TipTap prose */}
-            <style jsx global>{`
-                .ProseMirror h1 { font-size: 2rem; font-weight: bold; margin: 1rem 0; }
-                .ProseMirror h2 { font-size: 1.5rem; font-weight: bold; margin: 0.75rem 0; }
-                .ProseMirror h3 { font-size: 1.25rem; font-weight: bold; margin: 0.5rem 0; }
-                .ProseMirror p { margin: 0.5rem 0; }
-                .ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin: 0.5rem 0; }
-                .ProseMirror blockquote { border-left: 3px solid #e2e8f0; padding-left: 1rem; margin: 0.5rem 0; color: #64748b; }
-                .ProseMirror img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
-            `}</style>
-        </div>
+        </>
     )
 }

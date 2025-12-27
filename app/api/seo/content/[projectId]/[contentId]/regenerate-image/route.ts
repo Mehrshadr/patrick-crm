@@ -45,11 +45,11 @@ export async function POST(
         const imagePrompt = prompt || `High quality, photorealistic 16:9 image. Professional photography style.`
 
         const response = await openai.images.generate({
-            model: "gpt-image-1",
+            model: "dall-e-3",
             prompt: imagePrompt,
             n: 1,
-            size: "1536x1024",
-            quality: "high"
+            size: "1792x1024",
+            quality: "standard"
         })
 
         const imageUrl = response.data?.[0]?.url

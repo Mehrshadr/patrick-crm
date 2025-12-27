@@ -18,7 +18,8 @@ import {
     FileUp,
     Trash2,
     Image as ImageIcon,
-    RefreshCw
+    RefreshCw,
+    ExternalLink
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -57,6 +58,7 @@ export default function ContentEditorPage({
     // Editable fields
     const [title, setTitle] = useState('')
     const [htmlContent, setHtmlContent] = useState('')
+    const [editorKey, setEditorKey] = useState(0) // Key to force editor remount
     const [refineFeedback, setRefineFeedback] = useState('')
     const [refining, setRefining] = useState(false)
 
@@ -71,7 +73,7 @@ export default function ContentEditorPage({
 
     // Extract images from content
     const images = useMemo<ImageInfo[]>(() => {
-        const imgRegex = /<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi
+        const imgRegex = /<img[^>]+src="([^"]+)"[^>]*(?:alt="([^"]*)")?[^>]*>/gi
         const matches: ImageInfo[] = []
         let match
         let index = 0
@@ -146,6 +148,7 @@ export default function ContentEditorPage({
                 const updated = await res.json()
                 setContent(updated)
                 setHtmlContent(updated.content || '')
+                setEditorKey(k => k + 1) // Force editor remount
                 setRefineFeedback('')
                 toast.success('Content refined!')
             } else {
@@ -195,6 +198,7 @@ export default function ContentEditorPage({
             if (res.ok) {
                 toast.success('Section improved!')
                 setHtmlContent(data.content.content || '')
+                setEditorKey(k => k + 1) // Force editor remount
                 setSelectedText('')
                 setSelectionPosition(null)
                 setImproveFeedback('')
@@ -208,7 +212,7 @@ export default function ContentEditorPage({
         }
     }
 
-    async function handleRegenerateImage(imageIndex: number, imageSrc: string) {
+    async function handleRegenerateImage(imageIndex: number, imageSrc: string, imageAlt: string) {
         setRegeneratingImage(imageIndex)
         toast.info('Regenerating image...')
 
@@ -218,7 +222,8 @@ export default function ContentEditorPage({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     imageIndex,
-                    currentSrc: imageSrc
+                    currentSrc: imageSrc,
+                    prompt: imageAlt // Use alt text as prompt!
                 })
             })
 
@@ -227,6 +232,7 @@ export default function ContentEditorPage({
             if (res.ok && data.newSrc) {
                 const newHtml = htmlContent.replace(imageSrc, data.newSrc)
                 setHtmlContent(newHtml)
+                setEditorKey(k => k + 1)
                 toast.success('Image regenerated!')
             } else {
                 toast.error(data.error || 'Failed to regenerate image')
@@ -235,6 +241,20 @@ export default function ContentEditorPage({
             toast.error('Failed to regenerate image')
         } finally {
             setRegeneratingImage(null)
+        }
+    }
+
+    function scrollToImage(imageSrc: string) {
+        const imgs = contentRef.current?.querySelectorAll('img')
+        if (imgs) {
+            for (const img of imgs) {
+                if (img.src.includes(imageSrc) || imageSrc.includes(img.src)) {
+                    img.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    img.style.outline = '3px solid #3b82f6'
+                    setTimeout(() => { img.style.outline = '' }, 2000)
+                    break
+                }
+            }
         }
     }
 
@@ -295,7 +315,7 @@ export default function ContentEditorPage({
 
     return (
         <>
-            <div className="fixed inset-0 flex flex-col bg-slate-50">
+            <div className="fixed inset-0 left-[var(--sidebar-width,0px)] flex flex-col bg-slate-50">
                 {/* Top Bar */}
                 <header className="h-14 border-b bg-white flex items-center justify-between px-4 shrink-0">
                     <div className="flex items-center gap-4">
@@ -385,6 +405,7 @@ export default function ContentEditorPage({
                             ) : (
                                 <div className="max-w-4xl mx-auto">
                                     <RichEditor
+                                        key={editorKey}
                                         content={htmlContent}
                                         onChange={setHtmlContent}
                                         placeholder="Start writing your content..."
@@ -452,27 +473,36 @@ export default function ContentEditorPage({
                                                 <img
                                                     src={img.src}
                                                     alt={img.alt}
-                                                    className="w-full h-20 object-cover rounded mb-1"
+                                                    className="w-full h-20 object-cover rounded mb-1 cursor-pointer hover:opacity-80"
+                                                    onClick={() => scrollToImage(img.src)}
+                                                    title="Click to scroll to image in content"
                                                 />
                                                 <p className="text-[10px] text-muted-foreground truncate mb-1" title={img.alt}>
                                                     {img.alt}
                                                 </p>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="w-full text-xs h-7"
-                                                    onClick={() => handleRegenerateImage(img.index, img.src)}
-                                                    disabled={regeneratingImage === img.index}
-                                                >
-                                                    {regeneratingImage === img.index ? (
-                                                        <RefreshCw className="h-3 w-3 animate-spin" />
-                                                    ) : (
-                                                        <>
-                                                            <RefreshCw className="h-3 w-3 mr-1" />
-                                                            Regenerate
-                                                        </>
-                                                    )}
-                                                </Button>
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1 text-xs h-7"
+                                                        onClick={() => scrollToImage(img.src)}
+                                                    >
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1 text-xs h-7"
+                                                        onClick={() => handleRegenerateImage(img.index, img.src, img.alt)}
+                                                        disabled={regeneratingImage === img.index}
+                                                    >
+                                                        {regeneratingImage === img.index ? (
+                                                            <RefreshCw className="h-3 w-3 animate-spin" />
+                                                        ) : (
+                                                            <RefreshCw className="h-3 w-3" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

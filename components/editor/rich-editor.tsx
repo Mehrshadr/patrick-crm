@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
     Bold,
     Italic,
@@ -20,7 +20,6 @@ import {
     Redo,
     Quote
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 
@@ -32,16 +31,24 @@ interface RichEditorProps {
 }
 
 export function RichEditor({ content, onChange, placeholder = "Start writing...", editable = true }: RichEditorProps) {
-    const [, forceUpdate] = useState(0)
+    // Track active states manually for reactivity
+    const [activeStates, setActiveStates] = useState({
+        bold: false,
+        italic: false,
+        h1: false,
+        h2: false,
+        h3: false,
+        bulletList: false,
+        orderedList: false,
+        blockquote: false,
+        link: false
+    })
 
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
                 heading: {
-                    levels: [1, 2, 3],
-                    HTMLAttributes: {
-                        class: ''
-                    }
+                    levels: [1, 2, 3]
                 }
             }),
             Link.configure({
@@ -65,17 +72,35 @@ export function RichEditor({ content, onChange, placeholder = "Start writing..."
         editable,
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML())
+            updateActiveStates(editor)
         },
-        onSelectionUpdate: () => {
-            // Force re-render to update toolbar buttons
-            forceUpdate(n => n + 1)
+        onSelectionUpdate: ({ editor }) => {
+            updateActiveStates(editor)
+        },
+        onTransaction: ({ editor }) => {
+            updateActiveStates(editor)
         },
         editorProps: {
             attributes: {
                 class: 'focus:outline-none min-h-[400px] p-4'
             }
         }
-    }, []) // Empty deps to avoid re-creating editor
+    }, [])
+
+    function updateActiveStates(ed: typeof editor) {
+        if (!ed) return
+        setActiveStates({
+            bold: ed.isActive('bold'),
+            italic: ed.isActive('italic'),
+            h1: ed.isActive('heading', { level: 1 }),
+            h2: ed.isActive('heading', { level: 2 }),
+            h3: ed.isActive('heading', { level: 3 }),
+            bulletList: ed.isActive('bulletList'),
+            orderedList: ed.isActive('orderedList'),
+            blockquote: ed.isActive('blockquote'),
+            link: ed.isActive('link')
+        })
+    }
 
     // Sync content when it changes externally
     useEffect(() => {
@@ -83,6 +108,13 @@ export function RichEditor({ content, onChange, placeholder = "Start writing..."
             editor.commands.setContent(content, { emitUpdate: false })
         }
     }, [content, editor])
+
+    // Initial state update
+    useEffect(() => {
+        if (editor) {
+            updateActiveStates(editor)
+        }
+    }, [editor])
 
     if (!editor) return null
 
@@ -100,113 +132,141 @@ export function RichEditor({ content, onChange, placeholder = "Start writing..."
         }
     }
 
-    const ToolbarButton = ({
-        onClick,
-        isActive,
-        children,
-        disabled
-    }: {
-        onClick: () => void
-        isActive?: boolean
-        children: React.ReactNode
-        disabled?: boolean
-    }) => (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className={cn(
-                "p-2 rounded hover:bg-slate-200 transition-colors",
-                isActive && "bg-slate-200 text-blue-600",
-                disabled && "opacity-50 cursor-not-allowed"
-            )}
-        >
-            {children}
-        </button>
-    )
-
     return (
         <div className="border rounded-lg overflow-hidden bg-white">
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-1 p-2 border-b bg-slate-50">
-                <ToolbarButton
+            {/* Toolbar - STICKY */}
+            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 p-2 border-b bg-slate-50">
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleBold().run()}
-                    isActive={editor.isActive('bold')}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.bold && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <Bold className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton
+                </button>
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleItalic().run()}
-                    isActive={editor.isActive('italic')}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.italic && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <Italic className="h-4 w-4" />
-                </ToolbarButton>
+                </button>
 
                 <Separator orientation="vertical" className="h-6 mx-1" />
 
-                <ToolbarButton
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    isActive={editor.isActive('heading', { level: 1 })}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.h1 && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <Heading1 className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton
+                </button>
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                    isActive={editor.isActive('heading', { level: 2 })}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.h2 && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <Heading2 className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton
+                </button>
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-                    isActive={editor.isActive('heading', { level: 3 })}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.h3 && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <Heading3 className="h-4 w-4" />
-                </ToolbarButton>
+                </button>
 
                 <Separator orientation="vertical" className="h-6 mx-1" />
 
-                <ToolbarButton
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    isActive={editor.isActive('bulletList')}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.bulletList && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <List className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton
+                </button>
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    isActive={editor.isActive('orderedList')}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.orderedList && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <ListOrdered className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton
+                </button>
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                    isActive={editor.isActive('blockquote')}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.blockquote && "bg-slate-300 text-blue-600"
+                    )}
                 >
                     <Quote className="h-4 w-4" />
-                </ToolbarButton>
+                </button>
 
                 <Separator orientation="vertical" className="h-6 mx-1" />
 
-                <ToolbarButton onClick={addLink} isActive={editor.isActive('link')}>
+                <button
+                    type="button"
+                    onClick={addLink}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        activeStates.link && "bg-slate-300 text-blue-600"
+                    )}
+                >
                     <LinkIcon className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton onClick={addImage}>
+                </button>
+                <button
+                    type="button"
+                    onClick={addImage}
+                    className="p-2 rounded hover:bg-slate-200 transition-colors"
+                >
                     <ImageIcon className="h-4 w-4" />
-                </ToolbarButton>
+                </button>
 
                 <div className="flex-1" />
 
-                <ToolbarButton
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().undo().run()}
                     disabled={!editor.can().undo()}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        !editor.can().undo() && "opacity-50 cursor-not-allowed"
+                    )}
                 >
                     <Undo className="h-4 w-4" />
-                </ToolbarButton>
-                <ToolbarButton
+                </button>
+                <button
+                    type="button"
                     onClick={() => editor.chain().focus().redo().run()}
                     disabled={!editor.can().redo()}
+                    className={cn(
+                        "p-2 rounded hover:bg-slate-200 transition-colors",
+                        !editor.can().redo() && "opacity-50 cursor-not-allowed"
+                    )}
                 >
                     <Redo className="h-4 w-4" />
-                </ToolbarButton>
+                </button>
             </div>
 
             {/* Editor Area with heading styles */}

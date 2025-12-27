@@ -40,9 +40,14 @@ export async function POST(
 
         // Generate new image
         console.log(`[Regenerate] Generating new image for content ${content.id}, index ${imageIndex}`)
+        console.log(`[Regenerate] Prompt received: "${prompt}"`)
 
-        // Use prompt if provided, otherwise generate a generic one based on alt text
-        const imagePrompt = prompt || `High quality, photorealistic 16:9 image. Professional photography style.`
+        // Use prompt if provided, otherwise generate a generic one
+        const imagePrompt = prompt && prompt.trim()
+            ? `High quality, photorealistic 16:9 image: ${prompt}. Professional photography style, cinematic lighting.`
+            : `High quality, photorealistic 16:9 image. Professional photography style.`
+
+        console.log(`[Regenerate] Final prompt: "${imagePrompt}"`)
 
         const response = await openai.images.generate({
             model: "dall-e-3",

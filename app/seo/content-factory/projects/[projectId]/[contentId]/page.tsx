@@ -58,7 +58,7 @@ export default function ContentEditorPage({
     // Editable fields
     const [title, setTitle] = useState('')
     const [htmlContent, setHtmlContent] = useState('')
-    const [editorKey, setEditorKey] = useState(0) // Key to force editor remount
+    const [editorKey, setEditorKey] = useState(0)
     const [refineFeedback, setRefineFeedback] = useState('')
     const [refining, setRefining] = useState(false)
 
@@ -71,18 +71,23 @@ export default function ContentEditorPage({
     // Image regeneration
     const [regeneratingImage, setRegeneratingImage] = useState<number | null>(null)
 
-    // Extract images from content
+    // Extract images from content - handles alt before or after src
     const images = useMemo<ImageInfo[]>(() => {
-        const imgRegex = /<img[^>]+src="([^"]+)"[^>]*(?:alt="([^"]*)")?[^>]*>/gi
         const matches: ImageInfo[] = []
-        let match
+        const imgTagRegex = /<img[^>]+>/gi
+        let imgMatch
         let index = 0
-        while ((match = imgRegex.exec(htmlContent)) !== null) {
-            matches.push({
-                src: match[1],
-                alt: match[2] || `Image ${index + 1}`,
-                index: index++
-            })
+
+        while ((imgMatch = imgTagRegex.exec(htmlContent)) !== null) {
+            const imgTag = imgMatch[0]
+            const srcMatch = imgTag.match(/src="([^"]+)"/)
+            const src = srcMatch ? srcMatch[1] : ''
+            const altMatch = imgTag.match(/alt="([^"]*)"/)
+            const alt = altMatch ? altMatch[1] : `Image ${index + 1}`
+
+            if (src) {
+                matches.push({ src, alt, index: index++ })
+            }
         }
         return matches
     }, [htmlContent])
@@ -103,7 +108,7 @@ export default function ContentEditorPage({
             setContent(data)
             setTitle(data.title || '')
             setHtmlContent(data.content || '')
-        } catch (error) {
+        } catch {
             toast.error('Failed to load content')
         } finally {
             setLoading(false)
@@ -126,7 +131,7 @@ export default function ContentEditorPage({
             } else {
                 toast.error('Failed to save')
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to save')
         } finally {
             setSaving(false)
@@ -148,13 +153,13 @@ export default function ContentEditorPage({
                 const updated = await res.json()
                 setContent(updated)
                 setHtmlContent(updated.content || '')
-                setEditorKey(k => k + 1) // Force editor remount
+                setEditorKey((k: number) => k + 1)
                 setRefineFeedback('')
                 toast.success('Content refined!')
             } else {
                 toast.error('Refinement failed')
             }
-        } catch (error) {
+        } catch {
             toast.error('Refinement failed')
         } finally {
             setRefining(false)
@@ -198,14 +203,14 @@ export default function ContentEditorPage({
             if (res.ok) {
                 toast.success('Section improved!')
                 setHtmlContent(data.content.content || '')
-                setEditorKey(k => k + 1) // Force editor remount
+                setEditorKey((k: number) => k + 1)
                 setSelectedText('')
                 setSelectionPosition(null)
                 setImproveFeedback('')
             } else {
                 toast.error(data.error || 'Failed to improve section')
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to improve section')
         } finally {
             setImproving(false)
@@ -214,7 +219,7 @@ export default function ContentEditorPage({
 
     async function handleRegenerateImage(imageIndex: number, imageSrc: string, imageAlt: string) {
         setRegeneratingImage(imageIndex)
-        toast.info('Regenerating image...')
+        toast.info('Regenerating image with prompt: ' + imageAlt.substring(0, 50) + '...')
 
         try {
             const res = await fetch(`/api/seo/content/${projectId}/${contentId}/regenerate-image`, {
@@ -223,7 +228,7 @@ export default function ContentEditorPage({
                 body: JSON.stringify({
                     imageIndex,
                     currentSrc: imageSrc,
-                    prompt: imageAlt // Use alt text as prompt!
+                    prompt: imageAlt
                 })
             })
 
@@ -232,12 +237,12 @@ export default function ContentEditorPage({
             if (res.ok && data.newSrc) {
                 const newHtml = htmlContent.replace(imageSrc, data.newSrc)
                 setHtmlContent(newHtml)
-                setEditorKey(k => k + 1)
+                setEditorKey((k: number) => k + 1)
                 toast.success('Image regenerated!')
             } else {
                 toast.error(data.error || 'Failed to regenerate image')
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to regenerate image')
         } finally {
             setRegeneratingImage(null)
@@ -277,7 +282,7 @@ export default function ContentEditorPage({
             } else {
                 toast.error(data.error || 'Export failed')
             }
-        } catch (error) {
+        } catch {
             toast.error('Export failed')
         }
     }
@@ -296,7 +301,7 @@ export default function ContentEditorPage({
             } else {
                 toast.error('Failed to delete')
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete')
         }
     }
@@ -316,8 +321,8 @@ export default function ContentEditorPage({
     return (
         <>
             <div className="fixed inset-0 left-[var(--sidebar-width,0px)] flex flex-col bg-slate-50">
-                {/* Top Bar */}
-                <header className="h-14 border-b bg-white flex items-center justify-between px-4 shrink-0">
+                {/* Top Bar - STICKY */}
+                <header className="sticky top-0 z-50 h-14 border-b bg-white flex items-center justify-between px-4 shrink-0">
                     <div className="flex items-center gap-4">
                         <Link href={`/seo/content-factory/projects/${projectId}`}>
                             <Button variant="ghost" size="sm">
@@ -366,8 +371,8 @@ export default function ContentEditorPage({
                 <div className="flex-1 flex min-h-0">
                     {/* Editor Area */}
                     <div className="flex-1 flex flex-col min-w-0">
-                        {/* Title */}
-                        <div className="p-4 bg-white border-b shrink-0">
+                        {/* Title - STICKY */}
+                        <div className="sticky top-14 z-40 p-4 bg-white border-b shrink-0">
                             <Input
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
@@ -475,9 +480,9 @@ export default function ContentEditorPage({
                                                     alt={img.alt}
                                                     className="w-full h-20 object-cover rounded mb-1 cursor-pointer hover:opacity-80"
                                                     onClick={() => scrollToImage(img.src)}
-                                                    title="Click to scroll to image in content"
+                                                    title="Click to scroll to image"
                                                 />
-                                                <p className="text-[10px] text-muted-foreground truncate mb-1" title={img.alt}>
+                                                <p className="text-[10px] text-muted-foreground line-clamp-2 mb-1" title={img.alt}>
                                                     {img.alt}
                                                 </p>
                                                 <div className="flex gap-1">
@@ -534,7 +539,7 @@ export default function ContentEditorPage({
                         ✏️ Improve Selection
                     </div>
                     <div className="text-xs bg-slate-50 p-2 rounded mb-2 max-h-12 overflow-hidden">
-                        "{selectedText.substring(0, 80)}{selectedText.length > 80 ? '...' : ''}"
+                        &quot;{selectedText.substring(0, 80)}{selectedText.length > 80 ? '...' : ''}&quot;
                     </div>
                     <Textarea
                         value={improveFeedback}

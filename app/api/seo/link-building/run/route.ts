@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-// POST - Run link building for a project
+// POST - Run link building for a project (with Elementor support)
 export async function POST(request: NextRequest) {
     try {
         const { projectId, keywordIds } = await request.json()
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         const siteUrl = project.domain.startsWith('http') ? project.domain : `https://${project.domain}`
         const auth = Buffer.from(`${settings.cmsUsername}:${settings.cmsAppPassword}`).toString('base64')
 
-        // Get enabled keywords (or specific ones if provided)
+        // Get enabled keywords
         const keywords = await prisma.linkBuildingKeyword.findMany({
             where: {
                 projectId: parseInt(projectId),
@@ -46,14 +46,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch pages from WordPress
-        const pages = await fetchWordPressPages(siteUrl, auth, keywords)
+        const pages = await fetchWordPressPages(siteUrl, auth)
+        console.log(`[LinkBuilding] Found ${pages.length} pages to process`)
 
         const results = {
             processed: 0,
             linked: 0,
             skipped: 0,
-            errors: 0,
-            logs: [] as { pageUrl: string; keyword: string; status: string; message: string }[]
+            errors: 0
         }
 
         // Process each page
@@ -63,79 +63,74 @@ export async function POST(request: NextRequest) {
                 continue
             }
 
-            let content = page.content?.raw || page.content?.rendered || ''
-            let modified = false
+            // Check page type filter
+            const pageType = detectPageType(page.link)
 
-            // Skip if no content
-            if (!content) {
-                console.log(`[LinkBuilding] Skipping ${page.link} - no content`)
+            // Get Elementor data
+            const elementorData = page.meta?._elementor_data
+
+            if (!elementorData) {
+                console.log(`[LinkBuilding] Skipping ${page.link} - no Elementor data`)
                 continue
             }
+
+            let elementorJson: any[]
+            try {
+                elementorJson = typeof elementorData === 'string' ? JSON.parse(elementorData) : elementorData
+            } catch (e) {
+                console.log(`[LinkBuilding] Skipping ${page.link} - invalid Elementor JSON`)
+                continue
+            }
+
+            let modified = false
 
             for (const kw of keywords) {
                 // Check page type filter
                 const pageTypes = kw.pageTypes ? JSON.parse(kw.pageTypes) : []
-                const pageType = detectPageType(page.link)
-
                 if (pageTypes.length > 0 && !pageTypes.includes(pageType)) {
                     continue
                 }
 
-                // Check if keyword exists in content (not already linked)
-                const keywordRegex = new RegExp(`(?<!<a[^>]*>)(?<![\\w/>])${escapeRegex(kw.keyword)}(?![\\w<])(?![^<]*</a>)`, 'gi')
+                // Process Elementor widgets recursively
+                const anchorId = `lb-${kw.id}-${Date.now()}`
+                const result = processElementorData(elementorJson, kw, anchorId)
 
-                if (keywordRegex.test(content)) {
-                    // Generate anchor ID
-                    const anchorId = `lb-${kw.id}-${Date.now()}`
+                if (result.modified) {
+                    modified = true
 
-                    // Replace first occurrence only (if onlyFirst is true)
-                    let replaced = false
-                    content = content.replace(keywordRegex, (match: string) => {
-                        if (replaced && kw.onlyFirst) return match
-                        replaced = true
-                        return `<a href="${kw.targetUrl}" id="${anchorId}" class="lb-auto-link">${match}</a>`
+                    // Log the insertion
+                    await prisma.linkBuildingLog.create({
+                        data: {
+                            projectId: parseInt(projectId),
+                            keywordId: kw.id,
+                            pageUrl: page.link,
+                            pageTitle: page.title?.rendered || '',
+                            anchorId,
+                            status: 'linked',
+                            message: `Linked "${kw.keyword}" to ${kw.targetUrl}`
+                        }
                     })
 
-                    if (replaced) {
-                        modified = true
+                    // Update keyword stats
+                    await prisma.linkBuildingKeyword.update({
+                        where: { id: kw.id },
+                        data: {
+                            linksCreated: { increment: result.count },
+                            lastRunAt: new Date()
+                        }
+                    })
 
-                        // Log the insertion
-                        await prisma.linkBuildingLog.create({
-                            data: {
-                                projectId: parseInt(projectId),
-                                keywordId: kw.id,
-                                pageUrl: page.link,
-                                pageTitle: page.title?.rendered || '',
-                                anchorId,
-                                status: 'linked',
-                                message: `Linked "${kw.keyword}" to ${kw.targetUrl}`
-                            }
-                        })
-
-                        // Update keyword stats
-                        await prisma.linkBuildingKeyword.update({
-                            where: { id: kw.id },
-                            data: {
-                                linksCreated: { increment: 1 },
-                                lastRunAt: new Date()
-                            }
-                        })
-
-                        results.linked++
-                        results.logs.push({
-                            pageUrl: page.link,
-                            keyword: kw.keyword,
-                            status: 'linked',
-                            message: `Added link to ${kw.targetUrl}`
-                        })
-                    }
+                    results.linked += result.count
                 }
             }
 
             // Update page if modified
             if (modified) {
-                const updateSuccess = await updateWordPressPage(siteUrl, auth, page, content)
-                if (!updateSuccess) {
+                const updateSuccess = await updateElementorPage(siteUrl, auth, page, elementorJson)
+                if (updateSuccess) {
+                    console.log(`[LinkBuilding] Successfully updated ${page.link}`)
+                } else {
+                    console.error(`[LinkBuilding] Failed to update ${page.link}`)
                     results.errors++
                 }
             }
@@ -143,21 +138,97 @@ export async function POST(request: NextRequest) {
             results.processed++
         }
 
-        return NextResponse.json({
-            success: true,
-            results
-        })
+        return NextResponse.json({ success: true, results })
     } catch (error) {
         console.error('Run link building error:', error)
         return NextResponse.json({ error: 'Failed to run link building' }, { status: 500 })
     }
 }
 
-// Helper: Fetch pages from WordPress
-async function fetchWordPressPages(siteUrl: string, auth: string, keywords: any[]) {
+// Process Elementor data recursively to find and modify text content
+function processElementorData(elements: any[], keyword: any, anchorId: string): { modified: boolean; count: number } {
+    let totalModified = false
+    let totalCount = 0
+
+    for (const element of elements) {
+        // Check text widgets
+        if (element.elType === 'widget' && element.settings) {
+            // Text Editor widget
+            if (element.widgetType === 'text-editor' && element.settings.editor) {
+                const result = replaceInText(element.settings, 'editor', keyword, anchorId)
+                if (result.modified) {
+                    totalModified = true
+                    totalCount += result.count
+                }
+            }
+
+            // Heading widget
+            if (element.widgetType === 'heading' && element.settings.title) {
+                const result = replaceInText(element.settings, 'title', keyword, anchorId)
+                if (result.modified) {
+                    totalModified = true
+                    totalCount += result.count
+                }
+            }
+
+            // Button widget (text)
+            if (element.widgetType === 'button' && element.settings.text) {
+                const result = replaceInText(element.settings, 'text', keyword, anchorId)
+                if (result.modified) {
+                    totalModified = true
+                    totalCount += result.count
+                }
+            }
+        }
+
+        // Recursively process nested elements
+        if (element.elements && Array.isArray(element.elements)) {
+            const nestedResult = processElementorData(element.elements, keyword, anchorId)
+            if (nestedResult.modified) {
+                totalModified = true
+                totalCount += nestedResult.count
+            }
+        }
+    }
+
+    return { modified: totalModified, count: totalCount }
+}
+
+// Replace keyword in text field
+function replaceInText(settings: any, field: string, keyword: any, anchorId: string): { modified: boolean; count: number } {
+    const text = settings[field]
+    if (!text || typeof text !== 'string') {
+        return { modified: false, count: 0 }
+    }
+
+    // Check if keyword exists (not already linked)
+    const keywordRegex = new RegExp(`(?<!<a[^>]*>)(?<![\\w/>])${escapeRegex(keyword.keyword)}(?![\\w<])(?![^<]*</a>)`, 'gi')
+
+    if (!keywordRegex.test(text)) {
+        return { modified: false, count: 0 }
+    }
+
+    // Replace (first only if onlyFirst is true)
+    let count = 0
+    const newText = text.replace(keywordRegex, (match: string) => {
+        if (count > 0 && keyword.onlyFirst) return match
+        count++
+        return `<a href="${keyword.targetUrl}" id="${anchorId}" class="lb-auto-link">${match}</a>`
+    })
+
+    if (count > 0) {
+        settings[field] = newText
+        return { modified: true, count }
+    }
+
+    return { modified: false, count: 0 }
+}
+
+// Fetch pages from WordPress with meta data
+async function fetchWordPressPages(siteUrl: string, auth: string) {
     const allPages: any[] = []
 
-    // Fetch pages with raw content
+    // Fetch pages with meta
     try {
         const pagesRes = await fetch(`${siteUrl}/wp-json/wp/v2/pages?per_page=100&context=edit`, {
             headers: { 'Authorization': `Basic ${auth}` }
@@ -172,29 +243,22 @@ async function fetchWordPressPages(siteUrl: string, auth: string, keywords: any[
         console.error('Failed to fetch pages:', e)
     }
 
-    // Fetch posts with raw content
-    try {
-        const postsRes = await fetch(`${siteUrl}/wp-json/wp/v2/posts?per_page=100&context=edit`, {
-            headers: { 'Authorization': `Basic ${auth}` }
-        })
-        if (postsRes.ok) {
-            const posts = await postsRes.json()
-            allPages.push(...posts.map((p: any) => ({ ...p, _type: 'post' })))
-        }
-    } catch (e) {
-        console.error('Failed to fetch posts:', e)
-    }
-
     return allPages
 }
 
-// Helper: Update WordPress page
-async function updateWordPressPage(siteUrl: string, auth: string, page: any, content: string) {
+// Update Elementor page via WordPress REST API
+async function updateElementorPage(siteUrl: string, auth: string, page: any, elementorData: any[]) {
     try {
-        const endpoint = page._type === 'post' ? 'posts' : 'pages'
-        const url = `${siteUrl}/wp-json/wp/v2/${endpoint}/${page.id}`
+        const url = `${siteUrl}/wp-json/wp/v2/pages/${page.id}`
 
-        console.log(`[LinkBuilding] Updating ${endpoint}/${page.id}: ${page.link}`)
+        // Update meta with new Elementor data
+        const body = {
+            meta: {
+                _elementor_data: JSON.stringify(elementorData)
+            }
+        }
+
+        console.log(`[LinkBuilding] Updating Elementor data for page ${page.id}`)
 
         const res = await fetch(url, {
             method: 'POST',
@@ -202,7 +266,7 @@ async function updateWordPressPage(siteUrl: string, auth: string, page: any, con
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ content })
+            body: JSON.stringify(body)
         })
 
         if (!res.ok) {
@@ -211,8 +275,6 @@ async function updateWordPressPage(siteUrl: string, auth: string, page: any, con
             return false
         }
 
-        const responseData = await res.json()
-        console.log(`[LinkBuilding] Successfully updated ${page.link}, new content length: ${responseData.content?.rendered?.length}`)
         return true
     } catch (e) {
         console.error('[LinkBuilding] Failed to update page:', e)
@@ -220,7 +282,7 @@ async function updateWordPressPage(siteUrl: string, auth: string, page: any, con
     }
 }
 
-// Helper: Detect page type from URL
+// Detect page type from URL
 function detectPageType(url: string): string {
     const path = new URL(url).pathname.toLowerCase()
     if (path === '/' || path === '') return 'home'
@@ -228,10 +290,11 @@ function detectPageType(url: string): string {
     if (path.includes('/service')) return 'service'
     if (path.includes('/product')) return 'product'
     if (path.includes('/category')) return 'category'
+    if (path.includes('/landing')) return 'landing'
     return 'page'
 }
 
-// Helper: Escape regex special chars
+// Escape regex special chars
 function escapeRegex(str: string) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

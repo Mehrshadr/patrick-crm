@@ -303,40 +303,68 @@ class Patrick_Link_Builder
     }
 
     /**
-     * Process Elementor elements recursively
+     * Process Elementor elements recursively - checks ALL widget types and ALL settings
      */
     private function process_elements(&$elements, $keyword, $target_url, $anchor_id, $only_first)
     {
         $total_count = 0;
 
-        foreach ($elements as &$element) {
-            // Text Editor widget
-            if (isset($element['widgetType']) && $element['widgetType'] === 'text-editor') {
-                if (isset($element['settings']['editor'])) {
-                    $result = $this->replace_keyword(
-                        $element['settings']['editor'],
-                        $keyword,
-                        $target_url,
-                        $anchor_id,
-                        $only_first && $total_count === 0
-                    );
-                    $element['settings']['editor'] = $result['text'];
-                    $total_count += $result['count'];
-                }
-            }
+        // Text-containing settings to check
+        $text_fields = [
+            'editor',
+            'title',
+            'text',
+            'description',
+            'content',
+            'html',
+            'before_text',
+            'after_text',
+            'item_description',
+            'heading',
+            'sub_title',
+            'subtitle',
+            'caption',
+            'label'
+        ];
 
-            // Heading widget
-            if (isset($element['widgetType']) && $element['widgetType'] === 'heading') {
-                if (isset($element['settings']['title'])) {
-                    $result = $this->replace_keyword(
-                        $element['settings']['title'],
-                        $keyword,
-                        $target_url,
-                        $anchor_id,
-                        $only_first && $total_count === 0
-                    );
-                    $element['settings']['title'] = $result['text'];
-                    $total_count += $result['count'];
+        foreach ($elements as &$element) {
+            // Process any widget type
+            if (isset($element['widgetType']) && isset($element['settings'])) {
+                foreach ($text_fields as $field) {
+                    if (isset($element['settings'][$field]) && is_string($element['settings'][$field])) {
+                        $result = $this->replace_keyword(
+                            $element['settings'][$field],
+                            $keyword,
+                            $target_url,
+                            $anchor_id,
+                            $only_first && $total_count === 0
+                        );
+                        $element['settings'][$field] = $result['text'];
+                        $total_count += $result['count'];
+                    }
+                }
+
+                // Also check nested arrays in settings (like list items)
+                foreach ($element['settings'] as $key => &$value) {
+                    if (is_array($value)) {
+                        foreach ($value as &$item) {
+                            if (is_array($item)) {
+                                foreach ($text_fields as $field) {
+                                    if (isset($item[$field]) && is_string($item[$field])) {
+                                        $result = $this->replace_keyword(
+                                            $item[$field],
+                                            $keyword,
+                                            $target_url,
+                                            $anchor_id,
+                                            $only_first && $total_count === 0
+                                        );
+                                        $item[$field] = $result['text'];
+                                        $total_count += $result['count'];
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -432,54 +460,54 @@ class Patrick_Link_Builder
     public function settings_page()
     {
         ?>
-                <div class="wrap">
-                    <h1>Patrick Link Builder Settings</h1>
-                    <form method="post" action="options.php">
-                        <?php settings_fields('plb_settings'); ?>
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row">Allowed Origins</th>
-                                <td>
-                                    <input type="text" name="plb_allowed_origins"
-                                        value="<?php echo esc_attr(get_option('plb_allowed_origins')); ?>" class="regular-text" />
-                                    <p class="description">Comma-separated list of allowed origins (e.g., https://app.mehrana.agency).
-                                        Leave empty to allow all authenticated requests.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Enable Logging</th>
-                                <td>
-                                    <label>
-                                        <input type="checkbox" name="plb_enable_logging" value="1" <?php checked(get_option('plb_enable_logging', '1'), '1'); ?> />
-                                        Log all API activity to wp-content/plb-activity.log
-                                    </label>
-                                </td>
-                            </tr>
-                        </table>
-                        <?php submit_button(); ?>
-                    </form>
+        <div class="wrap">
+            <h1>Patrick Link Builder Settings</h1>
+            <form method="post" action="options.php">
+                <?php settings_fields('plb_settings'); ?>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">Allowed Origins</th>
+                        <td>
+                            <input type="text" name="plb_allowed_origins"
+                                value="<?php echo esc_attr(get_option('plb_allowed_origins')); ?>" class="regular-text" />
+                            <p class="description">Comma-separated list of allowed origins (e.g., https://app.mehrana.agency).
+                                Leave empty to allow all authenticated requests.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Enable Logging</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="plb_enable_logging" value="1" <?php checked(get_option('plb_enable_logging', '1'), '1'); ?> />
+                                Log all API activity to wp-content/plb-activity.log
+                            </label>
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
 
-                    <h2>API Information</h2>
-                    <table class="widefat">
-                        <tr>
-                            <td><strong>Base URL:</strong></td>
-                            <td><code><?php echo rest_url($this->namespace); ?></code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Authentication:</strong></td>
-                            <td>WordPress Application Passwords (Basic Auth)</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Endpoints:</strong></td>
-                            <td>
-                                <code>GET /pages</code> - Get all Elementor pages<br>
-                                <code>POST /pages/{id}/apply-links</code> - Apply links to a page<br>
-                                <code>GET /health</code> - Health check
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                <?php
+            <h2>API Information</h2>
+            <table class="widefat">
+                <tr>
+                    <td><strong>Base URL:</strong></td>
+                    <td><code><?php echo rest_url($this->namespace); ?></code></td>
+                </tr>
+                <tr>
+                    <td><strong>Authentication:</strong></td>
+                    <td>WordPress Application Passwords (Basic Auth)</td>
+                </tr>
+                <tr>
+                    <td><strong>Endpoints:</strong></td>
+                    <td>
+                        <code>GET /pages</code> - Get all Elementor pages<br>
+                        <code>POST /pages/{id}/apply-links</code> - Apply links to a page<br>
+                        <code>GET /health</code> - Health check
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <?php
     }
 }
 

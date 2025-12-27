@@ -108,6 +108,7 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
         brief: '',
         useGuidelines: true,
         useAiRules: true,
+        referenceUrls: '' as string, // Comma or newline separated URLs
     })
     const [generating, setGenerating] = useState(false)
 
@@ -153,8 +154,8 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
             // Fetch project settings
             const settingsRes = await fetch(`/api/seo/projects/${projectId}/settings`)
             if (settingsRes.ok) {
-                const settings = await settingsRes.json()
-                setBrandStatement(settings.brandStatement || '')
+                const data = await settingsRes.json()
+                setBrandStatement(data.settings?.brandStatement || '')
             }
         } catch (error) {
             toast.error('Failed to load project')
@@ -181,12 +182,17 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                 const content = await res.json()
                 toast.success('Content created! Generating...')
                 setCreateDialogOpen(false)
-                setFormData({ title: '', contentType: 'BLOG_POST', brief: '', useGuidelines: true, useAiRules: true })
+                setFormData({ title: '', contentType: 'BLOG_POST', brief: '', useGuidelines: true, useAiRules: true, referenceUrls: '' })
                 fetchProjectData()
 
                 // If content was created, start generation
                 if (content.id) {
-                    generateContent(content.id)
+                    // Parse reference URLs (split by newline or comma)
+                    const urls = formData.referenceUrls
+                        .split(/[\n,]/)
+                        .map(u => u.trim())
+                        .filter(u => u.startsWith('http'))
+                    generateContent(content.id, urls.length > 0 ? urls : undefined)
                 }
             } else {
                 const data = await res.json()
@@ -199,10 +205,12 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
         }
     }
 
-    async function generateContent(contentId: number) {
+    async function generateContent(contentId: number, referenceUrls?: string[]) {
         try {
             const res = await fetch(`/api/seo/content/${projectId}/${contentId}/generate`, {
-                method: 'POST'
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ referenceUrls })
             })
 
             if (res.ok) {
@@ -453,7 +461,11 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 const typeInfo = contentTypes.find(t => t.id === content.contentType)
 
                                 return (
-                                    <Card key={content.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openViewDialog(content)}>
+                                    <Card
+                                        key={content.id}
+                                        className="cursor-pointer hover:shadow-md transition-shadow"
+                                        onClick={() => router.push(`/seo/content-factory/projects/${projectId}/${content.id}`)}
+                                    >
                                         <CardHeader className="pb-2">
                                             <div className="flex items-start justify-between">
                                                 <Badge variant="outline" className="text-xs">
@@ -538,6 +550,24 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 placeholder="Describe what you want the AI to write about..."
                                 className="h-[150px]"
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                                📎 Reference Articles (optional)
+                            </Label>
+                            <Textarea
+                                value={formData.referenceUrls}
+                                onChange={e => setFormData({ ...formData, referenceUrls: e.target.value })}
+                                placeholder="Paste URLs of articles to mimic their style (one per line)
+Example:
+https://example.com/blog/great-article
+https://example.com/blog/another-article"
+                                className="h-[80px] text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                AI will read these articles and match their writing style
+                            </p>
                         </div>
 
                         <div className="flex gap-4">

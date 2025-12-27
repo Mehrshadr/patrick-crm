@@ -23,6 +23,15 @@ export async function POST(
         const url = new URL(request.url)
         const skipImages = url.searchParams.get('skipImages') === 'true'
 
+        // Get body params (referenceUrls)
+        let referenceUrls: string[] | undefined
+        try {
+            const body = await request.json()
+            referenceUrls = body.referenceUrls
+        } catch {
+            // No body or invalid JSON - that's fine
+        }
+
         // Get the content record
         const content = await prisma.generatedContent.findFirst({
             where: {
@@ -51,7 +60,7 @@ export async function POST(
             const config = await prisma.contentGeneratorConfig.findFirst()
 
             // Generate text content
-            console.log(`[Generate] Starting text generation for content ${content.id}`)
+            console.log(`[Generate] Starting text generation for content ${content.id}${referenceUrls ? ` with ${referenceUrls.length} reference URLs` : ''}`)
             const result = await generateContent({
                 brief: content.brief,
                 contentType: content.contentType as 'BLOG_POST' | 'SERVICE_PAGE',
@@ -59,7 +68,8 @@ export async function POST(
                 guidelines: config?.guidelines,
                 aiRules: config?.aiRules,
                 useGuidelines: content.useGuidelines,
-                useAiRules: content.useAiRules
+                useAiRules: content.useAiRules,
+                referenceUrls
             })
 
             let finalContent = result.content

@@ -14,6 +14,7 @@ interface GenerateContentOptions {
     aiRules?: string | null
     useGuidelines: boolean
     useAiRules: boolean
+    referenceUrls?: string[] // URLs of reference articles to mimic style
 }
 
 interface ImageSpec {
@@ -59,6 +60,45 @@ function extractImageCount(brief: string): number | null {
     return null
 }
 
+// Fetch and extract text content from a URL
+async function fetchArticleContent(url: string): Promise<string | null> {
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; PatrickCRM/1.0)'
+            }
+        })
+
+        if (!response.ok) return null
+
+        const html = await response.text()
+
+        // Simple HTML to text extraction
+        // Remove script and style tags
+        let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+
+        // Remove all HTML tags
+        text = text.replace(/<[^>]+>/g, ' ')
+
+        // Decode HTML entities
+        text = text.replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+
+        // Clean up whitespace
+        text = text.replace(/\s+/g, ' ').trim()
+
+        // Limit to first 3000 chars to not overwhelm the context
+        return text.slice(0, 3000)
+    } catch (error) {
+        console.error(`Failed to fetch article: ${url}`, error)
+        return null
+    }
+}
+
 export async function generateContent(options: GenerateContentOptions): Promise<GenerateContentResult> {
     const {
         brief,
@@ -67,7 +107,8 @@ export async function generateContent(options: GenerateContentOptions): Promise<
         guidelines,
         aiRules,
         useGuidelines,
-        useAiRules
+        useAiRules,
+        referenceUrls
     } = options
 
     // Extract requirements from brief
@@ -75,6 +116,20 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     const targetWords = wordCount ? `${wordCount.min}-${wordCount.max}` : '1000-1500'
     const minWords = wordCount?.min || 1000
     const imageCount = extractImageCount(brief) || Math.ceil(minWords / 400) // 1 image per 400 words
+
+    // Fetch reference article content if URLs provided
+    let referenceContent = ''
+    if (referenceUrls && referenceUrls.length > 0) {
+        console.log(`[LLM] Fetching ${referenceUrls.length} reference articles...`)
+        const articles = await Promise.all(
+            referenceUrls.slice(0, 3).map(url => fetchArticleContent(url))
+        )
+        const validArticles = articles.filter(Boolean)
+        if (validArticles.length > 0) {
+            referenceContent = validArticles.join('\n\n---\n\n')
+            console.log(`[LLM] Fetched ${validArticles.length} reference articles`)
+        }
+    }
 
     // Build the system prompt
     let systemPrompt = `You are an expert SEO content writer who creates comprehensive, in-depth articles with image placement recommendations.
@@ -84,10 +139,23 @@ export async function generateContent(options: GenerateContentOptions): Promise<
 2. **THOROUGHNESS**: Cover every heading/topic mentioned in the brief with substantial, detailed paragraphs (2-3 paragraphs per heading minimum).
 3. **NO SHORTCUTS**: Do not summarize or abbreviate. Each section needs proper depth with examples and explanations.
 4. **STRUCTURE**: Use proper HTML semantic tags (h2, h3, p, ul, li, strong, em).
-5. **IMAGES**: Generate ${imageCount} image specifications for DALL-E image generation.
+5. **IMAGES**: Generate ${imageCount} image specifications for image generation.
 
 ## Content Type
 You are creating a ${contentType === 'BLOG_POST' ? 'detailed blog post' : 'comprehensive service page'}.`
+
+    // Add reference article style guide
+    if (referenceContent) {
+        systemPrompt += `\n\n## Reference Style Guide
+The following is content from reference articles. Study and mimic their:
+- Writing style and tone
+- Content structure and flow
+- Level of detail and explanation depth
+- How they engage readers
+
+REFERENCE CONTENT:
+${referenceContent.slice(0, 6000)}`
+    }
 
     if (brandStatement) {
         systemPrompt += `\n\n## Brand Voice & Identity\n${brandStatement}\nMatch this brand's tone, style, and personality throughout the content.`
@@ -192,7 +260,7 @@ ${brief}`
     }
 }
 
-// Generate images using DALL-E 3
+// Generate images using GPT Image API
 export async function generateImages(
     images: ImageSpec[],
     contentId: number
@@ -207,14 +275,14 @@ export async function generateImages(
 
     for (const image of images) {
         try {
-            console.log(`[DALL-E] Generating image ${image.position}: ${image.filename}`)
+            console.log(`[GPT-Image] Generating image ${image.position}: ${image.filename}`)
 
             const response = await openai.images.generate({
-                model: "dall-e-3",
+                model: "gpt-image-1",
                 prompt: image.prompt,
                 n: 1,
-                size: "1792x1024", // 16:9 ratio
-                quality: "standard"
+                size: "1536x1024", // Closest to 16:9 ratio for gpt-image-1
+                quality: "high"
             })
 
             const imageUrl = response.data?.[0]?.url
@@ -237,10 +305,10 @@ export async function generateImages(
                     alt: image.alt
                 })
 
-                console.log(`[DALL-E] Saved image ${image.position}: ${publicUrl}`)
+                console.log(`[GPT-Image] Saved image ${image.position}: ${publicUrl}`)
             }
         } catch (error: any) {
-            console.error(`[DALL-E] Failed to generate image ${image.position}:`, error.message)
+            console.error(`[GPT-Image] Failed to generate image ${image.position}:`, error.message)
             // Continue with other images even if one fails
         }
     }

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         if (!healthRes.ok) {
             console.error('[LinkBuilding] Plugin not available:', await healthRes.text())
             return NextResponse.json({
-                error: 'Patrick Link Builder plugin not installed or not accessible. Install the plugin first.',
+                error: 'Mehrana App Plugin not installed or not accessible. Install the plugin first.',
                 pluginRequired: true
             }, { status: 400 })
         }

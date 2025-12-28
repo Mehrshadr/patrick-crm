@@ -563,11 +563,23 @@ class Mehrana_App_Plugin
             return ['text' => $text, 'count' => 0];
         }
 
+        // Skip JSON-like content (Gutenberg block metadata, Rank Math TOC, etc.)
+        // These look like: {"key":"value"} or have wp:block-name patterns
+        if (
+            preg_match('/^\s*\{.*"key"\s*:/s', $text) ||
+            preg_match('/wp:[a-z\-]+\/[a-z\-]+/', $text) ||
+            preg_match('/^\s*\[?\s*\{/', $text)
+        ) {
+            return ['text' => $text, 'count' => 0];
+        }
+
         // Escape keyword for regex
         $escaped_kw = preg_quote($keyword, '/');
 
-        // Simple pattern - just match the keyword (case insensitive, unicode)
-        $pattern = '/(' . $escaped_kw . ')/iu';
+        // WORD BOUNDARY pattern - only match whole words
+        // \b doesn't work well with Unicode, so we use lookbehind/lookahead
+        // Match keyword only when NOT preceded/followed by letters
+        $pattern = '/(?<![a-zA-Z\p{L}])(' . $escaped_kw . ')(?![a-zA-Z\p{L}])/iu';
 
         $count = 0;
         $current_text = $text;

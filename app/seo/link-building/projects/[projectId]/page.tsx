@@ -193,14 +193,14 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                         body: JSON.stringify({
                             action: 'scan_page',
                             projectId,
-                            pageId: page.ID,
-                            pageUrl: page.permalink, // Need to ensure plugin response structure
-                            pageTitle: page.post_title,
+                            pageId: page.id,
+                            pageUrl: page.url,
+                            pageTitle: page.title,
                             keywordIds: selectedKeywords.length ? selectedKeywords : undefined
                         })
                     })
                 } catch (e) {
-                    console.error('Scan error', page.ID)
+                    console.error('Scan error', page.id)
                 } finally {
                     processed++
                     setScanProgress(prev => ({ ...prev, current: processed }))

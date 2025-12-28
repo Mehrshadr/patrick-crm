@@ -107,7 +107,17 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: `Plugin Scan Error: ${errText}` }, { status: 500 })
             }
 
-            const scanResult = await scanRes.json()
+            let scanResult;
+            try {
+                scanResult = await scanRes.json()
+            } catch (jsonErr) {
+                const text = await scanRes.text()
+                console.error(`[Scan] Invalid JSON from plugin for page ${pageId}:`, text.substring(0, 500))
+                return NextResponse.json({
+                    error: `Plugin returned invalid JSON`,
+                    details: text.substring(0, 200)
+                }, { status: 500 })
+            }
             const candidates = scanResult.candidates || []
 
             // Upsert Pending Logs
@@ -153,9 +163,8 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            // Re-evaluating: I need `pageUrl` and `pageTitle` in body.
-            // I'll assume client sends them.
-
+            // Re-fetch keywords to be safe or use map logic above
+            // Using the map logic we built:
             const { pageUrl, pageTitle } = body
 
             for (const cand of candidates) {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Link2, BarChart3, FileText, Sparkles, Anchor } from "lucide-react"
+import { ArrowLeft, Link2, BarChart3, FileText, Sparkles, Anchor, ImageIcon } from "lucide-react"
 
 async function getProject(id: number) {
     return prisma.indexingProject.findUnique({
@@ -98,6 +98,24 @@ export default async function ProjectDashboard({
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-amber-700 font-medium">✨ NEW</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                {/* Image Factory */}
+                <Link href={`/seo/image-factory/projects/${id}`}>
+                    <Card className="cursor-pointer hover:shadow-md transition-shadow h-full border-cyan-200 bg-gradient-to-br from-cyan-50 to-sky-50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <ImageIcon className="h-5 w-5 text-cyan-600" />
+                                Image Factory
+                            </CardTitle>
+                            <CardDescription>
+                                Compress & optimize images
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-cyan-700 font-medium">✨ NEW</p>
                         </CardContent>
                     </Card>
                 </Link>

@@ -3,7 +3,7 @@ import sharp from "sharp"
 
 // POST - Compress image with smart algorithm
 // Target: Get as close to maxSize as possible without going over
-// Aim for 90% of target size to preserve quality
+// User can set quality threshold (default 90%)
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData()
@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
         const maxSizeKB = parseInt(formData.get("maxSizeKB") as string) || 100
         const maxWidth = parseInt(formData.get("maxWidth") as string) || 1200
         const outputFormat = (formData.get("format") as string) || "webp"
+        const qualityThreshold = parseInt(formData.get("qualityThreshold") as string) || 90
 
         if (!file) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
         // If already under target, just convert format
         const targetSizeBytes = maxSizeKB * 1024
-        const minTargetBytes = targetSizeBytes * 0.9 // Aim for 90% of target for best quality
+        const minTargetBytes = targetSizeBytes * (qualityThreshold / 100) // Use user-defined threshold
 
         // Start compression pipeline
         let pipeline = sharp(originalBuffer)

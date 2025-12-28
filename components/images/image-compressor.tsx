@@ -12,7 +12,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Progress } from "@/components/ui/progress"
 
 interface ImageFile {
     id: string
@@ -37,10 +36,9 @@ export function ImageCompressor() {
     const [maxSizeKB, setMaxSizeKB] = useState(100)
     const [maxWidth, setMaxWidth] = useState(1200)
     const [format, setFormat] = useState("webp")
+    const [qualityThreshold, setQualityThreshold] = useState(90) // New: quality threshold %
 
     const handleFiles = useCallback((files: FileList | File[]) => {
-        const newImages: ImageFile[] = []
-
         Array.from(files).forEach((file) => {
             if (!file.type.startsWith("image/")) return
 
@@ -81,6 +79,7 @@ export function ImageCompressor() {
             formData.append("maxSizeKB", maxSizeKB.toString())
             formData.append("maxWidth", maxWidth.toString())
             formData.append("format", format)
+            formData.append("qualityThreshold", qualityThreshold.toString())
 
             const res = await fetch("/api/images/compress", {
                 method: "POST",
@@ -113,20 +112,16 @@ export function ImageCompressor() {
 
         setIsCompressing(true)
 
-        // Process images one by one
         for (let i = 0; i < images.length; i++) {
             const image = images[i]
             if (image.status === 'done') continue
 
-            // Mark as compressing
             setImages(prev => prev.map(img =>
                 img.id === image.id ? { ...img, status: 'compressing' } : img
             ))
 
-            // Compress
             const result = await compressImage(image)
 
-            // Update with result
             setImages(prev => prev.map(img =>
                 img.id === image.id ? result : img
             ))
@@ -202,7 +197,7 @@ export function ImageCompressor() {
             {images.length > 0 && (
                 <div className="bg-white border rounded-xl p-4">
                     <div className="flex flex-wrap items-end gap-4">
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="flex-1 min-w-[120px]">
                             <Label htmlFor="maxSize" className="text-xs">Max Size (KB)</Label>
                             <Input
                                 id="maxSize"
@@ -214,7 +209,7 @@ export function ImageCompressor() {
                                 className="mt-1 h-9"
                             />
                         </div>
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="flex-1 min-w-[120px]">
                             <Label htmlFor="maxWidth" className="text-xs">Max Width (px)</Label>
                             <Input
                                 id="maxWidth"
@@ -226,7 +221,19 @@ export function ImageCompressor() {
                                 className="mt-1 h-9"
                             />
                         </div>
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="flex-1 min-w-[100px]">
+                            <Label htmlFor="threshold" className="text-xs">Quality Target (%)</Label>
+                            <Input
+                                id="threshold"
+                                type="number"
+                                value={qualityThreshold}
+                                onChange={(e) => setQualityThreshold(Math.min(100, Math.max(50, parseInt(e.target.value) || 90)))}
+                                min={50}
+                                max={100}
+                                className="mt-1 h-9"
+                            />
+                        </div>
+                        <div className="flex-1 min-w-[100px]">
                             <Label className="text-xs">Format</Label>
                             <Select value={format} onValueChange={setFormat}>
                                 <SelectTrigger className="mt-1 h-9">
@@ -258,6 +265,9 @@ export function ImageCompressor() {
                             </Button>
                         </div>
                     </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                        Quality Target: Aim for {qualityThreshold}% of max size ({Math.round(maxSizeKB * qualityThreshold / 100)}KB - {maxSizeKB}KB)
+                    </p>
                 </div>
             )}
 
@@ -295,7 +305,6 @@ export function ImageCompressor() {
                             key={image.id}
                             className="bg-white border rounded-xl overflow-hidden group relative"
                         >
-                            {/* Preview Image */}
                             <div className="aspect-square bg-slate-100 relative">
                                 <img
                                     src={image.compressedImage || image.preview}
@@ -303,14 +312,12 @@ export function ImageCompressor() {
                                     className="w-full h-full object-cover"
                                 />
 
-                                {/* Status Overlay */}
                                 {image.status === 'compressing' && (
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                         <Loader2 className="h-8 w-8 text-white animate-spin" />
                                     </div>
                                 )}
 
-                                {/* Remove Button */}
                                 <button
                                     onClick={() => handleRemove(image.id)}
                                     className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -318,7 +325,6 @@ export function ImageCompressor() {
                                     <X className="h-4 w-4" />
                                 </button>
 
-                                {/* Done Badge */}
                                 {image.status === 'done' && (
                                     <div className="absolute top-2 left-2 bg-green-500 text-white rounded-full p-1">
                                         <Check className="h-4 w-4" />
@@ -326,7 +332,6 @@ export function ImageCompressor() {
                                 )}
                             </div>
 
-                            {/* Info */}
                             <div className="p-3">
                                 <p className="text-xs font-medium truncate" title={image.file.name}>
                                     {image.file.name}

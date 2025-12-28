@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.4.0';
+    private $version = '1.5.0';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;

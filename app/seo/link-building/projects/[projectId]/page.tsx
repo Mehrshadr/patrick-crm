@@ -88,6 +88,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     const [showSettings, setShowSettings] = useState(false)
     const [cmsUsername, setCmsUsername] = useState('')
     const [cmsAppPassword, setCmsAppPassword] = useState('')
+    const [cmsApiKey, setCmsApiKey] = useState('')
     const [savingSettings, setSavingSettings] = useState(false)
     const [running, setRunning] = useState(false)
     const [runResult, setRunResult] = useState<{ linked: number; processed: number } | null>(null)
@@ -128,6 +129,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                 if (data.settings) {
                     setCmsUsername(data.settings.cmsUsername || '')
                     setCmsAppPassword(data.settings.cmsAppPassword || '')
+                    setCmsApiKey(data.settings.cmsApiKey || '')
                 }
             }
         } catch (e) {
@@ -226,8 +228,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
             toast.error('Add keywords first')
             return
         }
-        if (!cmsUsername || !cmsAppPassword) {
-            toast.error('Configure WordPress settings first')
+        if (!cmsApiKey && (!cmsUsername || !cmsAppPassword)) {
+            toast.error('Configure WordPress settings first (API Key or Username/Password)')
             setShowSettings(true)
             return
         }
@@ -496,25 +498,49 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                     </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="px-3 pb-3">
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                        <div>
-                            <Label className="text-xs">WordPress Username</Label>
+                    <div className="space-y-4 pt-2">
+                        {/* API Key - Recommended */}
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <Label className="text-xs font-medium text-green-800">🔑 API Key (Recommended)</Label>
+                            <p className="text-xs text-green-600 mb-2">Get this from WordPress → Settings → Patrick Link Builder. No Application Password needed!</p>
                             <Input
-                                value={cmsUsername}
-                                onChange={e => setCmsUsername(e.target.value)}
-                                placeholder="admin"
-                                className="mt-1"
+                                value={cmsApiKey}
+                                onChange={e => setCmsApiKey(e.target.value)}
+                                placeholder="plb_xxxxxxxxxx"
+                                className="bg-white"
                             />
                         </div>
-                        <div>
-                            <Label className="text-xs">Application Password</Label>
-                            <Input
-                                value={cmsAppPassword}
-                                onChange={e => setCmsAppPassword(e.target.value)}
-                                placeholder="xxxx xxxx xxxx xxxx"
-                                type="password"
-                                className="mt-1"
-                            />
+
+                        {/* OR divider */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1 h-px bg-slate-200"></div>
+                            <span className="text-xs text-slate-400">OR use Application Password</span>
+                            <div className="flex-1 h-px bg-slate-200"></div>
+                        </div>
+
+                        {/* Application Password */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label className="text-xs">WordPress Username</Label>
+                                <Input
+                                    value={cmsUsername}
+                                    onChange={e => setCmsUsername(e.target.value)}
+                                    placeholder="admin"
+                                    className="mt-1"
+                                    disabled={!!cmsApiKey}
+                                />
+                            </div>
+                            <div>
+                                <Label className="text-xs">Application Password</Label>
+                                <Input
+                                    value={cmsAppPassword}
+                                    onChange={e => setCmsAppPassword(e.target.value)}
+                                    placeholder="xxxx xxxx xxxx xxxx"
+                                    type="password"
+                                    className="mt-1"
+                                    disabled={!!cmsApiKey}
+                                />
+                            </div>
                         </div>
                     </div>
                     <Button
@@ -530,8 +556,9 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                     body: JSON.stringify({
                                         cmsType: 'wordpress',
                                         cmsUrl: project?.domain?.startsWith('http') ? project.domain : `https://${project?.domain}`,
-                                        cmsUsername,
-                                        cmsAppPassword
+                                        cmsUsername: cmsApiKey ? '' : cmsUsername,
+                                        cmsAppPassword: cmsApiKey ? '' : cmsAppPassword,
+                                        cmsApiKey
                                     })
                                 })
                                 if (res.ok) {

@@ -426,6 +426,7 @@ model ProjectSettings {
   cmsUrl         String?  // API Base URL
   cmsUsername    String?  // WordPress username
   cmsAppPassword String?  // WordPress Application Password
+  cmsApiKey      String?  // Patrick Link Builder API Key (no App Password needed!)
   shopifyToken   String?  // Shopify Admin API Token
   shopifyStore   String?  // Shopify store name (xyz.myshopify.com)
   

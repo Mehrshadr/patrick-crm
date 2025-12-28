@@ -36,6 +36,7 @@ export async function PUT(
                 cmsUrl: data.cmsUrl,
                 cmsUsername: data.cmsUsername,
                 cmsAppPassword: data.cmsAppPassword,
+                cmsApiKey: data.cmsApiKey,
                 shopifyToken: data.shopifyToken,
                 shopifyStore: data.shopifyStore,
                 brandStatement: data.brandStatement
@@ -46,6 +47,7 @@ export async function PUT(
                 cmsUrl: data.cmsUrl,
                 cmsUsername: data.cmsUsername,
                 cmsAppPassword: data.cmsAppPassword,
+                cmsApiKey: data.cmsApiKey,
                 shopifyToken: data.shopifyToken,
                 shopifyStore: data.shopifyStore,
                 brandStatement: data.brandStatement

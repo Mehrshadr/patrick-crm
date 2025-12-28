@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
             where: { projectId: parseInt(projectId) }
         })
 
-        if (!settings?.cmsUsername || !settings?.cmsAppPassword) {
-            return NextResponse.json({ error: 'WordPress credentials not configured' }, { status: 400 })
+        if (!settings?.cmsApiKey && (!settings?.cmsUsername || !settings?.cmsAppPassword)) {
+            return NextResponse.json({ error: 'WordPress credentials not configured. Please set API Key or Username/App Password.' }, { status: 400 })
         }
 
         // Get project domain
@@ -29,12 +29,20 @@ export async function POST(request: NextRequest) {
         }
 
         const siteUrl = project.domain.startsWith('http') ? project.domain : `https://${project.domain}`
-        const auth = Buffer.from(`${settings.cmsUsername}:${settings.cmsAppPassword}`).toString('base64')
-        const pluginBase = `${siteUrl}/wp-json/patrick-link-builder/v1`
+        const pluginBase = `${siteUrl}/wp-json/mehrana-app/v1`
+
+        // Build auth headers - prefer API Key over Application Password
+        const authHeaders: Record<string, string> = {}
+        if (settings.cmsApiKey) {
+            authHeaders['X-MAP-API-Key'] = settings.cmsApiKey
+        } else {
+            const auth = Buffer.from(`${settings.cmsUsername}:${settings.cmsAppPassword}`).toString('base64')
+            authHeaders['Authorization'] = `Basic ${auth}`
+        }
 
         // Check plugin health
         const healthRes = await fetch(`${pluginBase}/health`, {
-            headers: { 'Authorization': `Basic ${auth}` }
+            headers: authHeaders
         })
 
         if (!healthRes.ok) {
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
 
         // Fetch pages from plugin
         const pagesRes = await fetch(`${pluginBase}/pages`, {
-            headers: { 'Authorization': `Basic ${auth}` }
+            headers: authHeaders
         })
 
         if (!pagesRes.ok) {
@@ -107,7 +115,7 @@ export async function POST(request: NextRequest) {
             const applyRes = await fetch(`${pluginBase}/pages/${page.id}/apply-links`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Basic ${auth}`,
+                    ...authHeaders,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ keywords: keywordData })

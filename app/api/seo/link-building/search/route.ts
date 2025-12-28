@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
             where: { projectId: parseInt(projectId) }
         })
 
-        if (!settings?.cmsUsername || !settings?.cmsAppPassword) {
+        if (!settings?.cmsApiKey && (!settings?.cmsUsername || !settings?.cmsAppPassword)) {
             return NextResponse.json({ error: 'WordPress credentials not configured' }, { status: 400 })
         }
 
@@ -29,16 +29,21 @@ export async function POST(request: NextRequest) {
         }
 
         const siteUrl = project.domain.startsWith('http') ? project.domain : `https://${project.domain}`
-        const auth = Buffer.from(`${settings.cmsUsername}:${settings.cmsAppPassword}`).toString('base64')
-        const pluginBase = `${siteUrl}/wp-json/patrick-link-builder/v1`
+        const pluginBase = `${siteUrl}/wp-json/mehrana-app/v1`
+
+        // Build auth headers - prefer API Key over Application Password
+        const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (settings.cmsApiKey) {
+            authHeaders['X-MAP-API-Key'] = settings.cmsApiKey
+        } else {
+            const auth = Buffer.from(`${settings.cmsUsername}:${settings.cmsAppPassword}`).toString('base64')
+            authHeaders['Authorization'] = `Basic ${auth}`
+        }
 
         // Call search endpoint on plugin
         const searchRes = await fetch(`${pluginBase}/search/${pageId}`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Basic ${auth}`,
-                'Content-Type': 'application/json'
-            },
+            headers: authHeaders,
             body: JSON.stringify({ keyword })
         })
 

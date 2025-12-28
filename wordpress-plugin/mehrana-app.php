@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: Mehrana App Link Building
- * Description: Headless Link Builder for Patrick CRM - Supports Elementor & Standard Pages. Version 1.3.0 - Fixed regex pattern bug
- * Version: 1.3.0
+ * Plugin Name: Mehrana App Plugin
+ * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
+ * Version: 1.4.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
- * Text Domain: patrick-link-builder
+ * Text Domain: mehrana-app
  */
 
 // Prevent direct access
@@ -13,12 +13,12 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class Patrick_Link_Builder
+class Mehrana_App_Plugin
 {
 
-    private $version = '1.0.0';
-    private $namespace = 'patrick-link-builder/v1';
-    private $rate_limit_key = 'plb_rate_limit';
+    private $version = '1.4.0';
+    private $namespace = 'mehrana-app/v1';
+    private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
 
     public function __construct()
@@ -217,6 +217,7 @@ class Patrick_Link_Builder
 
     /**
      * Permission callback with security checks
+     * Supports both Application Password (Basic Auth) and API Key authentication
      */
     public function check_permission($request)
     {
@@ -229,12 +230,22 @@ class Patrick_Link_Builder
             );
         }
 
-        // Check if user is authenticated
+        // Method 1: Check API Key authentication (simpler, no Application Password needed)
+        $api_key = get_option('map_api_key', '');
+        $request_key = $request->get_header('X-MAP-API-Key');
+
+        if (!empty($api_key) && !empty($request_key) && hash_equals($api_key, $request_key)) {
+            // API Key is valid - allow access
+            $this->log('Authenticated via API Key');
+            return true;
+        }
+
+        // Method 2: Fall back to WordPress user authentication (Application Password)
         $user = wp_get_current_user();
         if (!$user || $user->ID === 0) {
             return new WP_Error(
                 'rest_not_logged_in',
-                'Authentication required.',
+                'Authentication required. Use API Key header (X-MAP-API-Key) or WordPress Application Password.',
                 ['status' => 401]
             );
         }
@@ -273,7 +284,7 @@ class Patrick_Link_Builder
     {
         $limit = 200; // Requests per minute
         $ip = $_SERVER['REMOTE_ADDR'];
-        $transient_key = 'plb_rate_limit_' . md5($ip);
+        $transient_key = 'map_rate_limit_' . md5($ip);
 
         $current = get_transient($transient_key);
         if ($current !== false && $current >= $limit) {
@@ -579,7 +590,8 @@ class Patrick_Link_Builder
             }
 
             $count++;
-            $replacement = '<a href="' . esc_url($target_url) . '" id="' . esc_attr($anchor_id) . '" class="plb-auto-link">' . $matches[1] . '</a>';
+            $replacement = '<a href="' . esc_url($target_url) . '" id="' . esc_attr($anchor_id) . '" class="map-auto-link">' . $matches[1] . '</a>';
+            ;
 
             // Update current_text for next iteration (mark this spot as processed)
             $current_text = substr_replace($current_text, $replacement, $match_pos, strlen($matches[0]));
@@ -589,7 +601,7 @@ class Patrick_Link_Builder
 
         // If preg_replace_callback returns null, there was an error
         if ($new_text === null) {
-            error_log('[PLB] Regex error for keyword: ' . $keyword);
+            error_log('[MAP] Regex error for keyword: ' . $keyword);
             return ['text' => $text, 'count' => 0];
         }
 
@@ -614,8 +626,8 @@ class Patrick_Link_Builder
      */
     private function log($message)
     {
-        if (get_option('plb_enable_logging', '1') === '1') {
-            $log_file = WP_CONTENT_DIR . '/plb-activity.log';
+        if (get_option('map_enable_logging', '1') === '1') {
+            $log_file = WP_CONTENT_DIR . '/mehrana-app.log';
             $timestamp = current_time('mysql');
             $user = wp_get_current_user();
             $user_name = $user ? $user->user_login : 'unknown';
@@ -630,10 +642,10 @@ class Patrick_Link_Builder
     public function add_admin_menu()
     {
         add_options_page(
-            'Patrick Link Builder',
-            'Patrick Link Builder',
+            'Mehrana App Settings',
+            'Mehrana App',
             'manage_options',
-            'patrick-link-builder',
+            'mehrana-app',
             [$this, 'settings_page']
         );
     }
@@ -643,8 +655,9 @@ class Patrick_Link_Builder
      */
     public function register_settings()
     {
-        register_setting('plb_settings', 'plb_allowed_origins');
-        register_setting('plb_settings', 'plb_enable_logging');
+        register_setting('map_settings', 'map_allowed_origins');
+        register_setting('map_settings', 'map_enable_logging');
+        register_setting('map_settings', 'map_api_key');
     }
 
     /**
@@ -653,56 +666,74 @@ class Patrick_Link_Builder
     public function settings_page()
     {
         ?>
-                <div class="wrap">
-                    <h1>Patrick Link Builder Settings</h1>
-                    <form method="post" action="options.php">
-                        <?php settings_fields('plb_settings'); ?>
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row">Allowed Origins</th>
-                                <td>
-                                    <input type="text" name="plb_allowed_origins"
-                                        value="<?php echo esc_attr(get_option('plb_allowed_origins')); ?>" class="regular-text" />
-                                    <p class="description">Comma-separated list of allowed origins (e.g., https://app.mehrana.agency).
-                                        Leave empty to allow all authenticated requests.</p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Enable Logging</th>
-                                <td>
-                                    <label>
-                                        <input type="checkbox" name="plb_enable_logging" value="1" <?php checked(get_option('plb_enable_logging', '1'), '1'); ?> />
-                                        Log all API activity to wp-content/plb-activity.log
-                                    </label>
-                                </td>
-                            </tr>
-                        </table>
-                        <?php submit_button(); ?>
-                    </form>
+        <div class="wrap">
+            <h1>Mehrana App Settings</h1>
+            <form method="post" action="options.php">
+                <?php settings_fields('map_settings'); ?>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">API Key</th>
+                        <td>
+                            <input type="text" name="map_api_key" id="map_api_key"
+                                value="<?php echo esc_attr(get_option('map_api_key')); ?>" class="regular-text" />
+                            <button type="button" class="button"
+                                onclick="document.getElementById('map_api_key').value = 'map_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);">Generate
+                                Key</button>
+                            <p class="description">
+                                <strong>Recommended:</strong> Use this API Key for authentication. Send it as
+                                <code>X-MAP-API-Key</code> header.<br>
+                                No Application Password needed when using API Key!
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Allowed Origins</th>
+                        <td>
+                            <input type="text" name="map_allowed_origins"
+                                value="<?php echo esc_attr(get_option('map_allowed_origins')); ?>" class="regular-text" />
+                            <p class="description">Comma-separated list of allowed origins (e.g., https://app.mehrana.agency).
+                                Leave empty to allow all authenticated requests.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Enable Logging</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="map_enable_logging" value="1" <?php checked(get_option('map_enable_logging', '1'), '1'); ?> />
+                                Log all API activity to wp-content/mehrana-app.log
+                            </label>
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
 
-                    <h2>API Information</h2>
-                    <table class="widefat">
-                        <tr>
-                            <td><strong>Base URL:</strong></td>
-                            <td><code><?php echo rest_url($this->namespace); ?></code></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Authentication:</strong></td>
-                            <td>WordPress Application Passwords (Basic Auth)</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Endpoints:</strong></td>
-                            <td>
-                                <code>GET /pages</code> - Get all Elementor pages<br>
-                                <code>POST /pages/{id}/apply-links</code> - Apply links to a page<br>
-                                <code>GET /health</code> - Health check
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                <?php
+            <h2>API Information</h2>
+            <table class="widefat">
+                <tr>
+                    <td><strong>Base URL:</strong></td>
+                    <td><code><?php echo rest_url($this->namespace); ?></code></td>
+                </tr>
+                <tr>
+                    <td><strong>Authentication:</strong></td>
+                    <td>
+                        <strong>Option 1 (Recommended):</strong> API Key via <code>X-MAP-API-Key</code> header<br>
+                        <strong>Option 2:</strong> WordPress Application Passwords (Basic Auth)
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Endpoints:</strong></td>
+                    <td>
+                        <code>GET /pages</code> - Get all Elementor pages<br>
+                        <code>POST /pages/{id}/apply-links</code> - Apply links to a page<br>
+                        <code>GET /health</code> - Health check
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <?php
     }
 }
 
 // Initialize plugin
-new Patrick_Link_Builder();
+new Mehrana_App_Plugin();

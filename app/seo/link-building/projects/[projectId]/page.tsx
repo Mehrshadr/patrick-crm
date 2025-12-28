@@ -172,7 +172,10 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                 body: JSON.stringify({ action: 'init', projectId })
             })
 
-            if (!initRes.ok) throw new Error('Failed to init scan')
+            if (!initRes.ok) {
+                const errData = await initRes.json().catch(() => ({}))
+                throw new Error(errData.error || 'Failed to init scan')
+            }
             const { pages } = await initRes.json()
 
             setScanStatus('scanning')
@@ -214,8 +217,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
             toast.success('Scan complete')
             fetchData()
 
-        } catch (e) {
-            toast.error('Scan failed')
+        } catch (e: any) {
+            toast.error(e.message || 'Scan failed')
             setScanStatus('idle')
         }
     }

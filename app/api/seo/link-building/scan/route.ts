@@ -188,8 +188,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('[LinkBuilding:Scan] Error:', error)
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
     }
 }

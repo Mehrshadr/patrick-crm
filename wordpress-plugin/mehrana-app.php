@@ -390,9 +390,10 @@ class Mehrana_App_Plugin
             delete_post_meta($page_id, '_elementor_css');
 
         } else {
-            // Process Standard Content
+            // Process Standard Content + ALL Meta Fields
             $content = $page->post_content;
             $all_skipped = [];
+            $total_linked = 0;
 
             foreach ($keywords as $kw) {
                 $keyword = sanitize_text_field($kw['keyword']);
@@ -403,17 +404,46 @@ class Mehrana_App_Plugin
                 if (empty($keyword) || empty($target_url))
                     continue;
 
-                $result = $this->replace_keyword($content, $keyword, $target_url, $anchor_id, $only_first);
+                // 1. Process main post_content
+                $result = $this->replace_keyword($content, $keyword, $target_url, $anchor_id, $only_first && $total_linked === 0);
                 $content = $result['text'];
-                $results[] = ['keyword' => $keyword, 'count' => $result['count']];
+                $total_linked += $result['count'];
 
                 // Collect skipped info
                 if (!empty($result['skipped'])) {
                     foreach ($result['skipped'] as $skip) {
                         $skip['keyword'] = $keyword;
+                        $skip['location'] = 'post_content';
                         $all_skipped[] = $skip;
                     }
                 }
+
+                // 2. Process ALL meta fields that might contain content
+                $all_meta = get_post_meta($page_id);
+                $content_meta_keys = $this->get_content_meta_keys($all_meta);
+
+                foreach ($content_meta_keys as $meta_key) {
+                    $meta_value = get_post_meta($page_id, $meta_key, true);
+                    if (empty($meta_value) || !is_string($meta_value))
+                        continue;
+
+                    $result = $this->replace_keyword($meta_value, $keyword, $target_url, $anchor_id, $only_first && $total_linked === 0);
+
+                    if ($result['count'] > 0) {
+                        update_post_meta($page_id, $meta_key, $result['text']);
+                        $total_linked += $result['count'];
+                    }
+
+                    if (!empty($result['skipped'])) {
+                        foreach ($result['skipped'] as $skip) {
+                            $skip['keyword'] = $keyword;
+                            $skip['location'] = $meta_key;
+                            $all_skipped[] = $skip;
+                        }
+                    }
+                }
+
+                $results[] = ['keyword' => $keyword, 'count' => $total_linked];
             }
 
             // Save Standard Content
@@ -562,6 +592,97 @@ class Mehrana_App_Plugin
     {
         // Media objects typically have url, id, size keys
         return isset($arr['url']) || isset($arr['id']) || isset($arr['library']);
+    }
+
+    /**
+     * Get meta keys that might contain HTML/text content
+     * Checks for ACF, Yoast, RankMath, WooCommerce, and custom content fields
+     */
+    private function get_content_meta_keys($all_meta)
+    {
+        $content_keys = [];
+
+        // Known content-bearing meta key patterns
+        $include_patterns = [
+            // ACF fields (text, textarea, wysiwyg)
+            '/^_?[a-z_]+$/i',
+            // Yoast SEO
+            '/_yoast_wpseo_/',
+            // RankMath
+            '/^rank_math_/',
+            // WooCommerce
+            '/_product_/',
+            '/^_wc_/',
+            // Common content fields
+            '/description$/i',
+            '/content$/i',
+            '/text$/i',
+            '/excerpt$/i',
+            '/bio$/i',
+            '/summary$/i',
+        ];
+
+        // Keys to always exclude (not content)
+        $exclude_patterns = [
+            '/^_edit_/',
+            '/^_wp_/',
+            '/^_elementor/',
+            '/^_oembed/',
+            '/^_menu_/',
+            '/^_thumbnail/',
+            '/_hash$/',
+            '/_key$/',
+            '/_id$/',
+            '/_token$/',
+            '/^_transient/',
+            '/schema$/i',
+            '/json$/i',
+        ];
+
+        // Also exclude specific keys
+        $exclude_exact = [
+            '_edit_lock',
+            '_edit_last',
+            '_wp_page_template',
+            '_thumbnail_id',
+            '_wp_trash_meta_time',
+            '_wp_trash_meta_status'
+        ];
+
+        foreach ($all_meta as $key => $values) {
+            // Skip excluded exact matches
+            if (in_array($key, $exclude_exact))
+                continue;
+
+            // Skip excluded patterns
+            $excluded = false;
+            foreach ($exclude_patterns as $pattern) {
+                if (preg_match($pattern, $key)) {
+                    $excluded = true;
+                    break;
+                }
+            }
+            if ($excluded)
+                continue;
+
+            // Check if value is a string with potential HTML content
+            $value = is_array($values) ? ($values[0] ?? '') : $values;
+            if (!is_string($value))
+                continue;
+            if (strlen($value) < 10)
+                continue; // Too short to contain useful content
+
+            // Must look like HTML or plain text content (not JSON/serialized)
+            if (preg_match('/^[{\["\']/', $value))
+                continue; // Skip JSON-like
+            if (preg_match('/^a:\d+:{/', $value))
+                continue; // Skip serialized arrays
+
+            // Include if it looks like content
+            $content_keys[] = $key;
+        }
+
+        return $content_keys;
     }
 
     /**

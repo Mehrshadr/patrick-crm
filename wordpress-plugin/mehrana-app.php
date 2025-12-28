@@ -826,6 +826,8 @@ class Mehrana_App_Plugin
     }
 
     /**
+     * Health check endpoint
+     */
     public function health_check($request)
     {
         return rest_ensure_response([

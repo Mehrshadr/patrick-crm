@@ -92,7 +92,8 @@ export async function POST(request: NextRequest) {
 
         // Process each page
         for (const page of pages) {
-            const pageType = detectPageType(page.url)
+            // Use type from plugin response, fallback to URL detection
+            const pageType = page.type || detectPageType(page.url)
 
             // Filter keywords by page type
             const applicableKeywords = keywords.filter(kw => {

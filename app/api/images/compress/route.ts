@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import sharp from "sharp"
 
 // POST - Compress image with smart algorithm
+// Target: Get as close to maxSize as possible without going over
+// Aim for 90% of target size to preserve quality
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData()
@@ -19,6 +21,10 @@ export async function POST(request: NextRequest) {
         const originalSizeKB = originalBuffer.length / 1024
         const originalMetadata = await sharp(originalBuffer).metadata()
 
+        // If already under target, just convert format
+        const targetSizeBytes = maxSizeKB * 1024
+        const minTargetBytes = targetSizeBytes * 0.9 // Aim for 90% of target for best quality
+
         // Start compression pipeline
         let pipeline = sharp(originalBuffer)
         let currentWidth = originalMetadata.width || 0
@@ -32,75 +38,93 @@ export async function POST(request: NextRequest) {
             pipeline = pipeline.resize(currentWidth, currentHeight)
         }
 
-        // Step 2: Convert to target format with quality optimization
-        const targetSizeBytes = maxSizeKB * 1024
-        let quality = 85
+        // Step 2: Try high quality first
         let result: Buffer
-
-        // Binary search for optimal quality
-        let minQuality = 10
-        let maxQuality = 95
         let bestResult: Buffer | null = null
-        let bestQuality = quality
+        let bestQuality = 95
 
-        for (let i = 0; i < 8; i++) {
-            quality = Math.round((minQuality + maxQuality) / 2)
+        // Start with high quality and work down only if needed
+        const qualitySteps = [95, 90, 85, 80, 75, 70, 65, 60]
 
+        for (const quality of qualitySteps) {
             if (outputFormat === "webp") {
                 result = await pipeline.clone().webp({ quality }).toBuffer()
             } else if (outputFormat === "jpeg" || outputFormat === "jpg") {
                 result = await pipeline.clone().jpeg({ quality }).toBuffer()
             } else {
-                result = await pipeline.clone().png({ quality: Math.round(quality / 10) }).toBuffer()
+                result = await pipeline.clone().png({ compressionLevel: Math.round((100 - quality) / 10) }).toBuffer()
             }
 
+            // If under target size, this is our best result
             if (result.length <= targetSizeBytes) {
                 bestResult = result
                 bestQuality = quality
-                minQuality = quality + 1
-            } else {
-                maxQuality = quality - 1
-            }
 
-            // If we're very close to target, stop
-            if (Math.abs(result.length - targetSizeBytes) < 5000) {
-                bestResult = result
-                bestQuality = quality
-                break
-            }
-        }
-
-        // Step 3: If still too large, reduce dimensions
-        if (!bestResult || bestResult.length > targetSizeBytes) {
-            let scale = 0.9
-            while (scale > 0.3) {
-                const newWidth = Math.round(currentWidth * scale)
-                const newHeight = Math.round(currentHeight * scale)
-
-                pipeline = sharp(originalBuffer).resize(newWidth, newHeight)
-
-                if (outputFormat === "webp") {
-                    result = await pipeline.webp({ quality: 80 }).toBuffer()
-                } else if (outputFormat === "jpeg" || outputFormat === "jpg") {
-                    result = await pipeline.jpeg({ quality: 80 }).toBuffer()
-                } else {
-                    result = await pipeline.png({ quality: 8 }).toBuffer()
-                }
-
-                if (result.length <= targetSizeBytes) {
-                    bestResult = result
-                    currentWidth = newWidth
-                    currentHeight = newHeight
+                // If we're in the optimal range (90-100% of target), stop here
+                if (result.length >= minTargetBytes) {
                     break
                 }
 
-                scale -= 0.1
+                // Otherwise keep looking for a higher quality that still fits
+                // But if we're already at 95, just use it
+                if (quality === 95) {
+                    break
+                }
             }
         }
 
-        // Fallback to last result if nothing worked
+        // Step 3: If still too large after quality reduction, try resizing
         if (!bestResult) {
-            bestResult = result!
+            const scaleSteps = [0.9, 0.8, 0.7, 0.6, 0.5]
+
+            for (const scale of scaleSteps) {
+                const newWidth = Math.round((originalMetadata.width || 1200) * scale)
+                const newHeight = Math.round((originalMetadata.height || 800) * scale)
+
+                // Don't go below reasonable size
+                if (newWidth < 400) break
+
+                pipeline = sharp(originalBuffer).resize(newWidth, newHeight)
+
+                // Try with good quality first
+                for (const quality of [85, 75, 65]) {
+                    if (outputFormat === "webp") {
+                        result = await pipeline.clone().webp({ quality }).toBuffer()
+                    } else if (outputFormat === "jpeg" || outputFormat === "jpg") {
+                        result = await pipeline.clone().jpeg({ quality }).toBuffer()
+                    } else {
+                        result = await pipeline.clone().png({ compressionLevel: 6 }).toBuffer()
+                    }
+
+                    if (result.length <= targetSizeBytes) {
+                        bestResult = result
+                        bestQuality = quality
+                        currentWidth = newWidth
+                        currentHeight = newHeight
+
+                        // If in optimal range, stop
+                        if (result.length >= minTargetBytes) {
+                            break
+                        }
+                    }
+                }
+
+                if (bestResult && bestResult.length >= minTargetBytes) {
+                    break
+                }
+            }
+        }
+
+        // Fallback: if nothing worked, use last result
+        if (!bestResult) {
+            if (outputFormat === "webp") {
+                bestResult = await sharp(originalBuffer).resize(800).webp({ quality: 60 }).toBuffer()
+            } else if (outputFormat === "jpeg" || outputFormat === "jpg") {
+                bestResult = await sharp(originalBuffer).resize(800).jpeg({ quality: 60 }).toBuffer()
+            } else {
+                bestResult = await sharp(originalBuffer).resize(800).png({ compressionLevel: 8 }).toBuffer()
+            }
+            bestQuality = 60
         }
 
         const finalSizeKB = bestResult.length / 1024

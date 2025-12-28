@@ -154,6 +154,27 @@ export async function POST(request: NextRequest) {
                         }
                     }
                 }
+
+                // Log skipped items
+                if (result.skipped && result.skipped.length > 0) {
+                    for (const skip of result.skipped) {
+                        const kw = applicableKeywords.find(k => k.keyword === skip.keyword)
+                        if (kw) {
+                            await prisma.linkBuildingLog.create({
+                                data: {
+                                    projectId: parseInt(projectId),
+                                    keywordId: kw.id,
+                                    pageUrl: page.url,
+                                    pageTitle: page.title,
+                                    anchorId: '',
+                                    status: 'skipped',
+                                    message: `Skipped: ${skip.reason}${skip.sample ? ` - "${skip.sample}"` : ''}`
+                                }
+                            })
+                            results.skipped = (results.skipped || 0) + 1
+                        }
+                    }
+                }
             } else {
                 console.error(`[LinkBuilding] Failed to apply links to ${page.url}:`, await applyRes.text())
                 results.errors++

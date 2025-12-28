@@ -465,21 +465,28 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                     <h3 className="text-sm font-medium text-slate-500">Recent Activity</h3>
                     <div className="space-y-1">
                         {logs.map(log => (
-                            <div key={log.id} className="flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-slate-50">
+                            <div key={log.id} className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-slate-50 ${log.status === 'skipped' ? 'bg-red-50' : ''}`}>
                                 {log.status === 'linked' ? (
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                ) : log.status === 'skipped' ? (
+                                    <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" title={log.message || 'Skipped'} />
                                 ) : (
-                                    <XCircle className="h-4 w-4 text-slate-400" />
+                                    <XCircle className="h-4 w-4 text-slate-400 flex-shrink-0" />
                                 )}
                                 <a
                                     href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline flex-1 truncate"
+                                    className={`hover:underline flex-1 truncate ${log.status === 'skipped' ? 'text-red-600' : 'text-blue-600'}`}
                                 >
-                                    {log.pageUrl}{log.anchorId && `#${log.anchorId}`}
+                                    {log.pageTitle || log.pageUrl}
                                 </a>
-                                <span className="text-slate-400">"{log.keyword.keyword}"</span>
+                                <span className={`${log.status === 'skipped' ? 'text-red-400' : 'text-slate-400'}`}>"{log.keyword.keyword}"</span>
+                                {log.status === 'skipped' && log.message && (
+                                    <span className="text-xs text-red-500 max-w-[200px] truncate" title={log.message}>
+                                        {log.message.replace('Skipped: ', '')}
+                                    </span>
+                                )}
                                 <span className="text-xs text-slate-300">
                                     {new Date(log.createdAt).toLocaleTimeString()}
                                 </span>

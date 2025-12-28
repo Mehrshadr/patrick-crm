@@ -392,12 +392,13 @@ class Mehrana_App_Plugin
         } else {
             // Process Standard Content
             $content = $page->post_content;
+            $all_skipped = [];
 
             foreach ($keywords as $kw) {
                 $keyword = sanitize_text_field($kw['keyword']);
                 $target_url = esc_url_raw($kw['target_url']);
                 $anchor_id = sanitize_html_class($kw['anchor_id']);
-                $only_first = isset($kw['only_first']) ? (bool) $kw['only_first'] : true; // Default to true
+                $only_first = isset($kw['only_first']) ? (bool) $kw['only_first'] : true;
 
                 if (empty($keyword) || empty($target_url))
                     continue;
@@ -405,6 +406,14 @@ class Mehrana_App_Plugin
                 $result = $this->replace_keyword($content, $keyword, $target_url, $anchor_id, $only_first);
                 $content = $result['text'];
                 $results[] = ['keyword' => $keyword, 'count' => $result['count']];
+
+                // Collect skipped info
+                if (!empty($result['skipped'])) {
+                    foreach ($result['skipped'] as $skip) {
+                        $skip['keyword'] = $keyword;
+                        $all_skipped[] = $skip;
+                    }
+                }
             }
 
             // Save Standard Content
@@ -419,7 +428,8 @@ class Mehrana_App_Plugin
         return rest_ensure_response([
             'success' => true,
             'page_id' => $page_id,
-            'results' => $results
+            'results' => $results,
+            'skipped' => isset($all_skipped) ? $all_skipped : []
         ]);
     }
 
@@ -556,51 +566,71 @@ class Mehrana_App_Plugin
 
     /**
      * Replace keyword with link in text
+     * Returns: text, count (linked), skipped (array of skip reasons)
      */
     private function replace_keyword($text, $keyword, $target_url, $anchor_id, $only_first)
     {
+        $result = [
+            'text' => $text,
+            'count' => 0,
+            'skipped' => []
+        ];
+
         if (empty($text) || !is_string($text)) {
-            return ['text' => $text, 'count' => 0];
+            return $result;
         }
 
         // Skip JSON-like content (Gutenberg block metadata, Rank Math TOC, etc.)
-        // These look like: {"key":"value"} or have wp:block-name patterns
         if (
             preg_match('/^\s*\{.*"key"\s*:/s', $text) ||
             preg_match('/wp:[a-z\-]+\/[a-z\-]+/', $text) ||
             preg_match('/^\s*\[?\s*\{/', $text)
         ) {
-            return ['text' => $text, 'count' => 0];
+            // Check if keyword exists in this metadata
+            if (stripos($text, $keyword) !== false) {
+                $result['skipped'][] = [
+                    'reason' => 'in_metadata',
+                    'location' => 'gutenberg_block',
+                    'sample' => substr($text, max(0, stripos($text, $keyword) - 20), 60)
+                ];
+            }
+            return $result;
         }
 
         // Escape keyword for regex
         $escaped_kw = preg_quote($keyword, '/');
 
+        // Check for partial matches BEFORE word boundary pattern
+        // This detects cases like "Bedroom" inside "Bedrooms"
+        if (preg_match('/[a-zA-Z\p{L}]' . $escaped_kw . '|' . $escaped_kw . '[a-zA-Z\p{L}]/iu', $text, $partial_match)) {
+            $result['skipped'][] = [
+                'reason' => 'partial_match',
+                'sample' => $partial_match[0]
+            ];
+        }
+
         // WORD BOUNDARY pattern - only match whole words
-        // \b doesn't work well with Unicode, so we use lookbehind/lookahead
-        // Match keyword only when NOT preceded/followed by letters
         $pattern = '/(?<![a-zA-Z\p{L}])(' . $escaped_kw . ')(?![a-zA-Z\p{L}])/iu';
 
         $count = 0;
         $current_text = $text;
+        $already_linked_count = 0;
 
-        $new_text = preg_replace_callback($pattern, function ($matches) use ($target_url, $anchor_id, $only_first, &$count, &$current_text) {
-            // Find the position of this match in the current text
+        $new_text = preg_replace_callback($pattern, function ($matches) use ($target_url, $anchor_id, $only_first, &$count, &$current_text, &$already_linked_count) {
             $match_pos = stripos($current_text, $matches[0]);
 
             if ($match_pos === false) {
                 return $matches[0];
             }
 
-            // Check if we're inside an anchor tag
             $before = substr($current_text, 0, $match_pos);
 
-            // Count open <a tags vs </a> tags before this position
+            // Check if inside anchor tag
             $open_a_count = preg_match_all('/<a\s/i', $before);
             $close_a_count = preg_match_all('/<\/a>/i', $before);
 
             if ($open_a_count > $close_a_count) {
-                // We're inside an unclosed <a> tag, skip
+                $already_linked_count++;
                 return $matches[0];
             }
 
@@ -610,21 +640,26 @@ class Mehrana_App_Plugin
 
             $count++;
             $replacement = '<a href="' . esc_url($target_url) . '" id="' . esc_attr($anchor_id) . '" class="map-auto-link">' . $matches[1] . '</a>';
-            ;
-
-            // Update current_text for next iteration (mark this spot as processed)
             $current_text = substr_replace($current_text, $replacement, $match_pos, strlen($matches[0]));
 
             return $replacement;
         }, $text);
 
-        // If preg_replace_callback returns null, there was an error
-        if ($new_text === null) {
-            error_log('[MAP] Regex error for keyword: ' . $keyword);
-            return ['text' => $text, 'count' => 0];
+        if ($already_linked_count > 0) {
+            $result['skipped'][] = [
+                'reason' => 'already_linked',
+                'count' => $already_linked_count
+            ];
         }
 
-        return ['text' => $new_text, 'count' => $count];
+        if ($new_text === null) {
+            error_log('[MAP] Regex error for keyword: ' . $keyword);
+            return $result;
+        }
+
+        $result['text'] = $new_text;
+        $result['count'] = $count;
+        return $result;
     }
 
     /**

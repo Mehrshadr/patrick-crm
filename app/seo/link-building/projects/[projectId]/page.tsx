@@ -469,7 +469,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                 {log.status === 'linked' ? (
                                     <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                                 ) : log.status === 'skipped' ? (
-                                    <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" title={log.message || 'Skipped'} />
+                                    <span title={log.message || 'Skipped'}><XCircle className="h-4 w-4 text-red-500 flex-shrink-0" /></span>
                                 ) : (
                                     <XCircle className="h-4 w-4 text-slate-400 flex-shrink-0" />
                                 )}

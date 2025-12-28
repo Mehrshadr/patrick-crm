@@ -58,10 +58,16 @@ class Mehrana_App_Plugin
                         return is_array($param);
                     }
                 ]
-            ]
+            ],
+            'permission_callback' => [$this, 'check_permission'],
         ]);
 
-        // Health check
+        // Scan page for keywords (dry run)
+        register_rest_route($this->namespace, '/pages/(?P<id>\d+)/scan', [
+            'methods' => 'POST',
+            'callback' => [$this, 'scan_page'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
         register_rest_route($this->namespace, '/health', [
             'methods' => 'GET',
             'callback' => [$this, 'health_check'],
@@ -685,10 +691,60 @@ class Mehrana_App_Plugin
         return $content_keys;
     }
     /**
+     * Scan page for keywords without modifying
+     */
+    public function scan_page($request)
+    {
+        $page_id = $request['id'];
+        $params = $request->get_json_params();
+        $keywords = $params['keywords'] ?? []; // Array of {keyword: string}
+
+        if (empty($keywords)) {
+            return new WP_Error('no_keywords', 'No keywords provided', ['status' => 400]);
+        }
+
+        $page = get_post($page_id);
+        if (!$page) {
+            return new WP_Error('not_found', 'Page not found', ['status' => 404]);
+        }
+
+        $content = $page->post_content;
+        $results = [];
+
+        foreach ($keywords as $kw_data) {
+            $keyword = is_array($kw_data) ? $kw_data['keyword'] : $kw_data;
+
+            // Run dry run
+            $scan_result = $this->replace_keyword(
+                $content,
+                $keyword,
+                '', // target_url not needed
+                '', // anchor_id not needed
+                true, // only_first
+                true  // dry_run=true
+            );
+
+            if ($scan_result['count'] > 0) {
+                $results[] = [
+                    'keyword' => $keyword,
+                    'count' => $scan_result['count']
+                ];
+            }
+        }
+
+        return rest_ensure_response([
+            'success' => true,
+            'page_id' => $page_id,
+            'candidates' => $results
+        ]);
+    }
+
+    /**
      * Replace keyword with link in text using DOMDocument
      * Robustly handles HTML structure, excluding headings, existing links, etc.
+     * @param bool $dry_run If true, only counts potential replacements without modifying text
      */
-    private function replace_keyword($text, $keyword, $target_url, $anchor_id, $only_first)
+    private function replace_keyword($text, $keyword, $target_url, $anchor_id, $only_first, $dry_run = false)
     {
         $result = [
             'text' => $text,
@@ -708,10 +764,16 @@ class Mehrana_App_Plugin
             // Basic word boundary check for plain text
             $pattern = '/(?<![a-zA-Z\p{L}])(' . preg_quote($keyword, '/') . ')(?![a-zA-Z\p{L}])/iu';
             $count = 0;
-            $new_text = preg_replace_callback($pattern, function ($matches) use ($target_url, $anchor_id, $only_first, &$count) {
+            $new_text = preg_replace_callback($pattern, function ($matches) use ($target_url, $anchor_id, $only_first, &$count, $dry_run) {
                 if ($only_first && $count > 0)
                     return $matches[0];
+
                 $count++;
+
+                if ($dry_run) {
+                    return $matches[0];
+                }
+
                 return '<a href="' . esc_url($target_url) . '" id="' . esc_attr($anchor_id) . '" class="map-auto-link">' . $matches[1] . '</a>';
             }, $text);
 
@@ -792,13 +854,18 @@ class Mehrana_App_Plugin
                         if ($only_first && $count > 0) {
                             $frag->appendChild($dom->createTextNode($part));
                         } else {
-                            $link = $dom->createElement('a');
-                            $link->setAttribute('href', $target_url);
-                            $link->setAttribute('id', $anchor_id);
-                            $link->setAttribute('class', 'map-auto-link');
-                            $link->nodeValue = $part;
-                            $frag->appendChild($link);
-                            $count++;
+                            if ($dry_run) {
+                                $frag->appendChild($dom->createTextNode($part));
+                                $count++;
+                            } else {
+                                $link = $dom->createElement('a');
+                                $link->setAttribute('href', $target_url);
+                                $link->setAttribute('id', $anchor_id);
+                                $link->setAttribute('class', 'map-auto-link');
+                                $link->nodeValue = $part;
+                                $frag->appendChild($link);
+                                $count++;
+                            }
                         }
                     } else {
                         // Regular text

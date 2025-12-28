@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { Upload, Download, ImageIcon, Loader2, ArrowRight, RotateCcw } from "lucide-react"
+import { Upload, Download, ImageIcon, Loader2, RotateCcw, Check, X, DownloadCloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -12,65 +12,57 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { Progress } from "@/components/ui/progress"
 
-interface CompressionStats {
-    original: {
-        sizeKB: number
-        width: number
-        height: number
-        format: string
+interface ImageFile {
+    id: string
+    file: File
+    preview: string
+    status: 'pending' | 'compressing' | 'done' | 'error'
+    compressedImage?: string
+    stats?: {
+        original: { sizeKB: number; width: number; height: number }
+        compressed: { sizeKB: number; width: number; height: number }
+        savings: number
     }
-    compressed: {
-        sizeKB: number
-        width: number
-        height: number
-        format: string
-    }
-    savings: number
-    quality: number
+    error?: string
 }
 
 export function ImageCompressor() {
-    const [file, setFile] = useState<File | null>(null)
-    const [preview, setPreview] = useState<string | null>(null)
-    const [compressedImage, setCompressedImage] = useState<string | null>(null)
-    const [stats, setStats] = useState<CompressionStats | null>(null)
+    const [images, setImages] = useState<ImageFile[]>([])
     const [isCompressing, setIsCompressing] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
-    const [error, setError] = useState<string | null>(null)
 
     // Settings
     const [maxSizeKB, setMaxSizeKB] = useState(100)
     const [maxWidth, setMaxWidth] = useState(1200)
     const [format, setFormat] = useState("webp")
 
-    const handleFile = useCallback((f: File) => {
-        if (!f.type.startsWith("image/")) {
-            setError("Please select an image file")
-            return
-        }
+    const handleFiles = useCallback((files: FileList | File[]) => {
+        const newImages: ImageFile[] = []
 
-        setFile(f)
-        setError(null)
-        setCompressedImage(null)
-        setStats(null)
+        Array.from(files).forEach((file) => {
+            if (!file.type.startsWith("image/")) return
 
-        // Create preview
-        const reader = new FileReader()
-        reader.onload = (e) => {
-            setPreview(e.target?.result as string)
-        }
-        reader.readAsDataURL(f)
+            const reader = new FileReader()
+            reader.onload = (e) => {
+                const newImage: ImageFile = {
+                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    file,
+                    preview: e.target?.result as string,
+                    status: 'pending'
+                }
+                setImages(prev => [...prev, newImage])
+            }
+            reader.readAsDataURL(file)
+        })
     }, [])
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault()
         setIsDragging(false)
-        const droppedFile = e.dataTransfer.files[0]
-        if (droppedFile) {
-            handleFile(droppedFile)
-        }
-    }, [handleFile])
+        handleFiles(e.dataTransfer.files)
+    }, [handleFiles])
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault()
@@ -82,15 +74,10 @@ export function ImageCompressor() {
         setIsDragging(false)
     }, [])
 
-    const handleCompress = async () => {
-        if (!file) return
-
-        setIsCompressing(true)
-        setError(null)
-
+    const compressImage = async (image: ImageFile): Promise<ImageFile> => {
         try {
             const formData = new FormData()
-            formData.append("file", file)
+            formData.append("file", image.file)
             formData.append("maxSizeKB", maxSizeKB.toString())
             formData.append("maxWidth", maxWidth.toString())
             formData.append("format", format)
@@ -106,128 +93,156 @@ export function ImageCompressor() {
                 throw new Error(data.error || "Compression failed")
             }
 
-            setCompressedImage(data.image)
-            setStats(data.stats)
+            return {
+                ...image,
+                status: 'done',
+                compressedImage: data.image,
+                stats: data.stats
+            }
         } catch (err: any) {
-            setError(err.message)
-        } finally {
-            setIsCompressing(false)
+            return {
+                ...image,
+                status: 'error',
+                error: err.message
+            }
         }
     }
 
-    const handleDownload = () => {
-        if (!compressedImage) return
+    const handleCompressAll = async () => {
+        if (images.length === 0) return
+
+        setIsCompressing(true)
+
+        // Process images one by one
+        for (let i = 0; i < images.length; i++) {
+            const image = images[i]
+            if (image.status === 'done') continue
+
+            // Mark as compressing
+            setImages(prev => prev.map(img =>
+                img.id === image.id ? { ...img, status: 'compressing' } : img
+            ))
+
+            // Compress
+            const result = await compressImage(image)
+
+            // Update with result
+            setImages(prev => prev.map(img =>
+                img.id === image.id ? result : img
+            ))
+        }
+
+        setIsCompressing(false)
+    }
+
+    const handleDownload = (image: ImageFile) => {
+        if (!image.compressedImage) return
 
         const link = document.createElement("a")
-        link.href = compressedImage
+        link.href = image.compressedImage
         const ext = format === "jpeg" ? "jpg" : format
-        link.download = `compressed-${file?.name?.split('.')[0] || 'image'}.${ext}`
+        link.download = `compressed-${image.file.name.split('.')[0]}.${ext}`
         link.click()
     }
 
-    const handleReset = () => {
-        setFile(null)
-        setPreview(null)
-        setCompressedImage(null)
-        setStats(null)
-        setError(null)
+    const handleDownloadAll = () => {
+        images.filter(img => img.status === 'done').forEach(img => {
+            handleDownload(img)
+        })
     }
+
+    const handleRemove = (id: string) => {
+        setImages(prev => prev.filter(img => img.id !== id))
+    }
+
+    const handleReset = () => {
+        setImages([])
+    }
+
+    const completedCount = images.filter(img => img.status === 'done').length
+    const totalSavings = images
+        .filter(img => img.stats)
+        .reduce((acc, img) => acc + (img.stats!.original.sizeKB - img.stats!.compressed.sizeKB), 0)
 
     return (
         <div className="space-y-6">
             {/* Upload Area */}
-            {!file && (
-                <div
-                    className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 ${isDragging
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-slate-200 hover:border-slate-300 bg-slate-50"
-                        }`}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                >
-                    <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                    <p className="text-lg font-medium text-slate-700 mb-2">
-                        Drop your image here
-                    </p>
-                    <p className="text-sm text-slate-500 mb-4">
-                        or click to browse
-                    </p>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-                        className="hidden"
-                        id="file-upload"
-                    />
-                    <label htmlFor="file-upload">
-                        <Button variant="outline" asChild>
-                            <span>Select File</span>
-                        </Button>
-                    </label>
-                </div>
-            )}
+            <div
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${isDragging
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-200 hover:border-slate-300 bg-slate-50"
+                    }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+            >
+                <Upload className="h-10 w-10 mx-auto text-slate-400 mb-3" />
+                <p className="text-lg font-medium text-slate-700 mb-1">
+                    Drop images here
+                </p>
+                <p className="text-sm text-slate-500 mb-3">
+                    or click to browse (multiple files supported)
+                </p>
+                <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => e.target.files && handleFiles(e.target.files)}
+                    className="hidden"
+                    id="file-upload"
+                />
+                <label htmlFor="file-upload">
+                    <Button variant="outline" asChild>
+                        <span>Select Files</span>
+                    </Button>
+                </label>
+            </div>
 
-            {/* Settings + Preview */}
-            {file && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Settings Panel */}
-                    <div className="bg-white border rounded-xl p-6 space-y-6">
-                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                            <ImageIcon className="h-5 w-5" />
-                            Compression Settings
-                        </h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="maxSize">Max File Size (KB)</Label>
-                                <Input
-                                    id="maxSize"
-                                    type="number"
-                                    value={maxSizeKB}
-                                    onChange={(e) => setMaxSizeKB(parseInt(e.target.value) || 100)}
-                                    min={10}
-                                    max={5000}
-                                    className="mt-1"
-                                />
-                                <p className="text-xs text-slate-500 mt-1">
-                                    Output file will be smaller than this size
-                                </p>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="maxWidth">Max Width (px)</Label>
-                                <Input
-                                    id="maxWidth"
-                                    type="number"
-                                    value={maxWidth}
-                                    onChange={(e) => setMaxWidth(parseInt(e.target.value) || 1200)}
-                                    min={100}
-                                    max={4000}
-                                    className="mt-1"
-                                />
-                            </div>
-
-                            <div>
-                                <Label>Output Format</Label>
-                                <Select value={format} onValueChange={setFormat}>
-                                    <SelectTrigger className="mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="webp">WebP (Recommended)</SelectItem>
-                                        <SelectItem value="jpeg">JPEG</SelectItem>
-                                        <SelectItem value="png">PNG</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+            {/* Settings Bar */}
+            {images.length > 0 && (
+                <div className="bg-white border rounded-xl p-4">
+                    <div className="flex flex-wrap items-end gap-4">
+                        <div className="flex-1 min-w-[150px]">
+                            <Label htmlFor="maxSize" className="text-xs">Max Size (KB)</Label>
+                            <Input
+                                id="maxSize"
+                                type="number"
+                                value={maxSizeKB}
+                                onChange={(e) => setMaxSizeKB(parseInt(e.target.value) || 100)}
+                                min={10}
+                                max={5000}
+                                className="mt-1 h-9"
+                            />
                         </div>
-
+                        <div className="flex-1 min-w-[150px]">
+                            <Label htmlFor="maxWidth" className="text-xs">Max Width (px)</Label>
+                            <Input
+                                id="maxWidth"
+                                type="number"
+                                value={maxWidth}
+                                onChange={(e) => setMaxWidth(parseInt(e.target.value) || 1200)}
+                                min={100}
+                                max={4000}
+                                className="mt-1 h-9"
+                            />
+                        </div>
+                        <div className="flex-1 min-w-[150px]">
+                            <Label className="text-xs">Format</Label>
+                            <Select value={format} onValueChange={setFormat}>
+                                <SelectTrigger className="mt-1 h-9">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="webp">WebP</SelectItem>
+                                    <SelectItem value="jpeg">JPEG</SelectItem>
+                                    <SelectItem value="png">PNG</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="flex gap-2">
                             <Button
-                                onClick={handleCompress}
-                                disabled={isCompressing}
-                                className="flex-1"
+                                onClick={handleCompressAll}
+                                disabled={isCompressing || images.every(img => img.status === 'done')}
                             >
                                 {isCompressing ? (
                                     <>
@@ -235,99 +250,119 @@ export function ImageCompressor() {
                                         Compressing...
                                     </>
                                 ) : (
-                                    "⚡ Compress"
+                                    <>⚡ Compress All</>
                                 )}
                             </Button>
                             <Button variant="outline" onClick={handleReset}>
                                 <RotateCcw className="h-4 w-4" />
                             </Button>
                         </div>
+                    </div>
+                </div>
+            )}
 
-                        {error && (
-                            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
-                                {error}
-                            </div>
+            {/* Progress Summary */}
+            {images.length > 0 && completedCount > 0 && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm text-green-700">Completed</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                {completedCount} / {images.length}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm text-green-700">Total Saved</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                {Math.round(totalSavings)} KB
+                            </p>
+                        </div>
+                        {completedCount > 0 && (
+                            <Button onClick={handleDownloadAll} variant="outline" className="border-green-300">
+                                <DownloadCloud className="h-4 w-4 mr-2" />
+                                Download All
+                            </Button>
                         )}
                     </div>
+                </div>
+            )}
 
-                    {/* Preview Panel */}
-                    <div className="bg-white border rounded-xl p-6 space-y-4">
-                        <h3 className="font-semibold text-lg">Preview</h3>
+            {/* Image Grid */}
+            {images.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {images.map((image) => (
+                        <div
+                            key={image.id}
+                            className="bg-white border rounded-xl overflow-hidden group relative"
+                        >
+                            {/* Preview Image */}
+                            <div className="aspect-square bg-slate-100 relative">
+                                <img
+                                    src={image.compressedImage || image.preview}
+                                    alt={image.file.name}
+                                    className="w-full h-full object-cover"
+                                />
 
-                        {/* Before/After */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-sm text-slate-500 mb-2">Before</p>
-                                <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden">
-                                    {preview && (
-                                        <img
-                                            src={preview}
-                                            alt="Original"
-                                            className="w-full h-full object-contain"
-                                        />
-                                    )}
-                                </div>
-                                {stats && (
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        {stats.original.width}×{stats.original.height} • {stats.original.sizeKB}KB
-                                    </p>
+                                {/* Status Overlay */}
+                                {image.status === 'compressing' && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                        <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                    </div>
+                                )}
+
+                                {/* Remove Button */}
+                                <button
+                                    onClick={() => handleRemove(image.id)}
+                                    className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+
+                                {/* Done Badge */}
+                                {image.status === 'done' && (
+                                    <div className="absolute top-2 left-2 bg-green-500 text-white rounded-full p-1">
+                                        <Check className="h-4 w-4" />
+                                    </div>
                                 )}
                             </div>
 
-                            <div>
-                                <p className="text-sm text-slate-500 mb-2">After</p>
-                                <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden relative">
-                                    {compressedImage ? (
-                                        <img
-                                            src={compressedImage}
-                                            alt="Compressed"
-                                            className="w-full h-full object-contain"
-                                        />
-                                    ) : (
-                                        <div className="absolute inset-0 flex items-center justify-center text-slate-400">
-                                            <ArrowRight className="h-8 w-8" />
-                                        </div>
-                                    )}
-                                </div>
-                                {stats && (
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        {stats.compressed.width}×{stats.compressed.height} • {stats.compressed.sizeKB}KB
+                            {/* Info */}
+                            <div className="p-3">
+                                <p className="text-xs font-medium truncate" title={image.file.name}>
+                                    {image.file.name}
+                                </p>
+
+                                {image.stats ? (
+                                    <div className="mt-1 flex items-center justify-between text-xs">
+                                        <span className="text-slate-500">
+                                            {image.stats.original.sizeKB}KB → {image.stats.compressed.sizeKB}KB
+                                        </span>
+                                        <span className="text-green-600 font-medium">
+                                            -{image.stats.savings}%
+                                        </span>
+                                    </div>
+                                ) : image.status === 'error' ? (
+                                    <p className="text-xs text-red-500 mt-1">{image.error}</p>
+                                ) : (
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        {Math.round(image.file.size / 1024)} KB
                                     </p>
+                                )}
+
+                                {image.status === 'done' && (
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="w-full mt-2 h-7 text-xs"
+                                        onClick={() => handleDownload(image)}
+                                    >
+                                        <Download className="h-3 w-3 mr-1" />
+                                        Download
+                                    </Button>
                                 )}
                             </div>
                         </div>
-
-                        {/* Stats */}
-                        {stats && (
-                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-green-700">Saved</p>
-                                        <p className="text-3xl font-bold text-green-600">
-                                            {stats.savings}%
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-sm text-slate-600">
-                                            {stats.original.sizeKB}KB → {stats.compressed.sizeKB}KB
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                            Quality: {stats.quality}%
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <Button
-                                    onClick={handleDownload}
-                                    className="w-full mt-4"
-                                    variant="outline"
-                                >
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download {format.toUpperCase()}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
+                    ))}
                 </div>
             )}
         </div>

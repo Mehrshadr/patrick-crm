@@ -29,7 +29,7 @@ export default async function ImageFactoryPage({ params }: PageProps) {
                     Image Factory
                 </h1>
                 <p className="text-slate-500 mt-1">
-                    بهینه‌سازی و مدیریت تصاویر برای {project.name}
+                    Optimize and manage images for {project.name}
                 </p>
             </div>
 
@@ -37,12 +37,12 @@ export default async function ImageFactoryPage({ params }: PageProps) {
                 <TabsList>
                     <TabsTrigger value="compress" className="gap-2">
                         <ImageIcon className="h-4 w-4" />
-                        کامپرس دستی
+                        Manual Compress
                     </TabsTrigger>
                     <TabsTrigger value="scan" className="gap-2" disabled>
                         <ScanSearch className="h-4 w-4" />
-                        اسکن پروژه
-                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">به زودی</span>
+                        Scan Project
+                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">Soon</span>
                     </TabsTrigger>
                 </TabsList>
 
@@ -52,7 +52,7 @@ export default async function ImageFactoryPage({ params }: PageProps) {
 
                 <TabsContent value="scan">
                     <div className="text-center py-12 text-slate-500">
-                        این قابلیت در فاز بعدی اضافه خواهد شد
+                        This feature will be added in the next phase
                     </div>
                 </TabsContent>
             </Tabs>

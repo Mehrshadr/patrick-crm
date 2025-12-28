@@ -46,7 +46,7 @@ export function ImageCompressor() {
 
     const handleFile = useCallback((f: File) => {
         if (!f.type.startsWith("image/")) {
-            setError("لطفاً یک فایل تصویری انتخاب کنید")
+            setError("Please select an image file")
             return
         }
 
@@ -148,10 +148,10 @@ export function ImageCompressor() {
                 >
                     <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
                     <p className="text-lg font-medium text-slate-700 mb-2">
-                        عکس رو اینجا بنداز
+                        Drop your image here
                     </p>
                     <p className="text-sm text-slate-500 mb-4">
-                        یا کلیک کن انتخاب کن
+                        or click to browse
                     </p>
                     <input
                         type="file"
@@ -162,7 +162,7 @@ export function ImageCompressor() {
                     />
                     <label htmlFor="file-upload">
                         <Button variant="outline" asChild>
-                            <span>انتخاب فایل</span>
+                            <span>Select File</span>
                         </Button>
                     </label>
                 </div>
@@ -175,12 +175,12 @@ export function ImageCompressor() {
                     <div className="bg-white border rounded-xl p-6 space-y-6">
                         <h3 className="font-semibold text-lg flex items-center gap-2">
                             <ImageIcon className="h-5 w-5" />
-                            تنظیمات کامپرس
+                            Compression Settings
                         </h3>
 
                         <div className="space-y-4">
                             <div>
-                                <Label htmlFor="maxSize">حداکثر حجم (KB)</Label>
+                                <Label htmlFor="maxSize">Max File Size (KB)</Label>
                                 <Input
                                     id="maxSize"
                                     type="number"
@@ -191,12 +191,12 @@ export function ImageCompressor() {
                                     className="mt-1"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">
-                                    حجم نهایی عکس از این مقدار کمتر خواهد بود
+                                    Output file will be smaller than this size
                                 </p>
                             </div>
 
                             <div>
-                                <Label htmlFor="maxWidth">حداکثر عرض (px)</Label>
+                                <Label htmlFor="maxWidth">Max Width (px)</Label>
                                 <Input
                                     id="maxWidth"
                                     type="number"
@@ -209,13 +209,13 @@ export function ImageCompressor() {
                             </div>
 
                             <div>
-                                <Label>فرمت خروجی</Label>
+                                <Label>Output Format</Label>
                                 <Select value={format} onValueChange={setFormat}>
                                     <SelectTrigger className="mt-1">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="webp">WebP (پیشنهادی)</SelectItem>
+                                        <SelectItem value="webp">WebP (Recommended)</SelectItem>
                                         <SelectItem value="jpeg">JPEG</SelectItem>
                                         <SelectItem value="png">PNG</SelectItem>
                                     </SelectContent>
@@ -232,10 +232,10 @@ export function ImageCompressor() {
                                 {isCompressing ? (
                                     <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        در حال کامپرس...
+                                        Compressing...
                                     </>
                                 ) : (
-                                    "⚡ کامپرس"
+                                    "⚡ Compress"
                                 )}
                             </Button>
                             <Button variant="outline" onClick={handleReset}>
@@ -252,12 +252,12 @@ export function ImageCompressor() {
 
                     {/* Preview Panel */}
                     <div className="bg-white border rounded-xl p-6 space-y-4">
-                        <h3 className="font-semibold text-lg">پیش‌نمایش</h3>
+                        <h3 className="font-semibold text-lg">Preview</h3>
 
                         {/* Before/After */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-sm text-slate-500 mb-2">قبل</p>
+                                <p className="text-sm text-slate-500 mb-2">Before</p>
                                 <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden">
                                     {preview && (
                                         <img
@@ -275,7 +275,7 @@ export function ImageCompressor() {
                             </div>
 
                             <div>
-                                <p className="text-sm text-slate-500 mb-2">بعد</p>
+                                <p className="text-sm text-slate-500 mb-2">After</p>
                                 <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden relative">
                                     {compressedImage ? (
                                         <img
@@ -302,7 +302,7 @@ export function ImageCompressor() {
                             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm text-green-700">صرفه‌جویی</p>
+                                        <p className="text-sm text-green-700">Saved</p>
                                         <p className="text-3xl font-bold text-green-600">
                                             {stats.savings}%
                                         </p>
@@ -312,7 +312,7 @@ export function ImageCompressor() {
                                             {stats.original.sizeKB}KB → {stats.compressed.sizeKB}KB
                                         </p>
                                         <p className="text-xs text-slate-500">
-                                            کیفیت: {stats.quality}%
+                                            Quality: {stats.quality}%
                                         </p>
                                     </div>
                                 </div>
@@ -323,7 +323,7 @@ export function ImageCompressor() {
                                     variant="outline"
                                 >
                                     <Download className="h-4 w-4 mr-2" />
-                                    دانلود {format.toUpperCase()}
+                                    Download {format.toUpperCase()}
                                 </Button>
                             </div>
                         )}

@@ -735,7 +735,11 @@ class Mehrana_App_Plugin
         return rest_ensure_response([
             'success' => true,
             'page_id' => $page_id,
-            'candidates' => $results
+            'candidates' => $results,
+            'debug' => [
+                'content_length' => strlen($content),
+                'keywords_checked' => count($keywords)
+            ]
         ]);
     }
 
@@ -801,13 +805,23 @@ class Mehrana_App_Plugin
         // Forbidden parent tags (plus Gutenberg block comments are comments, so query('//text()') skips them automatically)
         $forbidden_tags = ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'script', 'style', 'textarea', 'pre', 'code', 'button', 'select', 'option'];
 
+        $debug_stats = [
+            'nodes_visited' => 0,
+            'nodes_with_keyword' => 0,
+            'skipped_nodes' => [],
+            'regex_matches' => 0
+        ];
+
         foreach ($text_nodes as $node) {
+            $debug_stats['nodes_visited']++;
             if ($only_first && $count > 0)
                 break;
 
             $content = $node->nodeValue;
             if (mb_stripos($content, $keyword, 0, 'UTF-8') === false)
                 continue;
+
+            $debug_stats['nodes_with_keyword']++;
 
             // Check ancestry for forbidden tags
             $parent = $node->parentNode;
@@ -821,6 +835,7 @@ class Mehrana_App_Plugin
                         'location' => $parent->nodeName,
                         'sample' => substr($content, 0, 60)
                     ];
+                    $debug_stats['skipped_nodes'][] = "Skipped in {$parent->nodeName}";
                     break;
                 }
                 $parent = $parent->parentNode;

@@ -43,13 +43,20 @@ export async function POST(request: NextRequest) {
 
         // === ACTION: INIT (Get Pages) ===
         if (action === 'init') {
-            const pagesRes = await fetch(`${pluginBase}/pages`, {
+            const scanUrl = `${pluginBase}/pages`
+            console.log('[Scan] Fetching pages from:', scanUrl)
+
+            const pagesRes = await fetch(scanUrl, {
                 headers: authHeaders
             })
 
             if (!pagesRes.ok) {
-                console.error('[LinkBuilding:Scan] Failed to fetch pages:', await pagesRes.text())
-                return NextResponse.json({ error: 'Failed to fetch pages from WordPress' }, { status: 500 })
+                const errText = await pagesRes.text()
+                console.error('[LinkBuilding:Scan] Failed to fetch pages:', errText)
+                return NextResponse.json({
+                    error: `WP Error (${pagesRes.status}): ${errText.substring(0, 200)}`,
+                    details: { url: scanUrl, status: pagesRes.status }
+                }, { status: 500 })
             }
 
             const pages = await pagesRes.json()

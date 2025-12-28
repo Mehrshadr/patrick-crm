@@ -684,10 +684,9 @@ class Mehrana_App_Plugin
 
         return $content_keys;
     }
-
     /**
-     * Replace keyword with link in text
-     * Returns: text, count (linked), skipped (array of skip reasons)
+     * Replace keyword with link in text using DOMDocument
+     * Robustly handles HTML structure, excluding headings, existing links, etc.
      */
     private function replace_keyword($text, $keyword, $target_url, $anchor_id, $only_first)
     {
@@ -701,126 +700,132 @@ class Mehrana_App_Plugin
             return $result;
         }
 
-        // Extract and preserve Gutenberg block comments (<!-- wp:xxx {...} -->)
-        // These contain JSON metadata that should not be modified
-        $block_placeholders = [];
-        $block_index = 0;
+        // Check if text has any HTML tags
+        $has_html = $text !== strip_tags($text);
 
-        // Pattern to match Gutenberg block comments with JSON
-        $gutenberg_pattern = '/<!--\s*wp:[a-z\-\/]+\s*(\{[^}]*\})?\s*-->/is';
-        $text = preg_replace_callback($gutenberg_pattern, function ($match) use (&$block_placeholders, &$block_index, $keyword, &$result) {
-            $placeholder = "___GUTENBERG_BLOCK_{$block_index}___";
-            $block_placeholders[$placeholder] = $match[0];
-            $block_index++;
+        // If simple text (no HTML), use simple replacement but safer
+        if (!$has_html) {
+            // Basic word boundary check for plain text
+            $pattern = '/(?<![a-zA-Z\p{L}])(' . preg_quote($keyword, '/') . ')(?![a-zA-Z\p{L}])/iu';
+            $count = 0;
+            $new_text = preg_replace_callback($pattern, function ($matches) use ($target_url, $anchor_id, $only_first, &$count) {
+                if ($only_first && $count > 0)
+                    return $matches[0];
+                $count++;
+                return '<a href="' . esc_url($target_url) . '" id="' . esc_attr($anchor_id) . '" class="map-auto-link">' . $matches[1] . '</a>';
+            }, $text);
 
-            // Check if keyword was in this block (for skipped reporting)
-            if (stripos($match[0], $keyword) !== false) {
-                $result['skipped'][] = [
-                    'reason' => 'in_metadata',
-                    'location' => 'gutenberg_block',
-                    'sample' => substr($match[0], 0, 60)
-                ];
-            }
-
-            return $placeholder;
-        }, $text);
-
-        // Also check if entire text is pure JSON/metadata (API responses, etc)
-        if (preg_match('/^\s*[\[{]/', $text) && preg_match('/[\]}]\s*$/', $text)) {
-            // Looks like pure JSON, skip entirely
-            if (stripos($text, $keyword) !== false) {
-                $result['skipped'][] = [
-                    'reason' => 'in_metadata',
-                    'location' => 'json_content',
-                    'sample' => substr($text, max(0, stripos($text, $keyword) - 20), 60)
-                ];
-            }
-            // Restore placeholders before returning
-            foreach ($block_placeholders as $placeholder => $original) {
-                $text = str_replace($placeholder, $original, $text);
-            }
-            $result['text'] = $text;
+            $result['text'] = $new_text;
+            $result['count'] = $count;
             return $result;
         }
 
-        // Escape keyword for regex
-        $escaped_kw = preg_quote($keyword, '/');
+        // Use DOMDocument for HTML
+        // Suppress warnings for malformed HTML (common in partial content)
+        $dom = new DOMDocument();
+        $enc_text = mb_convert_encoding($text, 'HTML-ENTITIES', 'UTF-8');
+        // Wrap in a root element to handle partials correctly
+        @$dom->loadHTML('<div>' . $enc_text . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
-        // Check for partial matches BEFORE word boundary pattern
-        // This detects cases like "Bedroom" inside "Bedrooms"
-        if (preg_match('/[a-zA-Z\p{L}]' . $escaped_kw . '|' . $escaped_kw . '[a-zA-Z\p{L}]/iu', $text, $partial_match)) {
-            $result['skipped'][] = [
-                'reason' => 'partial_match',
-                'sample' => $partial_match[0]
-            ];
-        }
+        $xpath = new DOMXPath($dom);
 
-        // WORD BOUNDARY pattern - only match whole words
-        $pattern = '/(?<![a-zA-Z\p{L}])(' . $escaped_kw . ')(?![a-zA-Z\p{L}])/iu';
+        // Find all text nodes
+        $text_nodes = $xpath->query('//text()');
 
         $count = 0;
-        $current_text = $text;
-        $already_linked_count = 0;
+        $processed_keyword = mb_strtolower($keyword, 'UTF-8');
+        $skipped_nodes = [];
 
-        $new_text = preg_replace_callback($pattern, function ($matches) use ($target_url, $anchor_id, $only_first, &$count, &$current_text, &$already_linked_count) {
-            $match_pos = stripos($current_text, $matches[0]);
+        // Forbidden parent tags (plus Gutenberg block comments are comments, so query('//text()') skips them automatically)
+        $forbidden_tags = ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'script', 'style', 'textarea', 'pre', 'code', 'button', 'select', 'option'];
 
-            if ($match_pos === false) {
-                return $matches[0];
+        foreach ($text_nodes as $node) {
+            if ($only_first && $count > 0)
+                break;
+
+            $content = $node->nodeValue;
+            if (mb_stripos($content, $keyword, 0, 'UTF-8') === false)
+                continue;
+
+            // Check ancestry for forbidden tags
+            $parent = $node->parentNode;
+            $is_forbidden = false;
+            while ($parent && $parent->nodeName !== 'div') { // 'div' is our wrapper
+                if (in_array(strtolower($parent->nodeName), $forbidden_tags)) {
+                    $is_forbidden = true;
+                    // Log skip reason if keyword found inside forbidden tag
+                    $result['skipped'][] = [
+                        'reason' => 'in_metadata', // Using 'in_metadata' as generic 'invalid location' for UI
+                        'location' => $parent->nodeName,
+                        'sample' => substr($content, 0, 60)
+                    ];
+                    break;
+                }
+                $parent = $parent->parentNode;
             }
+            if ($is_forbidden)
+                continue;
 
-            $before = substr($current_text, 0, $match_pos);
+            // Safe to link here
+            // We need to split the text node and insert an element
 
-            // Check if inside anchor tag
-            $open_a_count = preg_match_all('/<a\s/i', $before);
-            $close_a_count = preg_match_all('/<\/a>/i', $before);
+            // Regex for case-insensitive match with word boundaries
+            // Note: DOM text content doesn't have HTML tags, so safe to regex
+            $pattern = '/(?<![a-zA-Z\p{L}])(' . preg_quote($keyword, '/') . ')(?![a-zA-Z\p{L}])/iu';
 
-            if ($open_a_count > $close_a_count) {
-                $already_linked_count++;
-                return $matches[0];
+            if (preg_match($pattern, $content, $matches, PREG_OFFSET_CAPTURE)) {
+                // Determine offset in bytes/chars carefully? 
+                // preg_match returns byte offset. PHP strings are byte arrays. DOM nodeValue is UTF-8 string.
+                // It's safer to use splitText but that requires index.
+                // Alternative: replace the text node with a document fragment containing the link
+
+                $frag = $dom->createDocumentFragment();
+
+                // Split content by keyword
+                // Use preg_split to capture the keyword with delimiter to keep it
+                $parts = preg_split($pattern, $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+                foreach ($parts as $part) {
+                    if (mb_strtolower($part, 'UTF-8') === $processed_keyword) {
+                        // This is the keyword (or matches it insensitive)
+                        // Create link
+                        if ($only_first && $count > 0) {
+                            $frag->appendChild($dom->createTextNode($part));
+                        } else {
+                            $link = $dom->createElement('a');
+                            $link->setAttribute('href', $target_url);
+                            $link->setAttribute('id', $anchor_id);
+                            $link->setAttribute('class', 'map-auto-link');
+                            $link->nodeValue = $part;
+                            $frag->appendChild($link);
+                            $count++;
+                        }
+                    } else {
+                        // Regular text
+                        $frag->appendChild($dom->createTextNode($part));
+                    }
+                }
+
+                $node->parentNode->replaceChild($frag, $node);
             }
-
-            if ($only_first && $count > 0) {
-                return $matches[0];
-            }
-
-            $count++;
-            $replacement = '<a href="' . esc_url($target_url) . '" id="' . esc_attr($anchor_id) . '" class="map-auto-link">' . $matches[1] . '</a>';
-            $current_text = substr_replace($current_text, $replacement, $match_pos, strlen($matches[0]));
-
-            return $replacement;
-        }, $text);
-
-        if ($already_linked_count > 0) {
-            $result['skipped'][] = [
-                'reason' => 'already_linked',
-                'count' => $already_linked_count
-            ];
         }
 
-        if ($new_text === null) {
-            error_log('[MAP] Regex error for keyword: ' . $keyword);
-            // Restore placeholders before returning
-            foreach ($block_placeholders as $placeholder => $original) {
-                $text = str_replace($placeholder, $original, $text);
-            }
-            $result['text'] = $text;
-            return $result;
+        // Save back to HTML
+        // Remove the wrapper <div>
+        $body = $dom->getElementsByTagName('div')->item(0);
+        $new_html = '';
+        foreach ($body->childNodes as $child) {
+            $new_html .= $dom->saveHTML($child);
         }
 
-        // Restore Gutenberg block placeholders
-        foreach ($block_placeholders as $placeholder => $original) {
-            $new_text = str_replace($placeholder, $original, $new_text);
-        }
-
-        $result['text'] = $new_text;
+        $result['text'] = $new_html;
         $result['count'] = $count;
+        // Skipped array is populated during loop
+
         return $result;
     }
 
     /**
-     * Health check endpoint
-     */
     public function health_check($request)
     {
         return rest_ensure_response([

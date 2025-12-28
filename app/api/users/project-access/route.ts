@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth'
 import { requireAdmin } from '@/lib/permissions'
 
 // Available app types
-export const APP_TYPES = ['LINK_INDEXING', 'CONTENT_FACTORY', 'DASHBOARD'] as const
+export const APP_TYPES = ['LINK_INDEXING', 'CONTENT_FACTORY', 'IMAGE_FACTORY', 'DASHBOARD'] as const
 
 interface ProjectWithApps {
     projectId: number

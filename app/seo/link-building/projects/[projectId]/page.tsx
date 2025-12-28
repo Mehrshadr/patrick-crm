@@ -91,6 +91,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     const [cmsAppPassword, setCmsAppPassword] = useState('')
     const [cmsApiKey, setCmsApiKey] = useState('')
     const [savingSettings, setSavingSettings] = useState(false)
+    const [running, setRunning] = useState(false)
     const [runResult, setRunResult] = useState<{ linked: number; processed: number } | null>(null)
     const [selectedKeywords, setSelectedKeywords] = useState<number[]>([])
 

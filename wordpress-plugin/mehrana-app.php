@@ -298,25 +298,17 @@ class Mehrana_App_Plugin
     }
 
     /**
-     * Get all pages with Elementor data
+     * Get all content (pages, posts, landing pages, products, etc)
      */
     public function get_pages($request)
     {
+        // Get all public post types
+        $post_types = get_post_types(['public' => true], 'names');
+
         $args = [
-            'post_type' => ['page', 'post'],  // Include both pages and blog posts
+            'post_type' => array_values($post_types),  // All public post types
             'posts_per_page' => 500,
             'post_status' => 'publish',
-            'meta_query' => [
-                'relation' => 'OR',
-                [
-                    'key' => '_elementor_data',
-                    'compare' => 'EXISTS'
-                ],
-                [
-                    'key' => '_elementor_data',
-                    'compare' => 'NOT EXISTS'  // Also include standard posts
-                ]
-            ]
         ];
 
         $pages = get_posts($args);
@@ -355,10 +347,10 @@ class Mehrana_App_Plugin
         $page_id = intval($request['id']);
         $keywords = $request['keywords'];
 
-        // Validate page exists (both page and post types)
+        // Validate page exists (any public post type)
         $page = get_post($page_id);
-        if (!$page || !in_array($page->post_type, ['page', 'post'])) {
-            return new WP_Error('invalid_page', 'Page not found', ['status' => 404]);
+        if (!$page || $page->post_status !== 'publish') {
+            return new WP_Error('invalid_page', 'Content not found', ['status' => 404]);
         }
 
         // Get Elementor data

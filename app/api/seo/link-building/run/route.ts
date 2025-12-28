@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
         const results = {
             processed: 0,
             linked: 0,
-            errors: 0
+            errors: 0,
+            skipped: 0
         }
 
         // Process each page
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
                                     message: `Skipped: ${skip.reason}${skip.sample ? ` - "${skip.sample}"` : ''}`
                                 }
                             })
-                            results.skipped = (results.skipped || 0) + 1
+                            results.skipped++
                         }
                     }
                 }

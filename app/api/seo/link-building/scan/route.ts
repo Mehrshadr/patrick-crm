@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
         const { action, projectId, pageId, keywordIds } = body
 
         if (!projectId) {
+            console.error('[Scan] Missing projectId in body:', body)
             return NextResponse.json({ error: 'projectId required' }, { status: 400 })
         }
 
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
         // === ACTION: SCAN PAGE ===
         if (action === 'scan_page') {
             if (!pageId) {
+                console.error('[Scan] Missing pageId for scan_page:', body)
                 return NextResponse.json({ error: 'pageId required for scan_page' }, { status: 400 })
             }
 

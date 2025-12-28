@@ -303,13 +303,18 @@ class Mehrana_App_Plugin
     public function get_pages($request)
     {
         $args = [
-            'post_type' => 'page',
-            'posts_per_page' => 100,
+            'post_type' => ['page', 'post'],  // Include both pages and blog posts
+            'posts_per_page' => 500,
             'post_status' => 'publish',
             'meta_query' => [
+                'relation' => 'OR',
                 [
                     'key' => '_elementor_data',
                     'compare' => 'EXISTS'
+                ],
+                [
+                    'key' => '_elementor_data',
+                    'compare' => 'NOT EXISTS'  // Also include standard posts
                 ]
             ]
         ];
@@ -319,15 +324,25 @@ class Mehrana_App_Plugin
 
         foreach ($pages as $page) {
             $elementor_data = get_post_meta($page->ID, '_elementor_data', true);
+
+            // Determine page type
+            $type = 'page';
+            if ($page->post_type === 'post') {
+                $type = 'blog';
+            }
+
             $result[] = [
                 'id' => $page->ID,
                 'title' => $page->post_title,
                 'url' => get_permalink($page->ID),
-                'elementor_data' => $elementor_data
+                'type' => $type,
+                'has_elementor' => !empty($elementor_data),
+                'elementor_data' => $elementor_data,
+                'post_content' => $page->post_content
             ];
         }
 
-        $this->log('Fetched ' . count($result) . ' pages');
+        $this->log('Fetched ' . count($result) . ' pages/posts');
 
         return rest_ensure_response($result);
     }
@@ -340,9 +355,9 @@ class Mehrana_App_Plugin
         $page_id = intval($request['id']);
         $keywords = $request['keywords'];
 
-        // Validate page exists
+        // Validate page exists (both page and post types)
         $page = get_post($page_id);
-        if (!$page || $page->post_type !== 'page') {
+        if (!$page || !in_array($page->post_type, ['page', 'post'])) {
             return new WP_Error('invalid_page', 'Page not found', ['status' => 404]);
         }
 

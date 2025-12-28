@@ -60,8 +60,10 @@ export async function POST(request: NextRequest) {
                 }, { status: 500 })
             }
 
-            const pages = await pagesRes.json()
-            return NextResponse.json({ success: true, pages })
+            const pagesData = await pagesRes.json()
+            // Plugin now returns { pages: [...], debug: {...} }
+            const pages = pagesData.pages || pagesData // Fallback for old format
+            return NextResponse.json({ success: true, pages, debug: pagesData.debug })
         }
 
         // === ACTION: SCAN PAGE ===

@@ -39,6 +39,7 @@ import {
     Activity,
     Sparkles,
     Anchor,
+    ImageIcon,
 } from "lucide-react"
 import { useUserAccess } from "@/lib/user-access"
 
@@ -193,6 +194,16 @@ export function AppSidebar() {
                                                             >
                                                                 <Sparkles className="h-3 w-3" />
                                                                 Content Factory
+                                                            </Link>
+                                                            <Link
+                                                                href={`/seo/image-factory/projects/${project.id}`}
+                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/image-factory/projects/${project.id}`
+                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                    : 'text-slate-600 hover:bg-slate-50'
+                                                                    }`}
+                                                            >
+                                                                <ImageIcon className="h-3 w-3" />
+                                                                Image Factory
                                                             </Link>
                                                         </div>
                                                     </CollapsibleContent>

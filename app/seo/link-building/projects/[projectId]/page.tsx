@@ -509,7 +509,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                         {/* API Key - Recommended */}
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                             <Label className="text-xs font-medium text-green-800">🔑 API Key (Recommended)</Label>
-                            <p className="text-xs text-green-600 mb-2">Get this from WordPress → Settings → Patrick Link Builder. No Application Password needed!</p>
+                            <p className="text-xs text-green-600 mb-2">Get this from WordPress → Settings → Mehrana App Plugin. No Application Password needed!</p>
                             <Input
                                 value={cmsApiKey}
                                 onChange={e => setCmsApiKey(e.target.value)}

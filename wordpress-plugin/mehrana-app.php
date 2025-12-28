@@ -701,20 +701,45 @@ class Mehrana_App_Plugin
             return $result;
         }
 
-        // Skip JSON-like content (Gutenberg block metadata, Rank Math TOC, etc.)
-        if (
-            preg_match('/^\s*\{.*"key"\s*:/s', $text) ||
-            preg_match('/wp:[a-z\-]+\/[a-z\-]+/', $text) ||
-            preg_match('/^\s*\[?\s*\{/', $text)
-        ) {
-            // Check if keyword exists in this metadata
-            if (stripos($text, $keyword) !== false) {
+        // Extract and preserve Gutenberg block comments (<!-- wp:xxx {...} -->)
+        // These contain JSON metadata that should not be modified
+        $block_placeholders = [];
+        $block_index = 0;
+
+        // Pattern to match Gutenberg block comments with JSON
+        $gutenberg_pattern = '/<!--\s*wp:[a-z\-\/]+\s*(\{[^}]*\})?\s*-->/is';
+        $text = preg_replace_callback($gutenberg_pattern, function ($match) use (&$block_placeholders, &$block_index, $keyword, &$result) {
+            $placeholder = "___GUTENBERG_BLOCK_{$block_index}___";
+            $block_placeholders[$placeholder] = $match[0];
+            $block_index++;
+
+            // Check if keyword was in this block (for skipped reporting)
+            if (stripos($match[0], $keyword) !== false) {
                 $result['skipped'][] = [
                     'reason' => 'in_metadata',
                     'location' => 'gutenberg_block',
+                    'sample' => substr($match[0], 0, 60)
+                ];
+            }
+
+            return $placeholder;
+        }, $text);
+
+        // Also check if entire text is pure JSON/metadata (API responses, etc)
+        if (preg_match('/^\s*[\[{]/', $text) && preg_match('/[\]}]\s*$/', $text)) {
+            // Looks like pure JSON, skip entirely
+            if (stripos($text, $keyword) !== false) {
+                $result['skipped'][] = [
+                    'reason' => 'in_metadata',
+                    'location' => 'json_content',
                     'sample' => substr($text, max(0, stripos($text, $keyword) - 20), 60)
                 ];
             }
+            // Restore placeholders before returning
+            foreach ($block_placeholders as $placeholder => $original) {
+                $text = str_replace($placeholder, $original, $text);
+            }
+            $result['text'] = $text;
             return $result;
         }
 
@@ -775,7 +800,17 @@ class Mehrana_App_Plugin
 
         if ($new_text === null) {
             error_log('[MAP] Regex error for keyword: ' . $keyword);
+            // Restore placeholders before returning
+            foreach ($block_placeholders as $placeholder => $original) {
+                $text = str_replace($placeholder, $original, $text);
+            }
+            $result['text'] = $text;
             return $result;
+        }
+
+        // Restore Gutenberg block placeholders
+        foreach ($block_placeholders as $placeholder => $original) {
+            $new_text = str_replace($placeholder, $original, $new_text);
         }
 
         $result['text'] = $new_text;

@@ -30,6 +30,7 @@ interface ProjectAccess {
 const AVAILABLE_APPS = [
     { id: 'LINK_INDEXING', name: 'Link Indexing', icon: '🔗' },
     { id: 'CONTENT_FACTORY', name: 'Content Factory', icon: '✨' },
+    { id: 'IMAGE_FACTORY', name: 'Image Factory', icon: '🖼️' },
     { id: 'DASHBOARD', name: 'Dashboard', icon: '📊', disabled: true, comingSoon: true }
 ]
 
@@ -459,8 +460,8 @@ export function UsersTab() {
                                 <div
                                     key={project.id}
                                     className={`p-4 rounded-lg border transition-colors ${isProjectSelected(project.id)
-                                            ? 'border-blue-300 bg-blue-50/50'
-                                            : 'border-slate-200 hover:border-slate-300'
+                                        ? 'border-blue-300 bg-blue-50/50'
+                                        : 'border-slate-200 hover:border-slate-300'
                                         }`}
                                 >
                                     <div className="flex items-center gap-3 mb-3">
@@ -474,10 +475,10 @@ export function UsersTab() {
                                             <label
                                                 key={app.id}
                                                 className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${app.disabled
-                                                        ? 'opacity-50 cursor-not-allowed bg-slate-100'
-                                                        : isAppSelected(project.id, app.id)
-                                                            ? 'border-blue-300 bg-blue-100'
-                                                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                    ? 'opacity-50 cursor-not-allowed bg-slate-100'
+                                                    : isAppSelected(project.id, app.id)
+                                                        ? 'border-blue-300 bg-blue-100'
+                                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                                                     }`}
                                             >
                                                 <Checkbox

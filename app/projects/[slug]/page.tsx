@@ -13,6 +13,7 @@ import {
     Image as ImageIcon,
     Globe,
     ArrowLeft,
+    Bot,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -99,6 +100,15 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
             icon: ImageIcon,
             href: `/projects/${slug}/image-factory`,
             color: 'bg-amber-100 text-amber-700',
+            count: null,
+            countLabel: null
+        },
+        {
+            name: 'Jarvis',
+            description: 'Build automations with visual flows',
+            icon: Bot,
+            href: `/projects/${slug}/jarvis`,
+            color: 'bg-violet-100 text-violet-700',
             count: null,
             countLabel: null
         },

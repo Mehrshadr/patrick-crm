@@ -284,6 +284,10 @@ model IndexingProject {
   linkBuildingLogs     LinkBuildingLog[]
   discoveredPageTypes  DiscoveredPageType[]
   
+  // Jarvis Automation
+  jarvisConnections JarvisConnection[]
+  jarvisFlows       JarvisFlow[]
+  
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -546,4 +550,80 @@ model DiscoveredPageType {
   count     Int              @default(0)
   
   @@unique([projectId, typeName])
+}
+
+// ============================================
+// JARVIS: Automation Builder
+// ============================================
+
+// Project-level API connections
+model JarvisConnection {
+  id            Int              @id @default(autoincrement())
+  projectId     Int
+  project       IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  connectorType String           // "monday", "mailchimp", "facebook", "instantly", "webhook", "http"
+  name          String           // User-friendly name: "Monday - Main Board"
+  icon          String?          // Emoji or URL
+  credentials   String           // JSON encrypted: API keys, tokens
+  config        String?          // JSON: extra config like board IDs, list IDs
+  isActive      Boolean          @default(true)
+  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+// Automation flows
+model JarvisFlow {
+  id          Int              @id @default(autoincrement())
+  projectId   Int
+  project     IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  name        String           // "Facebook to Monday"
+  description String?
+  nodes       String           // JSON: React Flow nodes
+  edges       String           // JSON: React Flow edges
+  isActive    Boolean          @default(true)
+  
+  webhookId   String?          @unique // Unique ID for webhook trigger
+  
+  executions  JarvisExecution[]
+  
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+// Execution logs
+model JarvisExecution {
+  id          Int              @id @default(autoincrement())
+  flowId      Int
+  flow        JarvisFlow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  
+  status      String           @default("running") // "running", "success", "failed"
+  triggerType String?          // "webhook", "manual", "schedule"
+  triggerData String?          // JSON: incoming data
+  
+  startedAt   DateTime         @default(now())
+  finishedAt  DateTime?
+  
+  logs        JarvisLog[]
+}
+
+// Step-by-step logs within execution
+model JarvisLog {
+  id          Int              @id @default(autoincrement())
+  executionId Int
+  execution   JarvisExecution  @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  nodeId      String           // React Flow node ID
+  nodeName    String           // Human readable
+  nodeType    String           // "trigger", "action"
+  
+  status      String           // "success", "error", "skipped"
+  input       String?          // JSON
+  output      String?          // JSON
+  error       String?
+  duration    Int?             // ms
+  
+  timestamp   DateTime         @default(now())
 }

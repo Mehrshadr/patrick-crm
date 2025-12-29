@@ -30,12 +30,20 @@ interface NodeData extends Record<string, unknown> {
     type: string
 }
 
-// Node types
+// Node types - Full list
 const CONNECTOR_TYPES = [
+    // Triggers
     { type: "webhook", label: "Webhook", icon: Webhook, color: "bg-blue-500", category: "trigger" },
+    { type: "facebook_leads", label: "Facebook Leads", icon: "📘", color: "bg-blue-600", category: "trigger" },
+    { type: "gravity_forms", label: "Gravity Forms", icon: "📝", color: "bg-purple-500", category: "trigger" },
+    // Actions
+    { type: "monday", label: "Monday.com", icon: "📊", color: "bg-red-500", category: "action" },
+    { type: "instantly", label: "Instantly", icon: "⚡", color: "bg-amber-500", category: "action" },
+    { type: "mailchimp", label: "Mailchimp", icon: "🐵", color: "bg-yellow-500", category: "action" },
     { type: "http", label: "HTTP Request", icon: Globe, color: "bg-orange-500", category: "action" },
-    { type: "monday", label: "Monday.com", icon: "M", color: "bg-red-500", category: "action" },
-    { type: "mailchimp", label: "Mailchimp", icon: "MC", color: "bg-yellow-500", category: "action" },
+    // Utilities
+    { type: "delay", label: "Delay", icon: "⏱️", color: "bg-gray-500", category: "utility" },
+    { type: "filter", label: "Filter", icon: "🔀", color: "bg-indigo-500", category: "utility" },
 ]
 
 // Custom Node Components
@@ -262,6 +270,29 @@ export default function FlowEditorPage() {
                                     <div className={cn("p-1 rounded flex items-center justify-center", conn.color)}>
                                         {typeof conn.icon === 'string' ? (
                                             <span className="text-[10px] font-bold text-white">{conn.icon}</span>
+                                        ) : IconComp ? (
+                                            <IconComp className="h-3 w-3 text-white" />
+                                        ) : null}
+                                    </div>
+                                    {conn.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-2">Utilities</div>
+                        {CONNECTOR_TYPES.filter(c => c.category === "utility").map(conn => {
+                            const IconComp = typeof conn.icon === 'string' ? null : conn.icon
+                            return (
+                                <button
+                                    key={conn.type}
+                                    onClick={() => addNode(conn.type, conn.label, "action")}
+                                    className="w-full flex items-center gap-2 p-2 rounded hover:bg-muted text-left text-sm"
+                                >
+                                    <div className={cn("p-1 rounded flex items-center justify-center", conn.color)}>
+                                        {typeof conn.icon === 'string' ? (
+                                            <span className="text-[10px]">{conn.icon}</span>
                                         ) : IconComp ? (
                                             <IconComp className="h-3 w-3 text-white" />
                                         ) : null}

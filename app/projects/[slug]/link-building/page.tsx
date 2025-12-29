@@ -116,6 +116,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [selectedKeywords, setSelectedKeywords] = useState<number[]>([])
     const [selectedLogs, setSelectedLogs] = useState<number[]>([]) // Selected pending logs for processing
     const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set()) // Expand to show existing backlinks
+    const [pageBacklinks, setPageBacklinks] = useState<Record<number, { links: any[]; loading: boolean }>>({}) // Cache backlinks per log
 
     // Autonomous Mode State
     const [scanStatus, setScanStatus] = useState<'idle' | 'init' | 'scanning' | 'complete'>('idle')
@@ -425,6 +426,64 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         setRunning(false)
     }
 
+    // Toggle log expansion and fetch backlinks
+    async function toggleLogExpand(logId: number, pageId: number) {
+        const newExpanded = new Set(expandedLogs)
+        if (newExpanded.has(logId)) {
+            newExpanded.delete(logId)
+        } else {
+            newExpanded.add(logId)
+            // Fetch backlinks if not cached
+            if (!pageBacklinks[logId]) {
+                setPageBacklinks(prev => ({ ...prev, [logId]: { links: [], loading: true } }))
+                try {
+                    const res = await fetch('/api/seo/link-building/backlinks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'get_backlinks', projectId, pageId })
+                    })
+                    if (res.ok) {
+                        const data = await res.json()
+                        setPageBacklinks(prev => ({ ...prev, [logId]: { links: data.links || [], loading: false } }))
+                    } else {
+                        setPageBacklinks(prev => ({ ...prev, [logId]: { links: [], loading: false } }))
+                    }
+                } catch (e) {
+                    setPageBacklinks(prev => ({ ...prev, [logId]: { links: [], loading: false } }))
+                }
+            }
+        }
+        setExpandedLogs(newExpanded)
+    }
+
+    // Remove a backlink from page
+    async function removeBacklink(logId: number, pageId: number, linkId: string) {
+        if (!confirm('Remove this link?')) return
+        try {
+            const res = await fetch('/api/seo/link-building/backlinks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'remove_link', projectId, pageId, linkId })
+            })
+            if (res.ok) {
+                toast.success('Link removed')
+                // Refresh backlinks cache
+                setPageBacklinks(prev => ({
+                    ...prev,
+                    [logId]: {
+                        ...prev[logId],
+                        links: prev[logId].links.filter((l: any) => l.id !== linkId)
+                    }
+                }))
+                fetchData() // Refresh logs to update status
+            } else {
+                toast.error('Failed to remove link')
+            }
+        } catch (e) {
+            toast.error('Failed to remove link')
+        }
+    }
+
     if (loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -723,36 +782,81 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                 <p className="text-sm text-slate-400 py-2">No links yet</p>
                                                             ) : (
                                                                 <div className="space-y-1">
-                                                                    {keywordLogs.map(log => (
-                                                                        <div key={log.id} className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded ${log.status === 'linked' ? 'bg-green-50' : 'hover:bg-slate-100'}`}>
-                                                                            {log.status === 'linked' ? (
-                                                                                <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                                                            ) : (
-                                                                                <Checkbox
-                                                                                    checked={selectedLogs.includes(log.id)}
-                                                                                    onCheckedChange={(checked) => {
-                                                                                        if (checked) {
-                                                                                            setSelectedLogs([...selectedLogs, log.id])
-                                                                                        } else {
-                                                                                            setSelectedLogs(selectedLogs.filter(id => id !== log.id))
-                                                                                        }
-                                                                                    }}
-                                                                                    className="h-4 w-4"
-                                                                                />
-                                                                            )}
-                                                                            <a
-                                                                                href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className={`hover:underline truncate flex-1 ${log.status === 'linked' ? 'text-green-700 font-medium' : 'text-amber-600'}`}
-                                                                            >
-                                                                                {log.pageTitle || log.pageUrl}
-                                                                            </a>
-                                                                            <span className="text-xs text-slate-400">
-                                                                                {new Date(log.createdAt).toLocaleDateString()}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))}
+                                                                    {keywordLogs.map(log => {
+                                                                        const isLogExpanded = expandedLogs.has(log.id)
+                                                                        const backlinksData = pageBacklinks[log.id]
+                                                                        // @ts-ignore - pageId might exist
+                                                                        const logPageId = log.pageId || 0
+                                                                        return (
+                                                                            <div key={log.id} className="border-b last:border-b-0">
+                                                                                <div className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded-t ${log.status === 'linked' ? 'bg-green-50' : 'hover:bg-slate-100'}`}>
+                                                                                    {log.status === 'linked' ? (
+                                                                                        <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                                                                    ) : (
+                                                                                        <Checkbox
+                                                                                            checked={selectedLogs.includes(log.id)}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                if (checked) {
+                                                                                                    setSelectedLogs([...selectedLogs, log.id])
+                                                                                                } else {
+                                                                                                    setSelectedLogs(selectedLogs.filter(id => id !== log.id))
+                                                                                                }
+                                                                                            }}
+                                                                                            className="h-4 w-4"
+                                                                                        />
+                                                                                    )}
+                                                                                    <a
+                                                                                        href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className={`hover:underline truncate flex-1 ${log.status === 'linked' ? 'text-green-700 font-medium' : 'text-amber-600'}`}
+                                                                                    >
+                                                                                        {log.pageTitle || log.pageUrl}
+                                                                                    </a>
+                                                                                    <span className="text-xs text-slate-400">
+                                                                                        {new Date(log.createdAt).toLocaleDateString()}
+                                                                                    </span>
+                                                                                    <button
+                                                                                        onClick={() => toggleLogExpand(log.id, logPageId)}
+                                                                                        className="p-1 hover:bg-slate-200 rounded"
+                                                                                        title="View existing backlinks"
+                                                                                    >
+                                                                                        <ChevronDown className={`h-3 w-3 transition-transform ${isLogExpanded ? 'rotate-180' : ''}`} />
+                                                                                    </button>
+                                                                                </div>
+                                                                                {isLogExpanded && (
+                                                                                    <div className="bg-slate-100 px-3 py-2 text-xs">
+                                                                                        {backlinksData?.loading ? (
+                                                                                            <div className="flex items-center gap-1 text-slate-500">
+                                                                                                <Loader2 className="h-3 w-3 animate-spin" /> Loading...
+                                                                                            </div>
+                                                                                        ) : backlinksData?.links.length === 0 ? (
+                                                                                            <span className="text-slate-400">No backlinks in this page</span>
+                                                                                        ) : (
+                                                                                            <div className="flex flex-wrap gap-1">
+                                                                                                {backlinksData?.links.map((link: any) => (
+                                                                                                    <Badge
+                                                                                                        key={link.id}
+                                                                                                        variant="secondary"
+                                                                                                        className="group cursor-default pl-2 pr-1"
+                                                                                                        title={link.url}
+                                                                                                    >
+                                                                                                        <span className="max-w-[120px] truncate">{link.anchor}</span>
+                                                                                                        <button
+                                                                                                            onClick={() => removeBacklink(log.id, logPageId, link.id)}
+                                                                                                            className="ml-1 p-0.5 hover:bg-red-100 rounded opacity-50 group-hover:opacity-100"
+                                                                                                        >
+                                                                                                            <XCircle className="h-3 w-3 text-red-500" />
+                                                                                                        </button>
+                                                                                                    </Badge>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )
+                                                                    })}
                                                                 </div>
                                                             )}
                                                         </div>

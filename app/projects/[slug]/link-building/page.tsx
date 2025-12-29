@@ -211,12 +211,14 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                 try {
                     await fetch('/api/seo/link-building/scan', {
                         method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'scan_page',
                             projectId,
                             pageId: page.id,
                             pageUrl: page.url,
                             pageTitle: page.title,
+                            pageType: page.type, // Pass page type for keyword filtering
                             keywordIds: selectedKeywords.length ? selectedKeywords : undefined
                         })
                     })

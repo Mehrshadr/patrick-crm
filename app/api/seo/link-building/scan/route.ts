@@ -73,8 +73,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'pageId required for scan_page' }, { status: 400 })
             }
 
+            const { pageType } = body // Get page type from request
+
             // Get enabled keywords
-            const keywords = await prisma.linkBuildingKeyword.findMany({
+            let keywords = await prisma.linkBuildingKeyword.findMany({
                 where: {
                     projectId: parseInt(projectId),
                     isEnabled: true,
@@ -82,6 +84,16 @@ export async function POST(request: NextRequest) {
                 },
                 orderBy: { priority: 'desc' }
             })
+
+            // Filter keywords by pageType if specified
+            if (pageType) {
+                keywords = keywords.filter(kw => {
+                    if (!kw.pageTypes) return true // No pageTypes restriction = all pages
+                    const allowedTypes = JSON.parse(kw.pageTypes)
+                    if (allowedTypes.length === 0) return true // Empty array = all pages
+                    return allowedTypes.includes(pageType)
+                })
+            }
 
             if (keywords.length === 0) {
                 return NextResponse.json({ success: true, processed: 0, candidates: 0 })

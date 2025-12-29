@@ -833,7 +833,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                                     className="h-auto p-1 font-medium text-xs"
                                                     onClick={() => toggleSort('lastSubmittedAt')}
                                                 >
-                                                    Indexed
+                                                    Last Indexed
                                                     {sortColumn === 'lastSubmittedAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
                                                     {sortColumn === 'lastSubmittedAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>
@@ -845,7 +845,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                                     className="h-auto p-1 font-medium text-xs"
                                                     onClick={() => toggleSort('lastInspectedAt')}
                                                 >
-                                                    Checked
+                                                    Last Checked
                                                     {sortColumn === 'lastInspectedAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
                                                     {sortColumn === 'lastInspectedAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>
@@ -857,7 +857,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                                     className="h-auto p-1 font-medium text-xs"
                                                     onClick={() => toggleSort('lastCrawledAt')}
                                                 >
-                                                    Crawled
+                                                    Last Crawled
                                                     {sortColumn === 'lastCrawledAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
                                                     {sortColumn === 'lastCrawledAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>

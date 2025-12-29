@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { format, isToday, isPast, isFuture } from "date-fns"
+import { format, isToday, isPast, isFuture, isTomorrow, startOfDay, endOfDay } from "date-fns"
 import {
     CheckSquare, Plus, Calendar as CalendarIcon, Search, MoreHorizontal,
     Trash2, CheckCircle2, Circle, ArrowUp, ArrowDown, ArrowUpDown,
-    Clock, AlertCircle, X, SlidersHorizontal
+    Clock, AlertCircle, X, SlidersHorizontal, User, Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { TaskDialog } from "./task-dialog"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export interface Task {
     id: number
@@ -33,10 +34,12 @@ export interface Task {
         id: number
         name: string
     }
+    createdById?: number
 }
 
 type SortColumn = 'title' | 'status' | 'priority' | 'dueDate'
 type SortDirection = 'asc' | 'desc'
+type DateFilter = 'all' | 'today' | 'upcoming' | 'overdue'
 
 export function TasksTab() {
     const [tasks, setTasks] = useState<Task[]>([])
@@ -44,6 +47,8 @@ export function TasksTab() {
     const [searchQuery, setSearchQuery] = useState("")
     const [statusFilter, setStatusFilter] = useState<string[]>(["PENDING"])
     const [priorityFilter, setPriorityFilter] = useState<string[]>([])
+    const [dateFilter, setDateFilter] = useState<DateFilter>('today')
+    const [onlyMine, setOnlyMine] = useState(true)
     const [dialogOpen, setDialogOpen] = useState(false)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [sortColumn, setSortColumn] = useState<SortColumn>('dueDate')
@@ -51,12 +56,14 @@ export function TasksTab() {
 
     useEffect(() => {
         fetchTasks()
-    }, [])
+    }, [onlyMine])
 
     async function fetchTasks() {
         setLoading(true)
         try {
-            const res = await fetch("/api/tasks")
+            const params = new URLSearchParams()
+            if (onlyMine) params.set('onlyMine', 'true')
+            const res = await fetch(`/api/tasks?${params}`)
             const data = await res.json()
             if (Array.isArray(data)) {
                 setTasks(data)
@@ -104,6 +111,26 @@ export function TasksTab() {
     const filteredTasks = useMemo(() => {
         let result = [...tasks]
 
+        // Date filter
+        if (dateFilter !== 'all') {
+            result = result.filter(t => {
+                const dueDate = new Date(t.dueDate)
+                const today = startOfDay(new Date())
+                const todayEnd = endOfDay(new Date())
+
+                switch (dateFilter) {
+                    case 'today':
+                        return dueDate >= today && dueDate <= todayEnd
+                    case 'upcoming':
+                        return dueDate > todayEnd
+                    case 'overdue':
+                        return dueDate < today && t.status === 'PENDING'
+                    default:
+                        return true
+                }
+            })
+        }
+
         // Status filter
         if (statusFilter.length > 0) {
             result = result.filter(t => statusFilter.includes(t.status))
@@ -150,7 +177,7 @@ export function TasksTab() {
         })
 
         return result
-    }, [tasks, searchQuery, statusFilter, priorityFilter, sortColumn, sortDirection])
+    }, [tasks, searchQuery, statusFilter, priorityFilter, dateFilter, sortColumn, sortDirection])
 
     function toggleSort(column: SortColumn) {
         if (sortColumn === column) {
@@ -224,16 +251,44 @@ export function TasksTab() {
         <div className="h-full flex flex-col overflow-hidden">
             {/* Header */}
             <div className="shrink-0 p-4 border-b space-y-3">
-                <div className="flex items-center gap-2">
-                    <CheckSquare className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                        <h1 className="text-lg font-semibold">Tasks</h1>
-                        <p className="text-xs text-muted-foreground">
-                            {stats.pending} pending · {stats.completed} completed
-                            {stats.overdue > 0 && <span className="text-red-600"> · {stats.overdue} overdue</span>}
-                        </p>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CheckSquare className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                            <h1 className="text-lg font-semibold">Tasks</h1>
+                            <p className="text-xs text-muted-foreground">
+                                {stats.pending} pending · {stats.completed} completed
+                                {stats.overdue > 0 && <span className="text-red-600"> · {stats.overdue} overdue</span>}
+                            </p>
+                        </div>
                     </div>
+
+                    {/* My Tasks / All Tasks Toggle */}
+                    <Button
+                        variant={onlyMine ? "secondary" : "outline"}
+                        size="sm"
+                        className="h-8 gap-1.5"
+                        onClick={() => setOnlyMine(!onlyMine)}
+                    >
+                        {onlyMine ? <User className="h-3 w-3" /> : <Users className="h-3 w-3" />}
+                        {onlyMine ? 'My Tasks' : 'All Tasks'}
+                    </Button>
                 </div>
+
+                {/* Date Filter Tabs */}
+                <Tabs value={dateFilter} onValueChange={(v) => setDateFilter(v as DateFilter)}>
+                    <TabsList className="h-8">
+                        <TabsTrigger value="today" className="text-xs h-7 px-3">Today</TabsTrigger>
+                        <TabsTrigger value="upcoming" className="text-xs h-7 px-3">Upcoming</TabsTrigger>
+                        <TabsTrigger value="overdue" className="text-xs h-7 px-3">
+                            Overdue
+                            {stats.overdue > 0 && (
+                                <Badge variant="destructive" className="ml-1.5 h-4 px-1 text-[10px]">{stats.overdue}</Badge>
+                            )}
+                        </TabsTrigger>
+                        <TabsTrigger value="all" className="text-xs h-7 px-3">All</TabsTrigger>
+                    </TabsList>
+                </Tabs>
 
                 {/* Toolbar */}
                 <div className="flex items-center gap-2 flex-wrap">

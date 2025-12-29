@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const leadId = searchParams.get('leadId')
+        const onlyMine = searchParams.get('onlyMine') === 'true'
 
         // Get current user and check role
         let currentUser = null
@@ -29,8 +30,10 @@ export async function GET(request: NextRequest) {
             where.leadId = parseInt(leadId)
         }
 
-        // Filter by createdById unless SUPER_ADMIN
-        if (currentUser && !isSuperAdmin) {
+        // Filter by createdById:
+        // - Always filter for non-SUPER_ADMIN users
+        // - Filter for SUPER_ADMIN only if onlyMine=true
+        if (currentUser && (!isSuperAdmin || onlyMine)) {
             where.createdById = currentUser.id
         }
 

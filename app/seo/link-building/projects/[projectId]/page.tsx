@@ -230,7 +230,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
 
             setScanStatus('complete')
             toast.success('Scan complete')
-            fetchData()
+            await fetchData() // Refresh keywords with logs
 
         } catch (e: any) {
             toast.error(e.message || 'Scan failed')
@@ -693,12 +693,16 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                                             <div className="space-y-1">
                                                                 {keywordLogs.map(log => (
                                                                     <div key={log.id} className="flex items-center gap-2 text-sm py-1">
-                                                                        <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                                                        {log.status === 'linked' ? (
+                                                                            <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                                                        ) : (
+                                                                            <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                                                                        )}
                                                                         <a
                                                                             href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
-                                                                            className="hover:underline text-blue-600 truncate flex-1"
+                                                                            className={`hover:underline truncate flex-1 ${log.status === 'linked' ? 'text-blue-600' : 'text-amber-600'}`}
                                                                         >
                                                                             {log.pageTitle || log.pageUrl}
                                                                         </a>

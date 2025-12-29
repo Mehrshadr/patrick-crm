@@ -373,34 +373,6 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
         }
     }
 
-    async function handleCrawl() {
-        if (!project?.domain) return
-
-        setCrawling(true)
-        setCrawlResult(null)
-        try {
-            const res = await fetch('/api/seo/link-building/crawl', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: parseInt(projectId),
-                    siteUrl: project.domain
-                })
-            })
-
-            if (res.ok) {
-                const data = await res.json()
-                setCrawlResult(data)
-                toast.success(`Found ${data.totalPages} pages`)
-            } else {
-                toast.error('Failed to crawl site')
-            }
-        } catch (e) {
-            toast.error('Crawl failed')
-        }
-        setCrawling(false)
-    }
-
     async function handleRun() {
         if (keywords.length === 0) {
             toast.error('Add keywords first')

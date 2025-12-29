@@ -497,19 +497,6 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                 </div>
             )}
 
-            {/* Crawl Results */}
-            {crawlResult && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                    <span className="font-medium text-blue-800">Crawl complete:</span>
-                    <span className="ml-2 text-blue-600">
-                        {crawlResult.totalPages} pages found
-                        {Object.entries(crawlResult.byType).map(([type, info]) => (
-                            <span key={type} className="ml-2">• {type}: {info.count}</span>
-                        ))}
-                    </span>
-                </div>
-            )}
-
             {/* Add Keyword */}
             <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border">
                 <Input

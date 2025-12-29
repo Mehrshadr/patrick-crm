@@ -2,10 +2,12 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.5.0
+ * Version: 1.6.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
+ * GitHub Plugin URI: Mehrshadr/patrick-crm
+ * GitHub Branch: main
  */
 
 // Prevent direct access
@@ -16,16 +18,26 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.5.0';
+    private $version = '1.6.0';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
+
+    // GitHub Updater Config
+    private $github_username = 'Mehrshadr';
+    private $github_repo = 'patrick-crm';
+    private $github_plugin_path = 'wordpress-plugin/mehrana-app.php';
 
     public function __construct()
     {
         add_action('rest_api_init', [$this, 'register_routes']);
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
+
+        // GitHub Auto-Update Hooks
+        add_filter('pre_set_site_transient_update_plugins', [$this, 'check_for_github_update']);
+        add_filter('plugins_api', [$this, 'github_plugin_info'], 20, 3);
+        add_filter('upgrader_post_install', [$this, 'after_install'], 10, 3);
     }
 
     /**
@@ -85,6 +97,20 @@ class Mehrana_App_Plugin
         register_rest_route($this->namespace, '/search/(?P<id>\d+)', [
             'methods' => 'POST',
             'callback' => [$this, 'search_keyword'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
+
+        // Get existing backlinks in a page
+        register_rest_route($this->namespace, '/pages/(?P<id>\d+)/links', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_page_links'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
+
+        // Remove a specific link from page
+        register_rest_route($this->namespace, '/pages/(?P<id>\d+)/links/(?P<link_id>[a-zA-Z0-9_-]+)', [
+            'methods' => 'DELETE',
+            'callback' => [$this, 'remove_link'],
             'permission_callback' => [$this, 'check_permission'],
         ]);
     }
@@ -771,6 +797,154 @@ class Mehrana_App_Plugin
     }
 
     /**
+     * Get all internal links (backlinks) from a page
+     * Parses the page content and extracts all <a> tags with their anchor text
+     */
+    public function get_page_links($request)
+    {
+        $page_id = intval($request['id']);
+        $post = get_post($page_id);
+
+        if (!$post) {
+            return new WP_Error('not_found', 'Page not found', ['status' => 404]);
+        }
+
+        $links = [];
+        $site_url = home_url();
+
+        // Get rendered content
+        $content = apply_filters('the_content', $post->post_content);
+
+        // Also check Elementor data
+        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+        if (!empty($elementor_data)) {
+            if (is_string($elementor_data)) {
+                $content .= $elementor_data; // Will be parsed by regex
+            }
+        }
+
+        // Parse links using regex (handles both rendered and raw HTML)
+        preg_match_all('/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is', $content, $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $index => $match) {
+            $url = $match[1];
+            $anchor = strip_tags($match[2]);
+
+            // Only include internal links
+            if (strpos($url, $site_url) === 0 || strpos($url, '/') === 0) {
+                $links[] = [
+                    'id' => 'link_' . $index . '_' . md5($url . $anchor),
+                    'url' => $url,
+                    'anchor' => $anchor,
+                    'full_html' => $match[0]
+                ];
+            }
+        }
+
+        return rest_ensure_response([
+            'success' => true,
+            'page_id' => $page_id,
+            'page_url' => get_permalink($page_id),
+            'links' => $links
+        ]);
+    }
+
+    /**
+     * Remove a specific link from page content
+     * Only removes the <a> tag, keeps the anchor text
+     */
+    public function remove_link($request)
+    {
+        $page_id = intval($request['id']);
+        $link_id = $request['link_id'];
+
+        $post = get_post($page_id);
+        if (!$post) {
+            return new WP_Error('not_found', 'Page not found', ['status' => 404]);
+        }
+
+        $content = $post->post_content;
+        $modified = false;
+
+        // Pattern to match <a> tags
+        $pattern = '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is';
+
+        $new_content = preg_replace_callback($pattern, function ($match) use ($link_id, &$modified) {
+            $url = $match[1];
+            $anchor = $match[2];
+            $match_id = 'link_' . $GLOBALS['_link_index'] . '_' . md5($url . strip_tags($anchor));
+            $GLOBALS['_link_index']++;
+
+            if ($match_id === $link_id) {
+                $modified = true;
+                return $anchor; // Return just the anchor text without the <a> tag
+            }
+            return $match[0];
+        }, $content);
+
+        if (!$modified) {
+            // Try in Elementor data
+            $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+            if (!empty($elementor_data)) {
+                $data = is_string($elementor_data) ? json_decode($elementor_data, true) : $elementor_data;
+                if ($data) {
+                    $GLOBALS['_link_index'] = 0;
+                    $this->remove_link_recursive($data, $link_id, $modified);
+                    if ($modified) {
+                        update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
+                        $this->log("Removed link $link_id from Elementor data in page $page_id");
+                    }
+                }
+            }
+        } else {
+            // Update regular content
+            wp_update_post([
+                'ID' => $page_id,
+                'post_content' => $new_content
+            ]);
+            $this->log("Removed link $link_id from page $page_id");
+        }
+
+        if (!$modified) {
+            return new WP_Error('not_found', 'Link not found', ['status' => 404]);
+        }
+
+        return rest_ensure_response([
+            'success' => true,
+            'message' => 'Link removed successfully'
+        ]);
+    }
+
+    /**
+     * Recursively remove link from Elementor data
+     */
+    private function remove_link_recursive(&$data, $link_id, &$modified)
+    {
+        $pattern = '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is';
+
+        if (is_array($data)) {
+            foreach ($data as $key => &$value) {
+                if (is_string($value) && preg_match($pattern, $value)) {
+                    $value = preg_replace_callback($pattern, function ($match) use ($link_id, &$modified) {
+                        $url = $match[1];
+                        $anchor = $match[2];
+                        $match_id = 'link_' . $GLOBALS['_link_index'] . '_' . md5($url . strip_tags($anchor));
+                        $GLOBALS['_link_index']++;
+
+                        if ($match_id === $link_id) {
+                            $modified = true;
+                            return strip_tags($anchor);
+                        }
+                        return $match[0];
+                    }, $value);
+                } elseif (is_array($value)) {
+                    $this->remove_link_recursive($value, $link_id, $modified);
+                }
+            }
+        }
+    }
+
+    /**
      * Replace keyword with link in text using DOMDocument
      * Robustly handles HTML structure, excluding headings, existing links, etc.
      * @param bool $dry_run If true, only counts potential replacements without modifying text
@@ -1068,6 +1242,154 @@ class Mehrana_App_Plugin
             </table>
         </div>
         <?php
+    }
+
+    /**
+     * Check GitHub for plugin updates
+     * Adds update info to WordPress transient if new version available
+     */
+    public function check_for_github_update($transient)
+    {
+        if (empty($transient->checked)) {
+            return $transient;
+        }
+
+        // Get plugin data
+        $plugin_slug = 'mehrana-app/mehrana-app.php';
+
+        // Check GitHub API for latest release
+        $github_response = $this->get_github_release_info();
+
+        if ($github_response && isset($github_response['tag_name'])) {
+            $latest_version = ltrim($github_response['tag_name'], 'v');
+
+            // Compare versions
+            if (version_compare($this->version, $latest_version, '<')) {
+                $transient->response[$plugin_slug] = (object) [
+                    'slug' => 'mehrana-app',
+                    'plugin' => $plugin_slug,
+                    'new_version' => $latest_version,
+                    'url' => "https://github.com/{$this->github_username}/{$this->github_repo}",
+                    'package' => $this->get_github_download_url($github_response),
+                    'tested' => '6.4',
+                    'requires_php' => '7.4'
+                ];
+            }
+        }
+
+        return $transient;
+    }
+
+    /**
+     * Provide plugin info for WordPress plugin details popup
+     */
+    public function github_plugin_info($result, $action, $args)
+    {
+        if ($action !== 'plugin_information') {
+            return $result;
+        }
+
+        if (!isset($args->slug) || $args->slug !== 'mehrana-app') {
+            return $result;
+        }
+
+        $github_response = $this->get_github_release_info();
+
+        if (!$github_response) {
+            return $result;
+        }
+
+        return (object) [
+            'name' => 'Mehrana App Plugin',
+            'slug' => 'mehrana-app',
+            'version' => ltrim($github_response['tag_name'], 'v'),
+            'author' => '<a href="https://mehrana.agency">Mehrana Agency</a>',
+            'homepage' => "https://github.com/{$this->github_username}/{$this->github_repo}",
+            'short_description' => 'Headless SEO & Optimization Plugin for Mehrana App',
+            'sections' => [
+                'description' => $github_response['body'] ?? 'Link Building, Image Optimization & More',
+                'changelog' => $github_response['body'] ?? 'See GitHub releases for changelog'
+            ],
+            'download_link' => $this->get_github_download_url($github_response),
+            'tested' => '6.4',
+            'requires_php' => '7.4',
+            'last_updated' => $github_response['published_at'] ?? ''
+        ];
+    }
+
+    /**
+     * Handle post-install tasks (rename folder after update)
+     */
+    public function after_install($response, $hook_extra, $result)
+    {
+        global $wp_filesystem;
+
+        // Get plugin directory
+        $plugin_folder = WP_PLUGIN_DIR . '/mehrana-app/';
+
+        // Move files to correct location if needed
+        if (isset($result['destination'])) {
+            $wp_filesystem->move($result['destination'], $plugin_folder);
+            $result['destination'] = $plugin_folder;
+        }
+
+        // Activate plugin
+        activate_plugin('mehrana-app/mehrana-app.php');
+
+        return $result;
+    }
+
+    /**
+     * Get latest release info from GitHub API
+     */
+    private function get_github_release_info()
+    {
+        $transient_key = 'mehrana_app_github_release';
+        $cached = get_transient($transient_key);
+
+        if ($cached !== false) {
+            return $cached;
+        }
+
+        $url = "https://api.github.com/repos/{$this->github_username}/{$this->github_repo}/releases/latest";
+
+        $response = wp_remote_get($url, [
+            'headers' => [
+                'Accept' => 'application/vnd.github.v3+json',
+                'User-Agent' => 'WordPress/' . get_bloginfo('version')
+            ],
+            'timeout' => 10
+        ]);
+
+        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+            return false;
+        }
+
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+
+        // Cache for 12 hours
+        set_transient($transient_key, $data, 12 * HOUR_IN_SECONDS);
+
+        return $data;
+    }
+
+    /**
+     * Get download URL for plugin zip from GitHub release
+     */
+    private function get_github_download_url($release_info)
+    {
+        // First check for uploaded asset named mehrana-app.zip
+        if (!empty($release_info['assets'])) {
+            foreach ($release_info['assets'] as $asset) {
+                if (strpos($asset['name'], 'mehrana-app') !== false && strpos($asset['name'], '.zip') !== false) {
+                    return $asset['browser_download_url'];
+                }
+            }
+        }
+
+        // Fallback to raw plugin file from repo
+        // Note: This won't work for full plugin, need to create release with zip asset
+        return "https://github.com/{$this->github_username}/{$this->github_repo}/archive/refs/tags/{$release_info['tag_name']}.zip";
     }
 }
 

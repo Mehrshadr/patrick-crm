@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -59,6 +59,12 @@ interface Project {
     domain: string | null
 }
 
+// Extract active project slug from pathname
+function getActiveProjectSlug(pathname: string): string | null {
+    const match = pathname.match(/\/projects\/([^/]+)/)
+    return match ? match[1] : null
+}
+
 export function AppSidebar() {
     const pathname = usePathname()
     const [patrickEnlarged, setPatrickEnlarged] = useState(false)
@@ -66,6 +72,10 @@ export function AppSidebar() {
     const userAccess = useUserAccess()
     const isPcrm = !pathname.startsWith('/seo') && !pathname.startsWith('/projects')
     const isProjectsActive = pathname.startsWith('/projects')
+
+    // Refs for project items to enable scrolling
+    const projectRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+    const activeProjectSlug = getActiveProjectSlug(pathname)
 
     // Filter menu items based on user access
     const visibleMenuItems = PCRM_ITEMS.filter(item =>
@@ -79,6 +89,19 @@ export function AppSidebar() {
             .then(data => setProjects(data))
             .catch(() => { })
     }, [])
+
+    // Scroll to active project when pathname changes
+    useEffect(() => {
+        if (activeProjectSlug && projects.length > 0) {
+            // Small delay to let the collapsible expand first
+            setTimeout(() => {
+                const ref = projectRefs.current.get(activeProjectSlug)
+                if (ref) {
+                    ref.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+            }, 100)
+        }
+    }, [activeProjectSlug, projects])
 
 
     return (
@@ -155,7 +178,13 @@ export function AppSidebar() {
                                             return (
                                                 <Collapsible key={project.id} defaultOpen={isProjectActive} className="group/project">
                                                     <SidebarMenuSubItem>
-                                                        <div className="flex items-center">
+                                                        <div
+                                                            ref={(el) => {
+                                                                if (el) projectRefs.current.set(project.slug, el)
+                                                                else projectRefs.current.delete(project.slug)
+                                                            }}
+                                                            className="flex items-center"
+                                                        >
                                                             <Link
                                                                 href={`/projects/${project.slug}`}
                                                                 className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l"

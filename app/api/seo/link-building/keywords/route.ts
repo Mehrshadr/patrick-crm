@@ -16,8 +16,7 @@ export async function GET(request: NextRequest) {
         include: {
             logs: {
                 where: { status: 'linked' },
-                orderBy: { createdAt: 'desc' },
-                take: 50
+                orderBy: { createdAt: 'desc' }
             },
             _count: { select: { logs: true } }
         }

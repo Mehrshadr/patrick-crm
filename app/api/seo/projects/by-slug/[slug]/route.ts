@@ -9,7 +9,16 @@ export async function GET(
     const { slug } = await params
 
     const project = await prisma.indexingProject.findUnique({
-        where: { slug }
+        where: { slug },
+        include: {
+            _count: {
+                select: {
+                    urls: true,
+                    linkBuildingKeywords: true,
+                    contents: true
+                }
+            }
+        }
     })
 
     if (!project) {

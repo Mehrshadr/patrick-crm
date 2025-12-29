@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
-import { Save, Mail, Eye, EyeOff, Users, Search, Brain, FileText, Sparkles, ChevronDown } from 'lucide-react'
+import { Save, Mail, Eye, EyeOff, Users, Search, Brain, FileText, Sparkles, ChevronDown, Settings } from 'lucide-react'
 import { UsersTab } from './users-tab'
 import { GoogleConnectionCard } from '@/components/seo/google-connection-card'
 
@@ -87,183 +87,201 @@ export function SettingsTab() {
     }
 
     return (
-        <Tabs defaultValue="patrick" className="space-y-6">
-            <TabsList className="grid w-full max-w-lg grid-cols-3">
-                <TabsTrigger value="patrick" className="flex items-center gap-2">
-                    <Brain className="h-4 w-4" />
-                    Patrick CRM
-                </TabsTrigger>
-                <TabsTrigger value="seo" className="flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    SEO Tools
-                </TabsTrigger>
-                <TabsTrigger value="users" className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Users
-                </TabsTrigger>
-            </TabsList>
+        <div className="h-full flex flex-col overflow-hidden">
+            {/* Consistent Header */}
+            <div className="shrink-0 p-4 border-b">
+                <div className="flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                        <h1 className="text-lg font-semibold">Settings</h1>
+                        <p className="text-xs text-muted-foreground">
+                            Configure your CRM and SEO tools
+                        </p>
+                    </div>
+                </div>
+            </div>
 
-            {/* Patrick CRM Settings */}
-            <TabsContent value="patrick" className="space-y-6 max-w-3xl">
-                {/* Email Signature Card */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Mail className="h-5 w-5" />
-                            Email Signature
-                        </CardTitle>
-                        <CardDescription>
-                            Global signature added to all emails (use {'{signature}'} in templates)
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <Label>HTML Signature</Label>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowPreview(!showPreview)}
-                                className="h-6 text-xs gap-1"
-                            >
-                                {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                {showPreview ? 'Edit' : 'Preview'}
-                            </Button>
-                        </div>
-                        {showPreview ? (
-                            <div
-                                className="border rounded-lg p-4 min-h-[200px] bg-white prose prose-sm max-w-none"
-                                dangerouslySetInnerHTML={{ __html: signature || '<em class="text-gray-400">No signature set</em>' }}
-                            />
-                        ) : (
-                            <Textarea
-                                value={signature}
-                                onChange={(e) => setSignature(e.target.value)}
-                                className="h-[200px] font-mono text-sm"
-                                placeholder={`<p>Kind Regards,</p>
+            {/* Content Area - Scrollable */}
+            <div className="flex-1 overflow-auto p-4 md:p-6">
+                <Tabs defaultValue="patrick" className="space-y-6">
+                    {/* Responsive Tabs */}
+                    <TabsList className="flex flex-wrap h-auto gap-1 p-1">
+                        <TabsTrigger value="patrick" className="flex items-center gap-1.5 text-sm px-3 py-2">
+                            <Brain className="h-4 w-4" />
+                            <span className="hidden sm:inline">Patrick</span> CRM
+                        </TabsTrigger>
+                        <TabsTrigger value="seo" className="flex items-center gap-1.5 text-sm px-3 py-2">
+                            <Search className="h-4 w-4" />
+                            SEO <span className="hidden sm:inline">Tools</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="users" className="flex items-center gap-1.5 text-sm px-3 py-2">
+                            <Users className="h-4 w-4" />
+                            Users
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* Patrick CRM Settings */}
+                    <TabsContent value="patrick" className="space-y-4 mt-4">
+                        <div className="max-w-2xl space-y-4">
+                            {/* Email Signature Card */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <Mail className="h-4 w-4" />
+                                        Email Signature
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Global signature added to all emails (use {'{signature}'} in templates)
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-sm">HTML Signature</Label>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setShowPreview(!showPreview)}
+                                            className="h-7 text-xs gap-1"
+                                        >
+                                            {showPreview ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                            {showPreview ? 'Edit' : 'Preview'}
+                                        </Button>
+                                    </div>
+                                    {showPreview ? (
+                                        <div
+                                            className="border rounded-lg p-4 min-h-[150px] bg-white prose prose-sm max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: signature || '<em class="text-gray-400">No signature set</em>' }}
+                                        />
+                                    ) : (
+                                        <Textarea
+                                            value={signature}
+                                            onChange={(e) => setSignature(e.target.value)}
+                                            className="h-[150px] font-mono text-xs"
+                                            placeholder={`<p>Kind Regards,</p>
 <p><strong>Your Name</strong><br/>
 Your Title | <a href="https://mehrana.agency">Mehrana Agency</a></p>`}
-                            />
-                        )}
+                                        />
+                                    )}
 
-                        <div className="flex justify-end">
-                            <Button onClick={saveSettings} disabled={loading}>
-                                <Save className="mr-2 h-4 w-4" />
-                                {loading ? 'Saving...' : 'Save Signature'}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Info Card */}
-                <Card className="bg-blue-50 border-blue-200">
-                    <CardContent className="p-4">
-                        <p className="text-sm text-blue-700">
-                            <strong>💡 Tip:</strong> Sender Name and Reply-To are now configured per-email in each automation step.
-                            This allows different automations to send from different names/addresses.
-                        </p>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-
-            {/* SEO Tools Settings */}
-            <TabsContent value="seo" className="space-y-6 max-w-3xl">
-                {/* Google Search Console */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Search className="h-5 w-5" />
-                            Google Search Console
-                        </CardTitle>
-                        <CardDescription>
-                            Connect your Google Search Console for URL indexing and status checks
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <GoogleConnectionCard />
-                    </CardContent>
-                </Card>
-
-                {/* Content Generator Settings */}
-                <Card>
-                    <Collapsible open={contentGenOpen} onOpenChange={setContentGenOpen}>
-                        <CardHeader className="cursor-pointer" onClick={() => setContentGenOpen(!contentGenOpen)}>
-                            <CollapsibleTrigger asChild>
-                                <div className="flex items-center justify-between w-full">
-                                    <div>
-                                        <CardTitle className="flex items-center gap-2">
-                                            <Sparkles className="h-5 w-5" />
-                                            Content Factory Settings
-                                        </CardTitle>
-                                        <CardDescription>
-                                            Global guidelines and AI rules for content generation
-                                        </CardDescription>
+                                    <div className="flex justify-end">
+                                        <Button size="sm" onClick={saveSettings} disabled={loading}>
+                                            <Save className="mr-1.5 h-3.5 w-3.5" />
+                                            {loading ? 'Saving...' : 'Save'}
+                                        </Button>
                                     </div>
-                                    <ChevronDown className={`h-5 w-5 transition-transform ${contentGenOpen ? 'rotate-180' : ''}`} />
-                                </div>
-                            </CollapsibleTrigger>
-                        </CardHeader>
-                        <CollapsibleContent>
-                            <CardContent className="space-y-6">
-                                {/* Content Guidelines */}
-                                <div className="space-y-2">
-                                    <Label className="flex items-center gap-2">
-                                        <FileText className="h-4 w-4" />
-                                        Content Guidelines
-                                    </Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        General guidelines for content creation (tone, style, formatting rules, etc.)
+                                </CardContent>
+                            </Card>
+
+                            {/* Info Card */}
+                            <Card className="bg-blue-50 border-blue-200">
+                                <CardContent className="p-3">
+                                    <p className="text-xs text-blue-700">
+                                        <strong>💡 Tip:</strong> Sender Name and Reply-To are now configured per-email in each automation step.
                                     </p>
-                                    <Textarea
-                                        value={guidelines}
-                                        onChange={(e) => setGuidelines(e.target.value)}
-                                        className="h-[200px] font-mono text-sm"
-                                        placeholder={`Example:
-- Write in a professional but friendly tone
-- Use short paragraphs (2-3 sentences max)
-- Include relevant keywords naturally
-- Add internal links where appropriate
-- Use H2 and H3 headings to structure content`}
-                                    />
-                                </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
 
-                                {/* AI Rules */}
-                                <div className="space-y-2">
-                                    <Label className="flex items-center gap-2">
-                                        <Sparkles className="h-4 w-4" />
-                                        AI Rules
-                                    </Label>
-                                    <p className="text-sm text-muted-foreground">
-                                        Specific instructions for the AI during content generation
-                                    </p>
-                                    <Textarea
-                                        value={aiRules}
-                                        onChange={(e) => setAiRules(e.target.value)}
-                                        className="h-[200px] font-mono text-sm"
-                                        placeholder={`Example:
-- Never use generic phrases like "In today's world"
-- Avoid starting paragraphs with "However" or "Additionally"
-- Don't use more than one exclamation mark per article
-- Always include a clear call-to-action at the end
-- Output content in HTML format with proper tags`}
-                                    />
-                                </div>
+                    {/* SEO Tools Settings */}
+                    <TabsContent value="seo" className="space-y-4 mt-4">
+                        <div className="max-w-2xl space-y-4">
+                            {/* Google Search Console */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-base">
+                                        <Search className="h-4 w-4" />
+                                        Google Search Console
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Connect for URL indexing and status checks
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <GoogleConnectionCard />
+                                </CardContent>
+                            </Card>
 
-                                <div className="flex justify-end">
-                                    <Button onClick={saveContentGenSettings} disabled={contentGenLoading}>
-                                        <Save className="mr-2 h-4 w-4" />
-                                        {contentGenLoading ? 'Saving...' : 'Save Settings'}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </CollapsibleContent>
-                    </Collapsible>
-                </Card>
-            </TabsContent>
+                            {/* Content Generator Settings */}
+                            <Card>
+                                <Collapsible open={contentGenOpen} onOpenChange={setContentGenOpen}>
+                                    <CardHeader className="pb-3 cursor-pointer" onClick={() => setContentGenOpen(!contentGenOpen)}>
+                                        <CollapsibleTrigger asChild>
+                                            <div className="flex items-center justify-between w-full">
+                                                <div>
+                                                    <CardTitle className="flex items-center gap-2 text-base">
+                                                        <Sparkles className="h-4 w-4" />
+                                                        Content Factory
+                                                    </CardTitle>
+                                                    <CardDescription className="text-xs">
+                                                        Global guidelines and AI rules
+                                                    </CardDescription>
+                                                </div>
+                                                <ChevronDown className={`h-4 w-4 transition-transform ${contentGenOpen ? 'rotate-180' : ''}`} />
+                                            </div>
+                                        </CollapsibleTrigger>
+                                    </CardHeader>
+                                    <CollapsibleContent>
+                                        <CardContent className="space-y-4 pt-0">
+                                            {/* Content Guidelines */}
+                                            <div className="space-y-2">
+                                                <Label className="flex items-center gap-1.5 text-sm">
+                                                    <FileText className="h-3.5 w-3.5" />
+                                                    Content Guidelines
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Tone, style, formatting rules, etc.
+                                                </p>
+                                                <Textarea
+                                                    value={guidelines}
+                                                    onChange={(e) => setGuidelines(e.target.value)}
+                                                    className="h-[120px] font-mono text-xs"
+                                                    placeholder={`- Write in professional but friendly tone
+- Use short paragraphs (2-3 sentences)
+- Include relevant keywords naturally`}
+                                                />
+                                            </div>
 
-            {/* Users Tab */}
-            <TabsContent value="users">
-                <UsersTab />
-            </TabsContent>
-        </Tabs>
+                                            {/* AI Rules */}
+                                            <div className="space-y-2">
+                                                <Label className="flex items-center gap-1.5 text-sm">
+                                                    <Sparkles className="h-3.5 w-3.5" />
+                                                    AI Rules
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Specific instructions for AI
+                                                </p>
+                                                <Textarea
+                                                    value={aiRules}
+                                                    onChange={(e) => setAiRules(e.target.value)}
+                                                    className="h-[120px] font-mono text-xs"
+                                                    placeholder={`- Never use "In today's world"
+- Avoid starting with "However"
+- Output content in HTML format`}
+                                                />
+                                            </div>
+
+                                            <div className="flex justify-end">
+                                                <Button size="sm" onClick={saveContentGenSettings} disabled={contentGenLoading}>
+                                                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                                                    {contentGenLoading ? 'Saving...' : 'Save'}
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            </Card>
+                        </div>
+                    </TabsContent>
+
+                    {/* Users Tab */}
+                    <TabsContent value="users" className="mt-4">
+                        <div className="max-w-4xl">
+                            <UsersTab />
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </div>
+        </div>
     )
 }

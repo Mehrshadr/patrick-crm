@@ -676,9 +676,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                     Projects
                                 </Link>
                                 <span>/</span>
-                                <span className="text-foreground font-medium">{project.name}</span>
+                                <Link href={`/projects/${projectId}`} className="hover:text-foreground">
+                                    {project.name}
+                                </Link>
                                 <span>/</span>
-                                <span className="text-foreground">Link Indexing</span>
+                                <span className="text-foreground font-semibold">Link Indexing</span>
                             </div>
                             <p className="text-xs text-muted-foreground">
                                 {project.domain || 'No domain'} · {urls.length} URLs

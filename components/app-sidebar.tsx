@@ -146,70 +146,80 @@ export function AppSidebar() {
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
                                     <SidebarMenuSub>
-                                        {projects.map((project) => (
-                                            <Collapsible key={project.id} className="group/project">
-                                                <SidebarMenuSubItem>
-                                                    <div className="flex items-center">
-                                                        <Link
-                                                            href={`/projects/${project.id}`}
-                                                            className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l"
-                                                        >
-                                                            <FolderOpen className="h-3 w-3 shrink-0" />
-                                                            <span className="truncate">{project.name}</span>
-                                                        </Link>
-                                                        <CollapsibleTrigger asChild>
-                                                            <button className="p-1.5 hover:bg-slate-100 rounded-r">
-                                                                <ChevronDown className="h-3 w-3 shrink-0 transition-transform group-data-[state=open]/project:rotate-180" />
-                                                            </button>
-                                                        </CollapsibleTrigger>
-                                                    </div>
-                                                    <CollapsibleContent>
-                                                        <div className="pl-4 space-y-1 py-1">
+                                        {projects.map((project) => {
+                                            // Check if any of this project's tool pages is active
+                                            const isProjectActive =
+                                                pathname.includes(`/projects/${project.id}`) ||
+                                                pathname.includes(`/link-indexing/projects/${project.id}`) ||
+                                                pathname.includes(`/link-building/projects/${project.id}`) ||
+                                                pathname.includes(`/content-factory/projects/${project.id}`) ||
+                                                pathname.includes(`/image-factory/projects/${project.id}`)
+
+                                            return (
+                                                <Collapsible key={project.id} defaultOpen={isProjectActive} className="group/project">
+                                                    <SidebarMenuSubItem>
+                                                        <div className="flex items-center">
                                                             <Link
-                                                                href={`/seo/link-indexing/projects/${project.id}`}
-                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-indexing/projects/${project.id}`
-                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                    : 'text-slate-600 hover:bg-slate-50'
-                                                                    }`}
+                                                                href={`/projects/${project.id}`}
+                                                                className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l"
                                                             >
-                                                                <Link2 className="h-3 w-3" />
-                                                                Link Indexing
+                                                                <FolderOpen className="h-3 w-3 shrink-0" />
+                                                                <span className="truncate">{project.name}</span>
                                                             </Link>
-                                                            <Link
-                                                                href={`/seo/link-building/projects/${project.id}`}
-                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-building/projects/${project.id}`
-                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                    : 'text-slate-600 hover:bg-slate-50'
-                                                                    }`}
-                                                            >
-                                                                <Anchor className="h-3 w-3" />
-                                                                Link Building
-                                                            </Link>
-                                                            <Link
-                                                                href={`/seo/content-factory/projects/${project.id}`}
-                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/content-factory/projects/${project.id}`
-                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                    : 'text-slate-600 hover:bg-slate-50'
-                                                                    }`}
-                                                            >
-                                                                <Sparkles className="h-3 w-3" />
-                                                                Content Factory
-                                                            </Link>
-                                                            <Link
-                                                                href={`/seo/image-factory/projects/${project.id}`}
-                                                                className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/image-factory/projects/${project.id}`
-                                                                    ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                    : 'text-slate-600 hover:bg-slate-50'
-                                                                    }`}
-                                                            >
-                                                                <ImageIcon className="h-3 w-3" />
-                                                                Image Factory
-                                                            </Link>
+                                                            <CollapsibleTrigger asChild>
+                                                                <button className="p-1.5 hover:bg-slate-100 rounded-r">
+                                                                    <ChevronDown className="h-3 w-3 shrink-0 transition-transform group-data-[state=open]/project:rotate-180" />
+                                                                </button>
+                                                            </CollapsibleTrigger>
                                                         </div>
-                                                    </CollapsibleContent>
-                                                </SidebarMenuSubItem>
-                                            </Collapsible>
-                                        ))}
+                                                        <CollapsibleContent>
+                                                            <div className="pl-4 space-y-1 py-1">
+                                                                <Link
+                                                                    href={`/seo/link-indexing/projects/${project.id}`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-indexing/projects/${project.id}`
+                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                        : 'text-slate-600 hover:bg-slate-50'
+                                                                        }`}
+                                                                >
+                                                                    <Link2 className="h-3 w-3" />
+                                                                    Link Indexing
+                                                                </Link>
+                                                                <Link
+                                                                    href={`/seo/link-building/projects/${project.id}`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-building/projects/${project.id}`
+                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                        : 'text-slate-600 hover:bg-slate-50'
+                                                                        }`}
+                                                                >
+                                                                    <Anchor className="h-3 w-3" />
+                                                                    Link Building
+                                                                </Link>
+                                                                <Link
+                                                                    href={`/seo/content-factory/projects/${project.id}`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/content-factory/projects/${project.id}`
+                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                        : 'text-slate-600 hover:bg-slate-50'
+                                                                        }`}
+                                                                >
+                                                                    <Sparkles className="h-3 w-3" />
+                                                                    Content Factory
+                                                                </Link>
+                                                                <Link
+                                                                    href={`/seo/image-factory/projects/${project.id}`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/image-factory/projects/${project.id}`
+                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                        : 'text-slate-600 hover:bg-slate-50'
+                                                                        }`}
+                                                                >
+                                                                    <ImageIcon className="h-3 w-3" />
+                                                                    Image Factory
+                                                                </Link>
+                                                            </div>
+                                                        </CollapsibleContent>
+                                                    </SidebarMenuSubItem>
+                                                </Collapsible>
+                                            )
+                                        })}
                                         {projects.length === 0 && (
                                             <SidebarMenuSubItem>
                                                 <span className="text-xs text-muted-foreground px-2">No projects yet</span>

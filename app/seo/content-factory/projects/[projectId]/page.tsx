@@ -415,9 +415,11 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 Projects
                             </Link>
                             <span>/</span>
-                            <span className="text-foreground font-medium">{project.name}</span>
+                            <Link href={`/projects/${projectId}`} className="hover:text-foreground">
+                                {project.name}
+                            </Link>
                             <span>/</span>
-                            <span className="text-foreground font-medium">Content Factory</span>
+                            <span className="text-foreground font-semibold">Content Factory</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                             {project.domain || 'No domain'} · {contents.length} contents

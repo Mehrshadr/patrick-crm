@@ -55,6 +55,7 @@ const PCRM_ITEMS = [
 interface Project {
     id: number
     name: string
+    slug: string
     domain: string | null
 }
 
@@ -149,18 +150,14 @@ export function AppSidebar() {
                                         {projects.map((project) => {
                                             // Check if any of this project's tool pages is active
                                             const isProjectActive =
-                                                pathname.includes(`/projects/${project.id}`) ||
-                                                pathname.includes(`/link-indexing/projects/${project.id}`) ||
-                                                pathname.includes(`/link-building/projects/${project.id}`) ||
-                                                pathname.includes(`/content-factory/projects/${project.id}`) ||
-                                                pathname.includes(`/image-factory/projects/${project.id}`)
+                                                pathname.includes(`/projects/${project.slug}`)
 
                                             return (
                                                 <Collapsible key={project.id} defaultOpen={isProjectActive} className="group/project">
                                                     <SidebarMenuSubItem>
                                                         <div className="flex items-center">
                                                             <Link
-                                                                href={`/projects/${project.id}`}
+                                                                href={`/projects/${project.slug}`}
                                                                 className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l"
                                                             >
                                                                 <FolderOpen className="h-3 w-3 shrink-0" />
@@ -175,8 +172,8 @@ export function AppSidebar() {
                                                         <CollapsibleContent>
                                                             <div className="pl-4 space-y-1 py-1">
                                                                 <Link
-                                                                    href={`/seo/link-indexing/projects/${project.id}`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-indexing/projects/${project.id}`
+                                                                    href={`/projects/${project.slug}/link-indexing`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/link-indexing`
                                                                         ? 'bg-slate-100 text-slate-900 font-medium'
                                                                         : 'text-slate-600 hover:bg-slate-50'
                                                                         }`}
@@ -185,8 +182,8 @@ export function AppSidebar() {
                                                                     Link Indexing
                                                                 </Link>
                                                                 <Link
-                                                                    href={`/seo/link-building/projects/${project.id}`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/link-building/projects/${project.id}`
+                                                                    href={`/projects/${project.slug}/link-building`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/link-building`
                                                                         ? 'bg-slate-100 text-slate-900 font-medium'
                                                                         : 'text-slate-600 hover:bg-slate-50'
                                                                         }`}
@@ -195,8 +192,8 @@ export function AppSidebar() {
                                                                     Link Building
                                                                 </Link>
                                                                 <Link
-                                                                    href={`/seo/content-factory/projects/${project.id}`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/content-factory/projects/${project.id}`
+                                                                    href={`/projects/${project.slug}/content-factory`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/content-factory`
                                                                         ? 'bg-slate-100 text-slate-900 font-medium'
                                                                         : 'text-slate-600 hover:bg-slate-50'
                                                                         }`}
@@ -205,8 +202,8 @@ export function AppSidebar() {
                                                                     Content Factory
                                                                 </Link>
                                                                 <Link
-                                                                    href={`/seo/image-factory/projects/${project.id}`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/seo/image-factory/projects/${project.id}`
+                                                                    href={`/projects/${project.slug}/image-factory`}
+                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/image-factory`
                                                                         ? 'bg-slate-100 text-slate-900 font-medium'
                                                                         : 'text-slate-600 hover:bg-slate-50'
                                                                         }`}

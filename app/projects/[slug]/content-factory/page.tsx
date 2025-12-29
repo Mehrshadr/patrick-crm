@@ -67,6 +67,7 @@ interface GeneratedContent {
 interface Project {
     id: number
     name: string
+    slug: string
     domain: string | null
     description: string | null
 }
@@ -88,9 +89,10 @@ const contentTypes = [
     { id: 'SERVICE_PAGE', name: 'Service Page', icon: '🏢' },
 ]
 
-export default function ContentFactoryPage({ params }: { params: Promise<{ projectId: string }> }) {
-    const { projectId } = use(params)
+export default function ContentFactoryPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = use(params)
     const router = useRouter()
+    const [projectId, setProjectId] = useState<string | null>(null)
     const [project, setProject] = useState<Project | null>(null)
     const [contents, setContents] = useState<GeneratedContent[]>([])
     const [loading, setLoading] = useState(true)
@@ -132,27 +134,30 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
 
     useEffect(() => {
         fetchProjectData()
-    }, [projectId])
+    }, [slug])
 
     async function fetchProjectData() {
         try {
-            // Fetch project info
-            const projectRes = await fetch(`/api/seo/projects/${projectId}`)
+            // Fetch project by slug
+            const projectRes = await fetch(`/api/seo/projects/by-slug/${slug}`)
             if (!projectRes.ok) {
                 toast.error('Project not found')
                 router.push('/projects')
                 return
             }
-            setProject(await projectRes.json())
+            const projectData = await projectRes.json()
+            const pid = String(projectData.id)
+            setProjectId(pid)
+            setProject(projectData)
 
             // Fetch contents
-            const contentsRes = await fetch(`/api/seo/content/${projectId}`)
+            const contentsRes = await fetch(`/api/seo/content/${pid}`)
             if (contentsRes.ok) {
                 setContents(await contentsRes.json())
             }
 
             // Fetch project settings
-            const settingsRes = await fetch(`/api/seo/projects/${projectId}/settings`)
+            const settingsRes = await fetch(`/api/seo/projects/${pid}/settings`)
             if (settingsRes.ok) {
                 const data = await settingsRes.json()
                 setBrandStatement(data.settings?.brandStatement || '')
@@ -415,7 +420,7 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                 Projects
                             </Link>
                             <span>/</span>
-                            <Link href={`/projects/${projectId}`} className="hover:text-foreground">
+                            <Link href={`/projects/${slug}`} className="hover:text-foreground">
                                 {project.name}
                             </Link>
                             <span>/</span>
@@ -466,7 +471,7 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ proje
                                     <Card
                                         key={content.id}
                                         className="cursor-pointer hover:shadow-md transition-shadow"
-                                        onClick={() => router.push(`/seo/content-factory/projects/${projectId}/${content.id}`)}
+                                        onClick={() => router.push(`/projects/${slug}/content-factory/${content.id}`)}
                                     >
                                         <CardHeader className="pb-2">
                                             <div className="flex items-start justify-between">

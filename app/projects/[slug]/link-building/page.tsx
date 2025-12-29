@@ -89,8 +89,9 @@ const DEFAULT_PAGE_TYPES = [
     { value: 'page', label: 'Page' },
 ]
 
-export default function LinkBuildingPage({ params }: { params: Promise<{ projectId: string }> }) {
-    const { projectId } = use(params)
+export default function LinkBuildingPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = use(params)
+    const [projectId, setProjectId] = useState<string | null>(null)
     const [keywords, setKeywords] = useState<Keyword[]>([])
     const [logs, setLogs] = useState<Log[]>([])
     const [loading, setLoading] = useState(true)
@@ -123,34 +124,39 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
 
     useEffect(() => {
         fetchData()
-    }, [projectId])
+    }, [slug])
 
     async function fetchData() {
         setLoading(true)
         try {
-            // Fetch project info
-            const projectRes = await fetch(`/api/seo/projects/${projectId}`)
-            if (projectRes.ok) {
-                const data = await projectRes.json()
-                setProject(data)
+            // Fetch project info by slug
+            const projectRes = await fetch(`/api/seo/projects/by-slug/${slug}`)
+            if (!projectRes.ok) {
+                toast.error('Project not found')
+                setLoading(false)
+                return
             }
+            const projectData = await projectRes.json()
+            const pid = String(projectData.id)
+            setProjectId(pid)
+            setProject(projectData)
 
             // Fetch keywords
-            const kwRes = await fetch(`/api/seo/link-building/keywords?projectId=${projectId}`)
+            const kwRes = await fetch(`/api/seo/link-building/keywords?projectId=${pid}`)
             if (kwRes.ok) {
                 const data = await kwRes.json()
                 setKeywords(data.keywords || [])
             }
 
             // Fetch recent logs
-            const logsRes = await fetch(`/api/seo/link-building/logs?projectId=${projectId}&limit=20`)
+            const logsRes = await fetch(`/api/seo/link-building/logs?projectId=${pid}&limit=20`)
             if (logsRes.ok) {
                 const data = await logsRes.json()
                 setLogs(data.logs || [])
             }
 
             // Fetch settings
-            const settingsRes = await fetch(`/api/seo/projects/${projectId}/settings`)
+            const settingsRes = await fetch(`/api/seo/projects/${pid}/settings`)
             if (settingsRes.ok) {
                 const data = await settingsRes.json()
                 if (data.settings) {
@@ -161,7 +167,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
             }
 
             // Fetch discovered page types
-            const typesRes = await fetch(`/api/seo/link-building/crawl?projectId=${projectId}`)
+            const typesRes = await fetch(`/api/seo/link-building/crawl?projectId=${pid}`)
             if (typesRes.ok) {
                 const data = await typesRes.json()
                 setDiscoveredPageTypes(data.pageTypes || [])
@@ -327,7 +333,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    projectId: parseInt(projectId),
+                    projectId: parseInt(projectId!),
                     keyword: newKeyword.trim(),
                     targetUrl: newUrl.trim(),
                     pageTypes: newPageTypes
@@ -390,7 +396,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
             const res = await fetch('/api/seo/link-building/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: parseInt(projectId) })
+                body: JSON.stringify({ projectId: parseInt(projectId!) })
             })
 
             if (res.ok) {
@@ -424,7 +430,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                 Projects
                             </Link>
                             <span>/</span>
-                            <Link href={`/projects/${projectId}`} className="hover:text-foreground">
+                            <Link href={`/projects/${slug}`} className="hover:text-foreground">
                                 {project?.name}
                             </Link>
                             <span>/</span>

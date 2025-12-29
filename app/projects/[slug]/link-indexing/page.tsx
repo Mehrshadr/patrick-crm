@@ -88,6 +88,7 @@ interface IndexingUrl {
 interface Project {
     id: number
     name: string
+    slug: string
     domain: string | null
     description: string | null
 }
@@ -272,9 +273,10 @@ function formatDate(dateStr: string | null): string {
     })
 }
 
-export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id: projectId } = use(params)
+export default function ProjectDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = use(params)
     const router = useRouter()
+    const [projectId, setProjectId] = useState<string | null>(null)
     const [project, setProject] = useState<Project | null>(null)
     const [urls, setUrls] = useState<IndexingUrl[]>([])
     const [loading, setLoading] = useState(true)
@@ -321,23 +323,24 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     useEffect(() => {
         fetchProjectData()
-    }, [projectId])
+    }, [slug])
 
     async function fetchProjectData() {
         try {
-            const [projectRes, urlsRes] = await Promise.all([
-                fetch(`/api/seo/projects/${projectId}`),
-                fetch(`/api/seo/projects/${projectId}/urls`)
-            ])
-
-            if (projectRes.ok) {
-                setProject(await projectRes.json())
-            } else {
+            // Fetch project by slug first
+            const projectRes = await fetch(`/api/seo/projects/by-slug/${slug}`)
+            if (!projectRes.ok) {
                 toast.error('Project not found')
                 router.push('/projects')
                 return
             }
+            const projectData = await projectRes.json()
+            const pid = String(projectData.id)
+            setProjectId(pid)
+            setProject(projectData)
 
+            // Fetch URLs using project ID
+            const urlsRes = await fetch(`/api/seo/projects/${pid}/urls`)
             if (urlsRes.ok) {
                 setUrls(await urlsRes.json())
             }
@@ -676,7 +679,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                                     Projects
                                 </Link>
                                 <span>/</span>
-                                <Link href={`/projects/${projectId}`} className="hover:text-foreground">
+                                <Link href={`/projects/${slug}`} className="hover:text-foreground">
                                     {project.name}
                                 </Link>
                                 <span>/</span>

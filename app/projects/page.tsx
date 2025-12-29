@@ -44,6 +44,7 @@ import { toast } from "sonner"
 interface Project {
     id: number
     name: string
+    slug: string
     domain: string | null
     description: string | null
     createdAt: string
@@ -203,7 +204,7 @@ function ProjectsContent() {
                                     <TableRow
                                         key={project.id}
                                         className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => router.push(`/projects/${project.id}`)}
+                                        onClick={() => router.push(`/projects/${project.slug}`)}
                                     >
                                         <TableCell>
                                             <div className="font-medium">{project.name}</div>

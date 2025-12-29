@@ -272,6 +272,7 @@ model LoginLog {
 model IndexingProject {
   id          Int       @id @default(autoincrement())
   name        String    // "Mehrana", "Epochtimes", "Morsun Kitchen"
+  slug        String?   @unique // URL-friendly: "mehrana", "epochtimes", "morsun-kitchen" - Optional during migration
   domain      String?   // "mehrana.agency"
   description String?
   

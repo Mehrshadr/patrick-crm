@@ -44,9 +44,10 @@ interface ImageInfo {
 export default function ContentEditorPage({
     params
 }: {
-    params: Promise<{ projectId: string; contentId: string }>
+    params: Promise<{ slug: string; contentId: string }>
 }) {
-    const { projectId, contentId } = use(params)
+    const { slug, contentId } = use(params)
+    const [projectId, setProjectId] = useState<string | null>(null)
     const router = useRouter()
     const contentRef = useRef<HTMLDivElement>(null)
 
@@ -94,14 +95,25 @@ export default function ContentEditorPage({
 
     useEffect(() => {
         fetchContent()
-    }, [projectId, contentId])
+    }, [slug, contentId])
 
     async function fetchContent() {
         try {
-            const res = await fetch(`/api/seo/content/${projectId}/${contentId}`)
+            // First get project by slug
+            const projectRes = await fetch(`/api/seo/projects/by-slug/${slug}`)
+            if (!projectRes.ok) {
+                toast.error('Project not found')
+                router.push('/projects')
+                return
+            }
+            const projectData = await projectRes.json()
+            const pid = String(projectData.id)
+            setProjectId(pid)
+
+            const res = await fetch(`/api/seo/content/${pid}/${contentId}`)
             if (!res.ok) {
                 toast.error('Content not found')
-                router.push(`/seo/content-factory/projects/${projectId}`)
+                router.push(`/projects/${slug}/content-factory`)
                 return
             }
             const data = await res.json()
@@ -297,7 +309,7 @@ export default function ContentEditorPage({
 
             if (res.ok) {
                 toast.success('Content deleted')
-                router.push(`/seo/content-factory/projects/${projectId}`)
+                router.push(`/projects/${slug}/content-factory`)
             } else {
                 toast.error('Failed to delete')
             }
@@ -324,7 +336,7 @@ export default function ContentEditorPage({
                 {/* Top Bar - STICKY */}
                 <header className="sticky top-0 z-50 h-14 border-b bg-white flex items-center justify-between px-4 shrink-0">
                     <div className="flex items-center gap-4">
-                        <Link href={`/seo/content-factory/projects/${projectId}`}>
+                        <Link href={`/projects/${slug}/content-factory`}>
                             <Button variant="ghost" size="sm">
                                 <ArrowLeft className="h-4 w-4 mr-2" />
                                 Back

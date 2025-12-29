@@ -110,7 +110,8 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
             href: `/projects/${slug}/jarvis`,
             color: 'bg-violet-100 text-violet-700',
             count: null,
-            countLabel: null
+            countLabel: null,
+            comingSoon: true
         },
     ]
 
@@ -142,18 +143,23 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
                     <div className="grid gap-4 md:grid-cols-2">
                         {tools.map((tool) => {
                             const Icon = tool.icon
+                            const isComingSoon = 'comingSoon' in tool && tool.comingSoon
                             return (
                                 <Card
                                     key={tool.name}
-                                    className="cursor-pointer hover:shadow-md transition-shadow"
-                                    onClick={() => router.push(tool.href)}
+                                    className={`transition-shadow ${isComingSoon ? 'opacity-60' : 'cursor-pointer hover:shadow-md'}`}
+                                    onClick={() => !isComingSoon && router.push(tool.href)}
                                 >
                                     <CardHeader className="pb-2">
                                         <div className="flex items-center justify-between">
                                             <div className={`p-2 rounded-lg ${tool.color}`}>
                                                 <Icon className="h-5 w-5" />
                                             </div>
-                                            {tool.count !== null && (
+                                            {isComingSoon ? (
+                                                <Badge variant="outline" className="text-muted-foreground">
+                                                    Coming Soon
+                                                </Badge>
+                                            ) : tool.count !== null && (
                                                 <Badge variant="secondary">
                                                     {tool.count} {tool.countLabel}
                                                 </Badge>

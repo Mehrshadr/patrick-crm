@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.0
+ * Version: 1.6.1
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.0';
+    private $version = '1.6.1';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1237,6 +1237,38 @@ class Mehrana_App_Plugin
                         <code>GET /pages</code> - Get all Elementor pages<br>
                         <code>POST /pages/{id}/apply-links</code> - Apply links to a page<br>
                         <code>GET /health</code> - Health check
+                    </td>
+                </tr>
+            </table>
+
+            <h2>Plugin Updates</h2>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">Current Version</th>
+                    <td><strong><?php echo $this->version; ?></strong></td>
+                </tr>
+                <tr>
+                    <th scope="row">Check for Updates</th>
+                    <td>
+                        <form method="post" style="display:inline;">
+                            <?php wp_nonce_field('map_check_update', 'map_update_nonce'); ?>
+                            <button type="submit" name="map_check_update" class="button button-secondary">
+                                🔄 Check for Updates Now
+                            </button>
+                        </form>
+                        <?php
+                        if (isset($_POST['map_check_update']) && wp_verify_nonce($_POST['map_update_nonce'], 'map_check_update')) {
+                            // Clear cache
+                            delete_transient('mehrana_app_github_release');
+                            delete_site_transient('update_plugins');
+
+                            // Force check
+                            wp_update_plugins();
+
+                            echo '<p style="color: green; margin-top: 10px;">✅ Update check complete! If a new version is available, you\'ll see it on the <a href="' . admin_url('plugins.php') . '">Plugins page</a>.</p>';
+                        }
+                        ?>
+                        <p class="description">Click to force check GitHub for plugin updates (bypasses 12-hour cache)</p>
                     </td>
                 </tr>
             </table>

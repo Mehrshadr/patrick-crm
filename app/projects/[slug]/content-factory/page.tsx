@@ -413,7 +413,7 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ slug:
         <div className="h-full flex flex-col overflow-hidden">
             {/* Header */}
             <div className="shrink-0 p-4 border-b">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <Link href="/projects" className="hover:text-foreground">
@@ -430,7 +430,7 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ slug:
                             {project.domain || 'No domain'} · {contents.length} contents
                         </p>
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center flex-wrap">
                         <Button variant="outline" size="sm" onClick={() => setSettingsDialogOpen(true)}>
                             <Settings className="mr-1 h-3 w-3" />
                             Settings

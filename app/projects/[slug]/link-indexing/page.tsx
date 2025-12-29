@@ -671,7 +671,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
             <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
                 {/* Header - Fixed */}
                 <div className="shrink-0 p-4 border-b space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex flex-col gap-1">
                             {/* Breadcrumb */}
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -689,7 +689,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                 {project.domain || 'No domain'} · {urls.length} URLs
                             </p>
                         </div>
-                        <div className="flex gap-2 items-center">
+                        <div className="flex gap-2 items-center flex-wrap">
                             <QuotaCounter />
                             <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                                 <Upload className="mr-1 h-3 w-3" />
@@ -728,8 +728,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                     </div>
 
                     {/* Search and Actions */}
-                    <div className="flex gap-2 items-center">
-                        <div className="relative flex-1 max-w-xs">
+                    <div className="flex gap-2 items-center flex-wrap">
+                        <div className="relative flex-1 min-w-[200px] max-w-xs">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
                             <Input
                                 placeholder="Search URLs..."
@@ -740,7 +740,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                         </div>
 
                         {selectedCount > 0 && (
-                            <div className="flex items-center gap-2 ml-auto">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-medium text-muted-foreground">
                                     {selectedCount} selected
                                 </span>
@@ -878,7 +878,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                             </div>
 
                             {/* Scrollable Table Body */}
-                            <div className="flex-1 overflow-auto">
+                            <div className="flex-1 overflow-x-auto overflow-y-auto">
                                 <Table className="table-fixed">
                                     <colgroup>
                                         <col className="w-[40px]" />

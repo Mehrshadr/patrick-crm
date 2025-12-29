@@ -422,7 +422,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
             {/* Header - Fixed */}
             <div className="shrink-0 p-4 border-b space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex flex-col gap-1">
                         {/* Breadcrumb */}
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -440,7 +440,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                             {project?.domain || 'No domain'} · {keywords.length} keywords
                         </p>
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center flex-wrap">
                         {/* Scan Button */}
                         <Button
                             variant={scanStatus === 'scanning' ? "secondary" : "outline"}

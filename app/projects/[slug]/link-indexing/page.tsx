@@ -801,29 +801,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                             </div>
                         </div>
                     ) : (
-                        <div className="flex-1 flex flex-col overflow-hidden">
-                            {/* Fixed Table Header */}
-                            <div className="shrink-0 border-b bg-muted/50">
-                                <Table className="table-fixed">
-                                    <colgroup>
-                                        <col className="w-[40px]" />
-                                        <col />
-                                        <col className="w-[180px]" />
-                                        <col className="w-[120px]" />
-                                        <col className="w-[120px]" />
-                                        <col className="w-[120px]" />
-                                        <col className="w-[40px]" />
-                                    </colgroup>
-                                    <TableHeader>
+                        <div className="flex-1 overflow-hidden">
+                            {/* Single scrollable table container */}
+                            <div className="h-full overflow-auto">
+                                <Table className="min-w-[800px]">
+                                    <TableHeader className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm">
                                         <TableRow>
-                                            <TableHead>
+                                            <TableHead className="w-[40px]">
                                                 <Checkbox
                                                     checked={selectedUrls.size === filteredUrls.length && filteredUrls.length > 0}
                                                     onCheckedChange={toggleAllUrls}
                                                 />
                                             </TableHead>
                                             <TableHead>URL Path</TableHead>
-                                            <TableHead>
+                                            <TableHead className="w-[160px]">
                                                 <Button
                                                     variant={sortColumn === 'status' ? 'secondary' : 'ghost'}
                                                     size="sm"
@@ -835,60 +826,45 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                                     {sortColumn === 'status' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>
                                             </TableHead>
-                                            <TableHead className="text-left">
+                                            <TableHead className="w-[110px] text-left hidden md:table-cell">
                                                 <Button
                                                     variant={sortColumn === 'lastSubmittedAt' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-auto p-1 font-medium"
+                                                    className="h-auto p-1 font-medium text-xs"
                                                     onClick={() => toggleSort('lastSubmittedAt')}
                                                 >
-                                                    Last Indexed
+                                                    Indexed
                                                     {sortColumn === 'lastSubmittedAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
                                                     {sortColumn === 'lastSubmittedAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>
                                             </TableHead>
-                                            <TableHead className="text-left">
+                                            <TableHead className="w-[110px] text-left hidden lg:table-cell">
                                                 <Button
                                                     variant={sortColumn === 'lastInspectedAt' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-auto p-1 font-medium"
+                                                    className="h-auto p-1 font-medium text-xs"
                                                     onClick={() => toggleSort('lastInspectedAt')}
                                                 >
-                                                    Last Checked
+                                                    Checked
                                                     {sortColumn === 'lastInspectedAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
                                                     {sortColumn === 'lastInspectedAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>
                                             </TableHead>
-                                            <TableHead className="text-left">
+                                            <TableHead className="w-[110px] text-left hidden xl:table-cell">
                                                 <Button
                                                     variant={sortColumn === 'lastCrawledAt' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-auto p-1 font-medium"
+                                                    className="h-auto p-1 font-medium text-xs"
                                                     onClick={() => toggleSort('lastCrawledAt')}
                                                 >
-                                                    Last Crawled
+                                                    Crawled
                                                     {sortColumn === 'lastCrawledAt' && sortDirection === 'asc' && <ArrowUp className="ml-1 h-3 w-3" />}
                                                     {sortColumn === 'lastCrawledAt' && sortDirection === 'desc' && <ArrowDown className="ml-1 h-3 w-3" />}
                                                 </Button>
                                             </TableHead>
-                                            <TableHead></TableHead>
+                                            <TableHead className="w-[40px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                </Table>
-                            </div>
-
-                            {/* Scrollable Table Body */}
-                            <div className="flex-1 overflow-x-auto overflow-y-auto">
-                                <Table className="table-fixed">
-                                    <colgroup>
-                                        <col className="w-[40px]" />
-                                        <col />
-                                        <col className="w-[180px]" />
-                                        <col className="w-[120px]" />
-                                        <col className="w-[120px]" />
-                                        <col className="w-[120px]" />
-                                        <col className="w-[40px]" />
-                                    </colgroup>
                                     <TableBody>
                                         {filteredUrls.map((url, index) => {
                                             const status = url.lastInspectionResult || url.status
@@ -914,7 +890,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                                                     href={url.url}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="text-blue-600 hover:underline text-sm block truncate max-w-[350px]"
+                                                                    className="text-blue-600 hover:underline text-sm block truncate max-w-[300px]"
                                                                     onClick={(e) => e.stopPropagation()}
                                                                 >
                                                                     {getUrlPath(url.url)}
@@ -928,16 +904,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                                     <TableCell className="pr-4">
                                                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config.bgColor} ${config.textColor}`}>
                                                             <StatusIcon className="h-3 w-3" />
-                                                            {config.label}
+                                                            <span className="hidden sm:inline">{config.label}</span>
                                                         </span>
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground text-left">
+                                                    <TableCell className="text-xs text-muted-foreground text-left hidden md:table-cell">
                                                         {formatDate(url.lastSubmittedAt)}
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground text-left">
+                                                    <TableCell className="text-xs text-muted-foreground text-left hidden lg:table-cell">
                                                         {formatDate(url.lastInspectedAt)}
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground text-left">
+                                                    <TableCell className="text-xs text-muted-foreground text-left hidden xl:table-cell">
                                                         {formatDate(url.lastCrawledAt)}
                                                     </TableCell>
                                                     <TableCell>

@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Users, Shield, Eye, Clock, RefreshCw, FolderOpen, Star, ChevronRight } from 'lucide-react'
+import { Users, Shield, Eye, Clock, RefreshCw, FolderOpen, Star, ChevronRight, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
 interface AppAccess {
     id: number
@@ -63,6 +64,7 @@ export function UsersTab() {
     const [loading, setLoading] = useState(true)
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
     const [showAccessDialog, setShowAccessDialog] = useState(false)
+    const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set())
     // Map of projectId -> selected app types
     const [projectApps, setProjectApps] = useState<Record<number, string[]>>({})
     const [savingAccess, setSavingAccess] = useState(false)
@@ -149,7 +151,6 @@ export function UsersTab() {
         if (!selectedUser) return
         setSavingAccess(true)
         try {
-            // Convert projectApps to projectsWithApps format
             const projectsWithApps = Object.entries(projectApps)
                 .filter(([_, apps]) => apps.length > 0)
                 .map(([projectId, apps]) => ({
@@ -183,16 +184,13 @@ export function UsersTab() {
         setProjectApps(prev => {
             const currentApps = prev[projectId] || []
             if (currentApps.includes(appType)) {
-                // Remove app
                 const newApps = currentApps.filter(a => a !== appType)
                 if (newApps.length === 0) {
-                    // Remove project entirely if no apps selected
                     const { [projectId]: _, ...rest } = prev
                     return rest
                 }
                 return { ...prev, [projectId]: newApps }
             } else {
-                // Add app
                 return { ...prev, [projectId]: [...currentApps, appType] }
             }
         })
@@ -206,11 +204,22 @@ export function UsersTab() {
         return projectApps[projectId]?.includes(appType) || false
     }
 
+    function toggleUserExpand(userId: number) {
+        setExpandedUsers(prev => {
+            const next = new Set(prev)
+            if (next.has(userId)) {
+                next.delete(userId)
+            } else {
+                next.add(userId)
+            }
+            return next
+        })
+    }
+
     function formatDate(dateStr: string | null) {
         if (!dateStr) return 'Never'
         const date = new Date(dateStr)
-        return date.toLocaleString('en-US', {
-            year: 'numeric',
+        return date.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
@@ -221,11 +230,11 @@ export function UsersTab() {
     function getRoleBadge(role: string) {
         switch (role) {
             case 'SUPER_ADMIN':
-                return <Badge className="bg-purple-100 text-purple-800 border-purple-300">Super Admin</Badge>
+                return <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px]">Super Admin</Badge>
             case 'ADMIN':
-                return <Badge className="bg-amber-100 text-amber-800 border-amber-300">Admin</Badge>
+                return <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">Admin</Badge>
             default:
-                return <Badge variant="outline">User</Badge>
+                return <Badge variant="outline" className="text-[10px]">User</Badge>
         }
     }
 
@@ -238,260 +247,245 @@ export function UsersTab() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                    <h2 className="text-xl font-semibold">User Management</h2>
-                    <p className="text-sm text-slate-500">Manage access and project assignments</p>
+                    <h2 className="text-lg font-semibold">User Management</h2>
+                    <p className="text-xs text-muted-foreground">Manage access and project assignments</p>
                 </div>
-                <Button variant="outline" onClick={fetchUsers}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" onClick={fetchUsers}>
+                    <RefreshCw className="h-3 w-3 mr-1" />
                     Refresh
                 </Button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <Users className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{users.length}</p>
-                                <p className="text-sm text-slate-500">Total Users</p>
-                            </div>
+            {/* Stats - responsive grid */}
+            <div className="grid grid-cols-3 gap-2">
+                <Card className="p-3">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-blue-100 rounded-md">
+                            <Users className="h-4 w-4 text-blue-600" />
                         </div>
-                    </CardContent>
+                        <div>
+                            <p className="text-lg font-bold">{users.length}</p>
+                            <p className="text-[10px] text-muted-foreground">Users</p>
+                        </div>
+                    </div>
                 </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-purple-100 rounded-lg">
-                                <Star className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{users.filter(u => u.role === 'SUPER_ADMIN').length}</p>
-                                <p className="text-sm text-slate-500">Super Admins</p>
-                            </div>
+                <Card className="p-3">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-purple-100 rounded-md">
+                            <Star className="h-4 w-4 text-purple-600" />
                         </div>
-                    </CardContent>
+                        <div>
+                            <p className="text-lg font-bold">{users.filter(u => u.role === 'SUPER_ADMIN').length}</p>
+                            <p className="text-[10px] text-muted-foreground">Admins</p>
+                        </div>
+                    </div>
                 </Card>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-slate-100 rounded-lg">
-                                <FolderOpen className="h-5 w-5 text-slate-600" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{projects.length}</p>
-                                <p className="text-sm text-slate-500">Projects</p>
-                            </div>
+                <Card className="p-3">
+                    <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-slate-100 rounded-md">
+                            <FolderOpen className="h-4 w-4 text-slate-600" />
                         </div>
-                    </CardContent>
+                        <div>
+                            <p className="text-lg font-bold">{projects.length}</p>
+                            <p className="text-[10px] text-muted-foreground">Projects</p>
+                        </div>
+                    </div>
                 </Card>
             </div>
 
-            {/* Users List */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" />
-                        Users & Project Access
-                    </CardTitle>
-                    <CardDescription>
-                        Manage user roles and which projects they can access
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-3">
-                        {users.map(user => (
-                            <div
-                                key={user.id}
-                                className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border hover:bg-slate-100 transition-colors"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${user.role === 'SUPER_ADMIN' ? 'bg-purple-500' :
+            {/* Users List - Mobile-first card design */}
+            <div className="space-y-2">
+                {users.map(user => (
+                    <Card key={user.id} className="overflow-hidden">
+                        <Collapsible open={expandedUsers.has(user.id)} onOpenChange={() => toggleUserExpand(user.id)}>
+                            {/* User Header - Always visible */}
+                            <CollapsibleTrigger asChild>
+                                <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50">
+                                    {/* Avatar */}
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 ${user.role === 'SUPER_ADMIN' ? 'bg-purple-500' :
                                         user.role === 'ADMIN' ? 'bg-amber-500' : 'bg-slate-400'
                                         }`}>
                                         {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
                                     </div>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <p className="font-medium">{user.name || 'Unknown'}</p>
+
+                                    {/* Name & Email */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="font-medium text-sm truncate">{user.name || 'Unknown'}</span>
                                             {getRoleBadge(user.role)}
                                         </div>
-                                        <p className="text-sm text-slate-500">{user.email}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                                     </div>
+
+                                    {/* Expand Icon */}
+                                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${expandedUsers.has(user.id) ? 'rotate-180' : ''}`} />
                                 </div>
+                            </CollapsibleTrigger>
 
-                                <div className="flex items-center gap-4">
-                                    {/* Project Count */}
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-400">Projects</div>
-                                        <p className="text-sm font-medium">
-                                            {user.role === 'SUPER_ADMIN' ? (
-                                                <span className="text-purple-600">All</span>
-                                            ) : (
-                                                user.projectAccess.length
-                                            )}
-                                        </p>
-                                    </div>
-
+                            {/* Expanded Content */}
+                            <CollapsibleContent>
+                                <div className="px-3 pb-3 pt-0 space-y-3 border-t">
                                     {/* Last Login */}
-                                    <div className="text-right">
-                                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                                            <Clock className="h-3 w-3" />
-                                            Last Login
-                                        </div>
-                                        <p className="text-sm">{formatDate(user.lastLogin)}</p>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-3">
+                                        <Clock className="h-3 w-3" />
+                                        Last login: {formatDate(user.lastLogin)}
                                     </div>
 
-                                    {/* Role Selector */}
-                                    <Select
-                                        value={user.role}
-                                        onValueChange={(val) => updateRole(user.id, val)}
-                                    >
-                                        <SelectTrigger className="w-32">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="SUPER_ADMIN">
-                                                <div className="flex items-center gap-2">
-                                                    <Star className="h-3 w-3 text-purple-500" />
-                                                    Super Admin
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="ADMIN">
-                                                <div className="flex items-center gap-2">
-                                                    <Shield className="h-3 w-3 text-amber-500" />
-                                                    Admin
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="USER">
-                                                <div className="flex items-center gap-2">
-                                                    <Eye className="h-3 w-3 text-slate-500" />
-                                                    User
-                                                </div>
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    {/* Projects Count */}
+                                    <div className="flex items-center gap-2 text-xs">
+                                        <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                                        <span className="text-muted-foreground">Projects:</span>
+                                        {user.role === 'SUPER_ADMIN' ? (
+                                            <span className="text-purple-600 font-medium">All</span>
+                                        ) : (
+                                            <span className="font-medium">{user.projectAccess.length}</span>
+                                        )}
+                                    </div>
 
-                                    {/* Patrick CRM Access */}
-                                    <Select
-                                        value={user.patrickAccess}
-                                        onValueChange={(val) => updatePatrickAccess(user.id, val)}
-                                    >
-                                        <SelectTrigger className="w-28">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="EDITOR">
-                                                <div className="flex items-center gap-2">
-                                                    <Shield className="h-3 w-3 text-green-500" />
-                                                    Editor
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="VIEWER">
-                                                <div className="flex items-center gap-2">
-                                                    <Eye className="h-3 w-3 text-blue-500" />
-                                                    Viewer
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="HIDDEN">
-                                                <div className="flex items-center gap-2">
-                                                    <Eye className="h-3 w-3 text-slate-300" />
-                                                    Hidden
-                                                </div>
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    {/* Controls */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {/* Role Selector */}
+                                        <div>
+                                            <label className="text-[10px] text-muted-foreground block mb-1">Role</label>
+                                            <Select
+                                                value={user.role}
+                                                onValueChange={(val) => updateRole(user.id, val)}
+                                            >
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="SUPER_ADMIN">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Star className="h-3 w-3 text-purple-500" />
+                                                            Super Admin
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="ADMIN">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Shield className="h-3 w-3 text-amber-500" />
+                                                            Admin
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="USER">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Eye className="h-3 w-3 text-slate-500" />
+                                                            User
+                                                        </div>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
 
-                                    {/* Edit Access Button */}
+                                        {/* Patrick CRM Access */}
+                                        <div>
+                                            <label className="text-[10px] text-muted-foreground block mb-1">Patrick CRM</label>
+                                            <Select
+                                                value={user.patrickAccess}
+                                                onValueChange={(val) => updatePatrickAccess(user.id, val)}
+                                            >
+                                                <SelectTrigger className="h-8 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="EDITOR">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Shield className="h-3 w-3 text-green-500" />
+                                                            Editor
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="VIEWER">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Eye className="h-3 w-3 text-blue-500" />
+                                                            Viewer
+                                                        </div>
+                                                    </SelectItem>
+                                                    <SelectItem value="HIDDEN">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Eye className="h-3 w-3 text-slate-300" />
+                                                            Hidden
+                                                        </div>
+                                                    </SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    {/* Project Access Button */}
                                     {user.role !== 'SUPER_ADMIN' && (
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            className="w-full h-8 text-xs"
                                             onClick={() => openAccessDialog(user)}
                                         >
-                                            <FolderOpen className="h-4 w-4 mr-1" />
-                                            Projects
-                                            <ChevronRight className="h-4 w-4 ml-1" />
+                                            <FolderOpen className="h-3 w-3 mr-1.5" />
+                                            Manage Projects
+                                            <ChevronRight className="h-3 w-3 ml-auto" />
                                         </Button>
                                     )}
                                 </div>
-                            </div>
-                        ))}
+                            </CollapsibleContent>
+                        </Collapsible>
+                    </Card>
+                ))}
 
-                        {users.length === 0 && (
-                            <div className="text-center py-8 text-slate-500">
-                                No users found
-                            </div>
-                        )}
+                {users.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                        No users found
                     </div>
-                </CardContent>
-            </Card>
-
-            {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 mb-2">📌 Role Descriptions</h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• <strong>Super Admin:</strong> Full access to all projects and settings</li>
-                    <li>• <strong>Admin:</strong> Can manage leads and tasks</li>
-                    <li>• <strong>User:</strong> Access only to assigned projects</li>
-                </ul>
+                )}
             </div>
 
             {/* Project Access Dialog */}
             <Dialog open={showAccessDialog} onOpenChange={setShowAccessDialog}>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[80vh]">
                     <DialogHeader>
-                        <DialogTitle>Project & App Access</DialogTitle>
-                        <DialogDescription>
-                            Select which projects and tools {selectedUser?.name || selectedUser?.email} can access
+                        <DialogTitle className="text-base">Project Access</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            Select projects for {selectedUser?.name || selectedUser?.email}
                         </DialogDescription>
                     </DialogHeader>
 
-                    <ScrollArea className="h-[400px] pr-4">
-                        <div className="space-y-4">
+                    <ScrollArea className="h-[50vh] pr-4">
+                        <div className="space-y-2">
                             {projects.map(project => (
                                 <div
                                     key={project.id}
-                                    className={`p-4 rounded-lg border transition-colors ${isProjectSelected(project.id)
+                                    className={`p-3 rounded-lg border transition-colors ${isProjectSelected(project.id)
                                         ? 'border-blue-300 bg-blue-50/50'
-                                        : 'border-slate-200 hover:border-slate-300'
+                                        : 'border-border hover:border-muted-foreground/30'
                                         }`}
                                 >
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <FolderOpen className={`h-4 w-4 ${isProjectSelected(project.id) ? 'text-blue-500' : 'text-slate-400'}`} />
-                                        <span className="font-medium">{project.name}</span>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <FolderOpen className={`h-4 w-4 ${isProjectSelected(project.id) ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                                        <span className="font-medium text-sm">{project.name}</span>
                                     </div>
 
-                                    {/* App checkboxes */}
-                                    <div className="grid grid-cols-3 gap-2 pl-7">
+                                    {/* App checkboxes - 2 columns on mobile */}
+                                    <div className="grid grid-cols-2 gap-1.5 pl-6">
                                         {AVAILABLE_APPS.map(app => (
                                             <label
                                                 key={app.id}
-                                                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${app.disabled
-                                                    ? 'opacity-50 cursor-not-allowed bg-slate-100'
+                                                className={`flex items-center gap-1.5 p-2 rounded border cursor-pointer text-xs ${app.disabled
+                                                    ? 'opacity-50 cursor-not-allowed bg-muted'
                                                     : isAppSelected(project.id, app.id)
                                                         ? 'border-blue-300 bg-blue-100'
-                                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                        : 'border-border hover:bg-muted/50'
                                                     }`}
                                             >
                                                 <Checkbox
                                                     checked={isAppSelected(project.id, app.id)}
                                                     onCheckedChange={() => !app.disabled && toggleProjectApp(project.id, app.id)}
                                                     disabled={app.disabled}
+                                                    className="h-3.5 w-3.5"
                                                 />
-                                                <span className="text-sm">
-                                                    {app.icon} {app.name}
-                                                </span>
-                                                {app.comingSoon && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 ml-auto">Soon</Badge>
-                                                )}
+                                                <span>{app.icon}</span>
+                                                <span className="truncate">{app.name}</span>
                                             </label>
                                         ))}
                                     </div>
@@ -500,12 +494,12 @@ export function UsersTab() {
                         </div>
                     </ScrollArea>
 
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowAccessDialog(false)}>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setShowAccessDialog(false)}>
                             Cancel
                         </Button>
-                        <Button onClick={saveProjectAccess} disabled={savingAccess}>
-                            {savingAccess ? 'Saving...' : 'Save Access'}
+                        <Button size="sm" onClick={saveProjectAccess} disabled={savingAccess}>
+                            {savingAccess ? 'Saving...' : 'Save'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

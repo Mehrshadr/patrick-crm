@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.1
+ * Version: 1.6.3
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.1';
+    private $version = '1.6.3';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -852,6 +852,7 @@ class Mehrana_App_Plugin
     /**
      * Remove a specific link from page content
      * Only removes the <a> tag, keeps the anchor text
+     * Fixed: Uses URL+anchor matching instead of fragile index-based IDs
      */
     public function remove_link($request)
     {
@@ -863,50 +864,85 @@ class Mehrana_App_Plugin
             return new WP_Error('not_found', 'Page not found', ['status' => 404]);
         }
 
-        $content = $post->post_content;
+        $site_url = home_url();
         $modified = false;
+
+        // Build combined content exactly like get_page_links does
+        $rendered_content = apply_filters('the_content', $post->post_content);
+        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+
+        $combined_content = $rendered_content;
+        if (!empty($elementor_data) && is_string($elementor_data)) {
+            $combined_content .= $elementor_data;
+        }
 
         // Pattern to match <a> tags
         $pattern = '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is';
 
-        $new_content = preg_replace_callback($pattern, function ($match) use ($link_id, &$modified) {
+        // First, find the target link by ID to get its URL and anchor
+        $target_url = null;
+        $target_anchor = null;
+
+        preg_match_all($pattern, $combined_content, $matches, PREG_SET_ORDER);
+        foreach ($matches as $index => $match) {
             $url = $match[1];
-            $anchor = $match[2];
-            $match_id = 'link_' . $GLOBALS['_link_index'] . '_' . md5($url . strip_tags($anchor));
-            $GLOBALS['_link_index']++;
+            $anchor = strip_tags($match[2]);
+            $is_internal = (strpos($url, $site_url) === 0 || strpos($url, '/') === 0);
 
-            if ($match_id === $link_id) {
-                $modified = true;
-                return $anchor; // Return just the anchor text without the <a> tag
-            }
-            return $match[0];
-        }, $content);
-
-        if (!$modified) {
-            // Try in Elementor data
-            $elementor_data = get_post_meta($page_id, '_elementor_data', true);
-            if (!empty($elementor_data)) {
-                $data = is_string($elementor_data) ? json_decode($elementor_data, true) : $elementor_data;
-                if ($data) {
-                    $GLOBALS['_link_index'] = 0;
-                    $this->remove_link_recursive($data, $link_id, $modified);
-                    if ($modified) {
-                        update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
-                        $this->log("Removed link $link_id from Elementor data in page $page_id");
-                    }
+            if ($is_internal) {
+                // Use $index (position in all matches) - same as get_page_links
+                $match_id = 'link_' . $index . '_' . md5($url . $anchor);
+                if ($match_id === $link_id) {
+                    $target_url = $url;
+                    $target_anchor = $anchor;
+                    break;
                 }
             }
-        } else {
+        }
+
+        if ($target_url === null) {
+            $this->log("Link not found: $link_id in page $page_id");
+            return new WP_Error('not_found', 'Link not found', ['status' => 404]);
+        }
+
+        $this->log("Found link to remove: URL=$target_url, Anchor=$target_anchor");
+
+        // Now remove from post_content using URL+anchor matching
+        $new_content = preg_replace_callback($pattern, function ($match) use ($target_url, $target_anchor, &$modified) {
+            $url = $match[1];
+            $anchor = strip_tags($match[2]);
+
+            // Match by URL and anchor text (more reliable than index)
+            if ($url === $target_url && $anchor === $target_anchor && !$modified) {
+                $modified = true;
+                return strip_tags($match[2]); // Return just the anchor text without the <a> tag
+            }
+            return $match[0];
+        }, $post->post_content);
+
+        if ($modified) {
             // Update regular content
             wp_update_post([
                 'ID' => $page_id,
                 'post_content' => $new_content
             ]);
-            $this->log("Removed link $link_id from page $page_id");
+            $this->log("Removed link from post_content in page $page_id");
+        } else {
+            // Try in Elementor data
+            if (!empty($elementor_data)) {
+                $data = is_string($elementor_data) ? json_decode($elementor_data, true) : $elementor_data;
+                if ($data) {
+                    $this->remove_link_by_target($data, $target_url, $target_anchor, $modified);
+                    if ($modified) {
+                        update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
+                        $this->log("Removed link from Elementor data in page $page_id");
+                    }
+                }
+            }
         }
 
         if (!$modified) {
-            return new WP_Error('not_found', 'Link not found', ['status' => 404]);
+            return new WP_Error('not_found', 'Link not found in content', ['status' => 404]);
         }
 
         return rest_ensure_response([
@@ -916,7 +952,35 @@ class Mehrana_App_Plugin
     }
 
     /**
-     * Recursively remove link from Elementor data
+     * Remove link by URL and anchor text (more reliable than index-based matching)
+     */
+    private function remove_link_by_target(&$data, $target_url, $target_anchor, &$modified)
+    {
+        $pattern = '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is';
+
+        if (is_array($data)) {
+            foreach ($data as $key => &$value) {
+                if (is_string($value) && preg_match($pattern, $value)) {
+                    $value = preg_replace_callback($pattern, function ($match) use ($target_url, $target_anchor, &$modified) {
+                        $url = $match[1];
+                        $anchor = strip_tags($match[2]);
+
+                        if ($url === $target_url && $anchor === $target_anchor && !$modified) {
+                            $modified = true;
+                            return strip_tags($match[2]);
+                        }
+                        return $match[0];
+                    }, $value);
+                } elseif (is_array($value)) {
+                    $this->remove_link_by_target($value, $target_url, $target_anchor, $modified);
+                }
+            }
+        }
+    }
+
+    /**
+     * Recursively remove link from Elementor data (legacy, kept for compatibility)
+     * @deprecated Use remove_link_by_target instead
      */
     private function remove_link_recursive(&$data, $link_id, &$modified)
     {

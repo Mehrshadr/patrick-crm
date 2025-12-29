@@ -416,16 +416,22 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
         <div className="p-6 max-w-6xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Link href="/projects">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-xl font-semibold">{project?.name} - Link Building</h1>
-                        <p className="text-sm text-slate-500">{project?.domain}</p>
+                <div className="flex flex-col gap-1">
+                    {/* Breadcrumb */}
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Link href="/projects" className="hover:text-foreground">
+                            Projects
+                        </Link>
+                        <span>/</span>
+                        <Link href={`/projects/${projectId}`} className="hover:text-foreground">
+                            {project?.name}
+                        </Link>
+                        <span>/</span>
+                        <span className="text-foreground font-semibold">Link Building</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                        {project?.domain || 'No domain'} · {keywords.length} keywords
+                    </p>
                 </div>
                 <div className="flex gap-2">
                     {/* Scan Button */}
@@ -660,7 +666,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                                     onClick={() => toggleKeywordExpanded(kw.id)}
                                                     className="flex items-center gap-1 mx-auto hover:bg-slate-100 px-2 py-1 rounded"
                                                 >
-                                                    <Badge variant="secondary">{kw.linksCreated}</Badge>
+                                                    <Badge variant="secondary">{keywordLogs.length}</Badge>
                                                     <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                                 </button>
                                             </TableCell>

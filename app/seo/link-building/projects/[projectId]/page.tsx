@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import React, { useState, useEffect, use } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -627,7 +627,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                 const keywordLogs = kw.logs || []
 
                                 return (
-                                    <Collapsible key={kw.id} open={isExpanded}>
+                                    <React.Fragment key={kw.id}>
                                         <TableRow className={!kw.isEnabled ? 'opacity-50' : ''}>
                                             <TableCell>
                                                 <Checkbox
@@ -656,15 +656,13 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                <CollapsibleTrigger asChild>
-                                                    <button
-                                                        onClick={() => toggleKeywordExpanded(kw.id)}
-                                                        className="flex items-center gap-1 mx-auto hover:bg-slate-100 px-2 py-1 rounded"
-                                                    >
-                                                        <Badge variant="secondary">{kw.linksCreated}</Badge>
-                                                        <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                                    </button>
-                                                </CollapsibleTrigger>
+                                                <button
+                                                    onClick={() => toggleKeywordExpanded(kw.id)}
+                                                    className="flex items-center gap-1 mx-auto hover:bg-slate-100 px-2 py-1 rounded"
+                                                >
+                                                    <Badge variant="secondary">{kw.linksCreated}</Badge>
+                                                    <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                </button>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <Switch
@@ -685,12 +683,12 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                        <CollapsibleContent asChild>
+                                        {isExpanded && (
                                             <TableRow className="bg-slate-50 hover:bg-slate-50">
                                                 <TableCell colSpan={7} className="p-0">
-                                                    <div className="px-4 py-2 max-h-48 overflow-y-auto">
+                                                    <div className="px-4 py-2 max-h-64 overflow-y-auto">
                                                         {keywordLogs.length === 0 ? (
-                                                            <p className="text-sm text-slate-400">No links yet</p>
+                                                            <p className="text-sm text-slate-400 py-2">No links yet</p>
                                                         ) : (
                                                             <div className="space-y-1">
                                                                 {keywordLogs.map(log => (
@@ -714,53 +712,14 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        </CollapsibleContent>
-                                    </Collapsible>
+                                        )}
+                                    </React.Fragment>
                                 )
                             })
                         )}
                     </TableBody>
                 </Table>
             </div>
-
-            {/* Recent Logs */}
-            {logs.length > 0 && (
-                <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-slate-500">Recent Activity</h3>
-                    <div className="space-y-1">
-                        {logs.map(log => (
-                            <div key={log.id} className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-slate-50 ${log.status === 'skipped' ? 'bg-red-50' : ''}`}>
-                                {log.status === 'linked' ? (
-                                    <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                ) : log.status === 'skipped' ? (
-                                    <span title={log.message || 'Skipped'}><XCircle className="h-4 w-4 text-red-500 flex-shrink-0" /></span>
-                                ) : log.status === 'pending' ? (
-                                    <Clock className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                                ) : (
-                                    <XCircle className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                                )}
-                                <a
-                                    href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`hover:underline flex-1 truncate ${log.status === 'skipped' ? 'text-red-600' : log.status === 'pending' ? 'text-slate-600' : 'text-blue-600'}`}
-                                >
-                                    {log.pageTitle || log.pageUrl}
-                                </a>
-                                <span className={`${log.status === 'skipped' ? 'text-red-400' : 'text-slate-400'}`}>"{log.keyword.keyword}"</span>
-                                {log.status === 'skipped' && log.message && (
-                                    <span className="text-xs text-red-500 max-w-[200px] truncate" title={log.message}>
-                                        {log.message.replace('Skipped: ', '')}
-                                    </span>
-                                )}
-                                <span className="text-xs text-slate-300">
-                                    {new Date(log.createdAt).toLocaleTimeString()}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Settings */}
             <Collapsible open={showSettings} onOpenChange={setShowSettings} className="border rounded-lg">

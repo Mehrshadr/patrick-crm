@@ -281,6 +281,7 @@ model IndexingProject {
   contents      GeneratedContent[]
   linkBuildingKeywords LinkBuildingKeyword[]
   linkBuildingLogs     LinkBuildingLog[]
+  discoveredPageTypes  DiscoveredPageType[]
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -533,4 +534,15 @@ model LinkBuildingLog {
   message     String?              // Additional info
   
   createdAt   DateTime             @default(now())
+}
+
+// Discovered Page Types (from Crawl)
+model DiscoveredPageType {
+  id        Int              @id @default(autoincrement())
+  projectId Int
+  project   IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  typeName  String           // e.g. "blog", "service", "product"
+  count     Int              @default(0)
+  
+  @@unique([projectId, typeName])
 }

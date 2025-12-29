@@ -41,6 +41,16 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+interface KeywordLog {
+    id: number
+    pageUrl: string
+    pageTitle: string | null
+    anchorId: string | null
+    status: string
+    message: string | null
+    createdAt: string
+}
+
 interface Keyword {
     id: number
     keyword: string
@@ -50,6 +60,7 @@ interface Keyword {
     onlyFirstP: boolean
     isEnabled: boolean
     linksCreated: number
+    logs?: KeywordLog[]
     _count?: { logs: number }
 }
 
@@ -64,11 +75,18 @@ interface Log {
     keyword: { keyword: string; targetUrl: string }
 }
 
-const PAGE_TYPES = [
-    { value: 'service', label: 'Service Pages' },
-    { value: 'blog', label: 'Blog Posts' },
-    { value: 'landing', label: 'Landing Pages' },
-    { value: 'page', label: 'Other Pages' },
+interface DiscoveredPageType {
+    id: number
+    typeName: string
+    count: number
+}
+
+// Fallback static types (used if no crawl data exists)
+const DEFAULT_PAGE_TYPES = [
+    { value: 'service', label: 'Service' },
+    { value: 'blog', label: 'Blog' },
+    { value: 'landing', label: 'Landing' },
+    { value: 'page', label: 'Page' },
 ]
 
 export default function LinkBuildingPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -81,9 +99,10 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
     // New keyword form
     const [newKeyword, setNewKeyword] = useState('')
     const [newUrl, setNewUrl] = useState('')
-    const [newPageTypes, setNewPageTypes] = useState<string[]>(['service'])
+    const [newPageTypes, setNewPageTypes] = useState<string[]>(['blog'])
     const [crawling, setCrawling] = useState(false)
-    const [crawlResult, setCrawlResult] = useState<{ totalPages: number; byType: Record<string, { count: number }> } | null>(null)
+    const [discoveredPageTypes, setDiscoveredPageTypes] = useState<DiscoveredPageType[]>([])
+    const [expandedKeywords, setExpandedKeywords] = useState<Set<number>>(new Set())
 
     // Settings
     const [showSettings, setShowSettings] = useState(false)
@@ -140,20 +159,16 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                     setCmsApiKey(data.settings.cmsApiKey || '')
                 }
             }
+
+            // Fetch discovered page types
+            const typesRes = await fetch(`/api/seo/link-building/crawl?projectId=${projectId}`)
+            if (typesRes.ok) {
+                const data = await typesRes.json()
+                setDiscoveredPageTypes(data.pageTypes || [])
+            }
         } catch (e) {
             toast.error('Failed to load data')
         }
-
-        // Fetch pending count separately
-        try {
-            // Using existing logs endpoint if it supports counts or filtering?
-            // Fallback: Use scan init to get pending stats? No.
-            // We'll trust the logs fetch for now or add a stats endpoint later.
-            // For now, let's just count pending in the logs we fetched (limit 20 is small though).
-            // Better: Add a lightweight stats fetch
-            // fetch('/api/seo/link-building/stats')... 
-            // I'll leave this for refinement.
-        } catch (e) { }
 
         setLoading(false)
     }
@@ -266,6 +281,41 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
         }
         setProcessStatus('idle')
     }
+
+    async function handleCrawl() {
+        setCrawling(true)
+        try {
+            const res = await fetch('/api/seo/link-building/crawl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId })
+            })
+            if (res.ok) {
+                const data = await res.json()
+                setDiscoveredPageTypes(data.pageTypes || [])
+                toast.success(`Crawled ${data.totalPages} pages`)
+            } else {
+                const errData = await res.json().catch(() => ({}))
+                toast.error(errData.error || 'Crawl failed')
+            }
+        } catch (e) {
+            toast.error('Crawl failed')
+        }
+        setCrawling(false)
+    }
+
+    function toggleKeywordExpanded(keywordId: number) {
+        setExpandedKeywords(prev => {
+            const next = new Set(prev)
+            if (next.has(keywordId)) {
+                next.delete(keywordId)
+            } else {
+                next.add(keywordId)
+            }
+            return next
+        })
+    }
+
     async function addKeyword() {
         if (!newKeyword.trim() || !newUrl.trim()) {
             toast.error('Keyword and URL required')
@@ -508,34 +558,69 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                             <span className="text-sm truncate">
                                 {newPageTypes.length === 0
                                     ? 'Select pages...'
-                                    : newPageTypes.length === PAGE_TYPES.length
-                                        ? 'All pages'
-                                        : `${newPageTypes.length} selected`
+                                    : `${newPageTypes.length} selected`
                                 }
                             </span>
                             <ChevronDown className="h-4 w-4 ml-2 shrink-0 opacity-50" />
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-48 p-2" align="start">
+                    <PopoverContent className="w-56 p-2" align="start">
                         <div className="space-y-1">
-                            {PAGE_TYPES.map(pt => (
-                                <label
-                                    key={pt.value}
-                                    className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-100 rounded"
-                                >
-                                    <Checkbox
-                                        checked={newPageTypes.includes(pt.value)}
-                                        onCheckedChange={(checked) => {
-                                            if (checked) {
-                                                setNewPageTypes([...newPageTypes, pt.value])
-                                            } else {
-                                                setNewPageTypes(newPageTypes.filter(p => p !== pt.value))
-                                            }
-                                        }}
-                                    />
-                                    {pt.label}
-                                </label>
-                            ))}
+                            {discoveredPageTypes.length > 0 ? (
+                                discoveredPageTypes.map(pt => (
+                                    <label
+                                        key={pt.typeName}
+                                        className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-100 rounded"
+                                    >
+                                        <Checkbox
+                                            checked={newPageTypes.includes(pt.typeName)}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setNewPageTypes([...newPageTypes, pt.typeName])
+                                                } else {
+                                                    setNewPageTypes(newPageTypes.filter(p => p !== pt.typeName))
+                                                }
+                                            }}
+                                        />
+                                        <span className="flex-1">{pt.typeName}</span>
+                                        <Badge variant="secondary" className="text-xs">{pt.count}</Badge>
+                                    </label>
+                                ))
+                            ) : (
+                                DEFAULT_PAGE_TYPES.map(pt => (
+                                    <label
+                                        key={pt.value}
+                                        className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-100 rounded"
+                                    >
+                                        <Checkbox
+                                            checked={newPageTypes.includes(pt.value)}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setNewPageTypes([...newPageTypes, pt.value])
+                                                } else {
+                                                    setNewPageTypes(newPageTypes.filter(p => p !== pt.value))
+                                                }
+                                            }}
+                                        />
+                                        {pt.label}
+                                    </label>
+                                ))
+                            )}
+                        </div>
+                        <div className="border-t mt-2 pt-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full text-xs"
+                                onClick={handleCrawl}
+                                disabled={crawling}
+                            >
+                                {crawling ? (
+                                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Crawling...</>
+                                ) : (
+                                    <><Search className="h-3 w-3 mr-1" /> Refresh from Site</>
+                                )}
+                            </Button>
                         </div>
                     </PopoverContent>
                 </Popover>
@@ -579,56 +664,99 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ project
                         ) : (
                             keywords.map(kw => {
                                 const pageTypes = kw.pageTypes ? JSON.parse(kw.pageTypes) : []
+                                const isExpanded = expandedKeywords.has(kw.id)
+                                const keywordLogs = kw.logs || []
+
                                 return (
-                                    <TableRow key={kw.id} className={!kw.isEnabled ? 'opacity-50' : ''}>
-                                        <TableCell>
-                                            <Checkbox
-                                                checked={selectedKeywords.includes(kw.id)}
-                                                onCheckedChange={(checked) => {
-                                                    if (checked) {
-                                                        setSelectedKeywords([...selectedKeywords, kw.id])
-                                                    } else {
-                                                        setSelectedKeywords(selectedKeywords.filter(id => id !== kw.id))
-                                                    }
-                                                }}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="font-medium">{kw.keyword}</TableCell>
-                                        <TableCell className="text-sm text-slate-600">
-                                            <a href={kw.targetUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
-                                                {kw.targetUrl}
-                                                <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-1 flex-wrap">
-                                                {pageTypes.map((pt: string) => (
-                                                    <Badge key={pt} variant="outline" className="text-xs">{pt}</Badge>
-                                                ))}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant="secondary">{kw.linksCreated}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Switch
-                                                checked={kw.isEnabled}
-                                                onCheckedChange={v => toggleKeyword(kw.id, v)}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 text-slate-400 hover:text-red-500"
-                                                    onClick={() => deleteKeyword(kw.id)}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
+                                    <Collapsible key={kw.id} open={isExpanded}>
+                                        <TableRow className={!kw.isEnabled ? 'opacity-50' : ''}>
+                                            <TableCell>
+                                                <Checkbox
+                                                    checked={selectedKeywords.includes(kw.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked) {
+                                                            setSelectedKeywords([...selectedKeywords, kw.id])
+                                                        } else {
+                                                            setSelectedKeywords(selectedKeywords.filter(id => id !== kw.id))
+                                                        }
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="font-medium">{kw.keyword}</TableCell>
+                                            <TableCell className="text-sm text-slate-600">
+                                                <a href={kw.targetUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                                                    {kw.targetUrl}
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-1 flex-wrap">
+                                                    {pageTypes.map((pt: string) => (
+                                                        <Badge key={pt} variant="outline" className="text-xs">{pt}</Badge>
+                                                    ))}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <CollapsibleTrigger asChild>
+                                                    <button
+                                                        onClick={() => toggleKeywordExpanded(kw.id)}
+                                                        className="flex items-center gap-1 mx-auto hover:bg-slate-100 px-2 py-1 rounded"
+                                                    >
+                                                        <Badge variant="secondary">{kw.linksCreated}</Badge>
+                                                        <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                    </button>
+                                                </CollapsibleTrigger>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <Switch
+                                                    checked={kw.isEnabled}
+                                                    onCheckedChange={v => toggleKeyword(kw.id, v)}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-slate-400 hover:text-red-500"
+                                                        onClick={() => deleteKeyword(kw.id)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                        <CollapsibleContent asChild>
+                                            <TableRow className="bg-slate-50 hover:bg-slate-50">
+                                                <TableCell colSpan={7} className="p-0">
+                                                    <div className="px-4 py-2 max-h-48 overflow-y-auto">
+                                                        {keywordLogs.length === 0 ? (
+                                                            <p className="text-sm text-slate-400">No links yet</p>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                {keywordLogs.map(log => (
+                                                                    <div key={log.id} className="flex items-center gap-2 text-sm py-1">
+                                                                        <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                                                        <a
+                                                                            href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="hover:underline text-blue-600 truncate flex-1"
+                                                                        >
+                                                                            {log.pageTitle || log.pageUrl}
+                                                                        </a>
+                                                                        <span className="text-xs text-slate-400">
+                                                                            {new Date(log.createdAt).toLocaleDateString()}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        </CollapsibleContent>
+                                    </Collapsible>
                                 )
                             })
                         )}

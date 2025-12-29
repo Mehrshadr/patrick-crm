@@ -311,14 +311,21 @@ class Mehrana_App_Plugin
         // Get all public post types
         $post_types = get_post_types(['public' => true], 'names');
 
+        // Exclude internal/system types
+        $exclude = ['attachment', 'elementor_library', 'elementor_font', 'elementor_icons', 'guest-author'];
+        $allowed_types = array_diff(array_values($post_types), $exclude);
+
         $args = [
-            'post_type' => array_values($post_types),  // All public post types
-            'posts_per_page' => 500,
+            'post_type' => array_values($allowed_types),
+            'posts_per_page' => -1, // No limit
             'post_status' => 'publish',
         ];
 
         $pages = get_posts($args);
         $result = [];
+        $debug_types = array_count_values(array_map(function ($p) {
+            return $p->post_type;
+        }, $pages));
 
         foreach ($pages as $page) {
             $elementor_data = get_post_meta($page->ID, '_elementor_data', true);
@@ -327,6 +334,8 @@ class Mehrana_App_Plugin
             $type = 'page';
             if ($page->post_type === 'post') {
                 $type = 'blog';
+            } elseif ($page->post_type !== 'page') {
+                $type = $page->post_type;
             }
 
             $result[] = [
@@ -342,7 +351,14 @@ class Mehrana_App_Plugin
 
         $this->log('Fetched ' . count($result) . ' pages/posts');
 
-        return rest_ensure_response($result);
+        return rest_ensure_response([
+            'pages' => $result,
+            'debug' => [
+                'total_found' => count($result),
+                'types_found' => $debug_types,
+                'query_args' => $args
+            ]
+        ]);
     }
 
     /**
@@ -485,8 +501,12 @@ class Mehrana_App_Plugin
 
             // Process nested elements
             if (isset($element['elements']) && is_array($element['elements'])) {
-                $nested = $this->process_elements($element['elements'], $keyword, $target_url, $anchor_id, $only_first && $total_count === 0);
-                $total_count += $nested['count'];
+                if ($only_first && $total_count > 0) {
+                    // Skip nested elements if limit reached
+                } else {
+                    $nested = $this->process_elements($element['elements'], $keyword, $target_url, $anchor_id, $only_first);
+                    $total_count += $nested['count'];
+                }
             }
         }
 
@@ -570,19 +590,26 @@ class Mehrana_App_Plugin
                 if (is_string($value) && strlen($value) > 3) {
                     // Check if contains keyword
                     if (stripos($value, $keyword) !== false) {
+                        if ($only_first && $total_count > 0) {
+                            continue;
+                        }
+
                         $result = $this->replace_keyword(
                             $value,
                             $keyword,
                             $target_url,
                             $anchor_id,
-                            $only_first && $total_count === 0
+                            $only_first
                         );
                         $value = $result['text'];
                         $total_count += $result['count'];
                     }
                 } elseif (is_array($value) && !$this->is_media_object($value)) {
                     // Recurse but skip media objects
-                    $count = $this->process_settings_recursive($value, $keyword, $target_url, $anchor_id, $only_first && $total_count === 0, $depth + 1);
+                    if ($only_first && $total_count > 0) {
+                        continue;
+                    }
+                    $count = $this->process_settings_recursive($value, $keyword, $target_url, $anchor_id, $only_first, $depth + 1);
                     $total_count += $count;
                 }
             }
@@ -814,6 +841,7 @@ class Mehrana_App_Plugin
 
         foreach ($text_nodes as $node) {
             $debug_stats['nodes_visited']++;
+            // Check global limit including existing matches
             if ($only_first && $count > 0)
                 break;
 
@@ -829,9 +857,14 @@ class Mehrana_App_Plugin
             while ($parent && $parent->nodeName !== 'div') { // 'div' is our wrapper
                 if (in_array(strtolower($parent->nodeName), $forbidden_tags)) {
                     $is_forbidden = true;
-                    // Log skip reason if keyword found inside forbidden tag
+                    // If it's an existing link, count it!
+                    if (strtolower($parent->nodeName) === 'a') {
+                        $count++;
+                    }
+
+                    // Log skip reason
                     $result['skipped'][] = [
-                        'reason' => 'in_metadata', // Using 'in_metadata' as generic 'invalid location' for UI
+                        'reason' => 'in_metadata',
                         'location' => $parent->nodeName,
                         'sample' => substr($content, 0, 60)
                     ];
@@ -841,6 +874,10 @@ class Mehrana_App_Plugin
                 $parent = $parent->parentNode;
             }
             if ($is_forbidden)
+                continue;
+
+            // Double check limit after potential increment from existing link
+            if ($only_first && $count > 0)
                 continue;
 
             // Safe to link here

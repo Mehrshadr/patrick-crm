@@ -13,7 +13,14 @@ export async function GET(request: NextRequest) {
     const keywords = await prisma.linkBuildingKeyword.findMany({
         where: { projectId: parseInt(projectId) },
         orderBy: [{ priority: 'desc' }, { keyword: 'asc' }],
-        include: { _count: { select: { logs: true } } }
+        include: {
+            logs: {
+                where: { status: 'linked' },
+                orderBy: { createdAt: 'desc' },
+                take: 50
+            },
+            _count: { select: { logs: true } }
+        }
     })
 
     return NextResponse.json({ keywords })

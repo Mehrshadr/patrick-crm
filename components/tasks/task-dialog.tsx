@@ -17,6 +17,7 @@ import { CalendarIcon, Loader2, Search, AlertCircle, AlertTriangle, Minus, Clock
 import { format, addMinutes, setHours, setMinutes } from "date-fns"
 import { toast } from "sonner"
 import { Task } from "./tasks-tab"
+import { TimePicker, getDefaultTime } from "@/components/ui/time-picker"
 
 const formSchema = z.object({
     title: z.string().min(1, "Title is required"),
@@ -52,7 +53,7 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
             title: initialData?.title || "",
             description: initialData?.description || "",
             dueDate: initialData ? new Date(initialData.dueDate) : new Date(),
-            time: initialData ? format(new Date(initialData.dueDate), 'HH:mm') : "09:00",
+            time: initialData ? format(new Date(initialData.dueDate), 'HH:mm') : getDefaultTime(),
             priority: initialData?.priority || "NORMAL",
             leadId: initialData?.lead?.id.toString() || undefined
         }
@@ -179,7 +180,7 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
                         )}
                     />
 
-                    {/* Time Picker - Native Select */}
+                    {/* Time Picker */}
                     <FormField
                         control={form.control}
                         name="time"
@@ -187,15 +188,10 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
                             <FormItem className="flex flex-col">
                                 <FormLabel>Time</FormLabel>
                                 <FormControl>
-                                    <select
+                                    <TimePicker
                                         value={field.value}
-                                        onChange={(e) => field.onChange(e.target.value)}
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                    >
-                                        {TIME_OPTIONS.map(time => (
-                                            <option key={time} value={time}>{time}</option>
-                                        ))}
-                                    </select>
+                                        onChange={field.onChange}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

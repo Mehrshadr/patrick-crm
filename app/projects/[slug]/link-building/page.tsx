@@ -114,6 +114,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [running, setRunning] = useState(false)
     const [runResult, setRunResult] = useState<{ linked: number; processed: number } | null>(null)
     const [selectedKeywords, setSelectedKeywords] = useState<number[]>([])
+    const [selectedLogs, setSelectedLogs] = useState<number[]>([]) // Selected pending logs for processing
+    const [expandedLogs, setExpandedLogs] = useState<Set<number>>(new Set()) // Expand to show existing backlinks
 
     // Autonomous Mode State
     const [scanStatus, setScanStatus] = useState<'idle' | 'init' | 'scanning' | 'complete'>('idle')
@@ -249,23 +251,29 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     async function handleProcessQueue() {
         setProcessStatus('processing')
         try {
-            // 1. Fetch pending logs (ALL)
-            // We need an endpoint for this. Using the logs endpoint with high limit?
-            const logsRes = await fetch(`/api/seo/link-building/logs?projectId=${projectId}&status=pending&limit=500`)
-            if (!logsRes.ok) throw new Error('Failed to fetch queue')
-            const { logs } = await logsRes.json()
+            let logIds: number[] = []
 
-            if (logs.length === 0) {
-                toast.info('No pending items')
-                setProcessStatus('idle')
-                return
+            // If specific logs are selected, use those
+            if (selectedLogs.length > 0) {
+                logIds = selectedLogs
+            } else {
+                // Otherwise fetch all pending logs
+                const logsRes = await fetch(`/api/seo/link-building/logs?projectId=${projectId}&status=pending&limit=500`)
+                if (!logsRes.ok) throw new Error('Failed to fetch queue')
+                const { logs } = await logsRes.json()
+
+                if (logs.length === 0) {
+                    toast.info('No pending items')
+                    setProcessStatus('idle')
+                    return
+                }
+                logIds = logs.map((l: any) => l.id)
             }
 
-            setProcessProgress({ current: 0, total: logs.length })
+            setProcessProgress({ current: 0, total: logIds.length })
 
-            // 2. Batch Process
+            // Batch Process
             const batchSize = 5
-            const logIds = logs.map((l: any) => l.id)
             let processed = 0
 
             for (let i = 0; i < logIds.length; i += batchSize) {
@@ -282,6 +290,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
             }
 
             toast.success('Processing complete')
+            setSelectedLogs([]) // Clear selection
             fetchData()
 
         } catch (e) {
@@ -480,8 +489,13 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                 </>
                             ) : (
                                 <>
-                                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                                    Process Queue
+                                    <Play className="mr-1 h-3 w-3" />
+                                    Run
+                                    {selectedLogs.length > 0 && (
+                                        <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                                            {selectedLogs.length}
+                                        </Badge>
+                                    )}
                                 </>
                             )}
                         </Button>
@@ -710,17 +724,27 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                             ) : (
                                                                 <div className="space-y-1">
                                                                     {keywordLogs.map(log => (
-                                                                        <div key={log.id} className="flex items-center gap-2 text-sm py-1">
+                                                                        <div key={log.id} className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded ${log.status === 'linked' ? 'bg-green-50' : 'hover:bg-slate-100'}`}>
                                                                             {log.status === 'linked' ? (
-                                                                                <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                                                                <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                                                                             ) : (
-                                                                                <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                                                                                <Checkbox
+                                                                                    checked={selectedLogs.includes(log.id)}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        if (checked) {
+                                                                                            setSelectedLogs([...selectedLogs, log.id])
+                                                                                        } else {
+                                                                                            setSelectedLogs(selectedLogs.filter(id => id !== log.id))
+                                                                                        }
+                                                                                    }}
+                                                                                    className="h-4 w-4"
+                                                                                />
                                                                             )}
                                                                             <a
                                                                                 href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
                                                                                 target="_blank"
                                                                                 rel="noopener noreferrer"
-                                                                                className={`hover:underline truncate flex-1 ${log.status === 'linked' ? 'text-blue-600' : 'text-amber-600'}`}
+                                                                                className={`hover:underline truncate flex-1 ${log.status === 'linked' ? 'text-green-700 font-medium' : 'text-amber-600'}`}
                                                                             >
                                                                                 {log.pageTitle || log.pageUrl}
                                                                             </a>

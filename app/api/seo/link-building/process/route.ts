@@ -152,8 +152,7 @@ export async function POST(request: NextRequest) {
                                             status: hasExisting ? 'linked' : 'skipped',
                                             message: hasExisting
                                                 ? `Already linked ${res.linked_count} time(s)`
-                                                : 'Keyword not found in content',
-                                            linkedCount: res.linked_count || 0
+                                                : 'Keyword not found in content'
                                         }
                                     })
                                     results.skipped++

@@ -221,10 +221,10 @@ export function AppSidebar() {
                                                             >
                                                                 <FolderOpen className="h-3 w-3 shrink-0" />
                                                                 <span
-                                                                    className="whitespace-nowrap overflow-hidden block"
+                                                                    className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-left"
                                                                     style={{
-                                                                        maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-                                                                        WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)'
+                                                                        maskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent 100%)',
+                                                                        WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 24px), transparent 100%)'
                                                                     }}
                                                                 >
                                                                     {project.name}

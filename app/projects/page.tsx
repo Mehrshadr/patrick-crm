@@ -71,6 +71,123 @@ interface Project {
     }
 }
 
+// Sortable Row Component
+function SortableRow({
+    project,
+    onEdit,
+    onDelete
+}: {
+    project: Project;
+    onEdit: () => void;
+    onDelete: () => void;
+}) {
+    const router = useRouter()
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: project.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 1 : 0,
+        opacity: isDragging ? 0.5 : 1,
+        position: 'relative' as 'relative',
+    };
+
+    return (
+        <TableRow
+            ref={setNodeRef}
+            style={style}
+            className="hover:bg-muted/50 transition-colors"
+        >
+            {/* Drag Handle */}
+            <TableCell className="w-[30px] p-0 pl-2">
+                <button
+                    {...attributes}
+                    {...listeners}
+                    className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing text-muted-foreground"
+                    onPointerDown={(e) => e.stopPropagation()} // Prevent row click
+                >
+                    <GripVertical className="h-4 w-4" />
+                </button>
+            </TableCell>
+
+            {/* Clickable Area for Navigation */}
+            <TableCell
+                className="cursor-pointer"
+                onClick={() => router.push(`/projects/${project.slug}`)}
+            >
+                <div className="font-medium">{project.name}</div>
+                {project.description && (
+                    <div className="text-sm text-muted-foreground truncate max-w-[300px]">
+                        {project.description}
+                    </div>
+                )}
+            </TableCell>
+            <TableCell
+                className="cursor-pointer"
+                onClick={() => router.push(`/projects/${project.slug}`)}
+            >
+                {project.domain ? (
+                    <Badge variant="outline">
+                        <Globe className="h-3 w-3 mr-1" />
+                        {project.domain}
+                    </Badge>
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
+            </TableCell>
+            <TableCell
+                className="cursor-pointer"
+                onClick={() => router.push(`/projects/${project.slug}`)}
+            >
+                <Badge variant="secondary">
+                    <Link2 className="h-3 w-3 mr-1" />
+                    {project._count.urls}
+                </Badge>
+            </TableCell>
+            <TableCell className="text-muted-foreground cursor-pointer" onClick={() => router.push(`/projects/${project.slug}`)}>
+                {new Date(project.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </TableCell>
+
+            {/* Actions */}
+            <TableCell>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation()
+                            onEdit()
+                        }}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                onDelete()
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </TableCell>
+        </TableRow>
+    );
+}
+
 function ProjectsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -212,112 +329,7 @@ function ProjectsContent() {
         }
     }
 
-    // Sortable Row Component
-    function SortableRow({ project }: { project: Project }) {
-        const {
-            attributes,
-            listeners,
-            setNodeRef,
-            transform,
-            transition,
-            isDragging,
-        } = useSortable({ id: project.id });
 
-        const style = {
-            transform: CSS.Transform.toString(transform),
-            transition,
-            zIndex: isDragging ? 1 : 0,
-            opacity: isDragging ? 0.5 : 1,
-            position: 'relative' as 'relative', // Fix type error
-        };
-
-        return (
-            <TableRow
-                ref={setNodeRef}
-                style={style}
-                className="hover:bg-muted/50 transition-colors"
-            >
-                {/* Drag Handle */}
-                <TableCell className="w-[30px] p-0 pl-2">
-                    <button
-                        {...attributes}
-                        {...listeners}
-                        className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing text-muted-foreground"
-                    >
-                        <GripVertical className="h-4 w-4" />
-                    </button>
-                </TableCell>
-
-                {/* Clickable Area for Navigation */}
-                <TableCell
-                    className="cursor-pointer"
-                    onClick={() => router.push(`/projects/${project.slug}`)}
-                >
-                    <div className="font-medium">{project.name}</div>
-                    {project.description && (
-                        <div className="text-sm text-muted-foreground truncate max-w-[300px]">
-                            {project.description}
-                        </div>
-                    )}
-                </TableCell>
-                <TableCell
-                    className="cursor-pointer"
-                    onClick={() => router.push(`/projects/${project.slug}`)}
-                >
-                    {project.domain ? (
-                        <Badge variant="outline">
-                            <Globe className="h-3 w-3 mr-1" />
-                            {project.domain}
-                        </Badge>
-                    ) : (
-                        <span className="text-muted-foreground">—</span>
-                    )}
-                </TableCell>
-                <TableCell
-                    className="cursor-pointer"
-                    onClick={() => router.push(`/projects/${project.slug}`)}
-                >
-                    <Badge variant="secondary">
-                        <Link2 className="h-3 w-3 mr-1" />
-                        {project._count.urls}
-                    </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground cursor-pointer" onClick={() => router.push(`/projects/${project.slug}`)}>
-                    {new Date(project.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                </TableCell>
-
-                {/* Actions */}
-                <TableCell>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation()
-                                openEditDialog(project)
-                            }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDelete(project)
-                                }}
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </TableCell>
-            </TableRow>
-        );
-    }
 
     return (
         <div className="p-6 space-y-6">
@@ -377,7 +389,12 @@ function ProjectsContent() {
                                     </TableHeader>
                                     <TableBody>
                                         {projects.map((project) => (
-                                            <SortableRow key={project.id} project={project} />
+                                            <SortableRow
+                                                key={project.id}
+                                                project={project}
+                                                onEdit={() => openEditDialog(project)}
+                                                onDelete={() => handleDelete(project)}
+                                            />
                                         ))}
                                     </TableBody>
                                 </Table>

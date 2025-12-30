@@ -210,8 +210,7 @@ export async function POST(request: NextRequest) {
                                 pageUrl: pageUrl,
                                 pageTitle: pageTitle || `Page ${pageId}`,
                                 status: 'pending',
-                                message: `Found ${cand.count} occurrence(s)${cand.linked_count > 0 ? ` (+${cand.linked_count} existing)` : ''}`,
-                                linkedCount: cand.linked_count || 0
+                                message: `Found ${cand.count} occurrence(s)${cand.linked_count > 0 ? ` (+${cand.linked_count} existing)` : ''}`
                             }
                         })
                         newCandidates++

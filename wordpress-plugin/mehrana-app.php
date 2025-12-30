@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.4
+ * Version: 1.6.5
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.4';
+    private $version = '1.6.5';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -665,15 +665,10 @@ class Mehrana_App_Plugin
         $include_patterns = [
             // ACF fields (text, textarea, wysiwyg)
             '/^_?[a-z_]+$/i',
-            // Yoast SEO
-            '/_yoast_wpseo_/',
-            // RankMath
-            '/^rank_math_/',
             // WooCommerce
             '/_product_/',
             '/^_wc_/',
             // Common content fields
-            '/description$/i',
             '/content$/i',
             '/text$/i',
             '/excerpt$/i',
@@ -696,6 +691,11 @@ class Mehrana_App_Plugin
             '/^_transient/',
             '/schema$/i',
             '/json$/i',
+            // SEO Fields - NEVER link build in these
+            '/_yoast_wpseo_/',
+            '/^rank_math_/',
+            '/_metadesc$/i',
+            '/_title$/i',
         ];
 
         // Also exclude specific keys

@@ -123,8 +123,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
             const res = await fetch(`/api/seo/link-building/logs?projectId=${projectId}`)
             if (res.ok) {
                 const data = await res.json()
-                if (data.data) {
-                    setPluginLogs(data.data)
+                if (data.logs) {
+                    setPluginLogs(data.logs)
                 } else {
                     setPluginLogs('No logs found or empty response.')
                 }

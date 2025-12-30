@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.7
+ * Version: 1.6.8
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.7';
+    private $version = '1.6.8';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -909,7 +909,12 @@ class Mehrana_App_Plugin
                 if ($data) {
                     $json_str = json_encode($data);
                     $modified_el = false;
-                    $new_json_str = preg_replace_callback($pattern_id, function ($match) use (&$modified_el) {
+                    // Fix: Elementor JSON has escaped quotes (id=\"...\"), so we need regex to match escaped quotes too
+                    // Match id="lb-..." OR id=\"lb-...\"
+                    // We use [\\\\]? before quotes to allow optional backslash
+                    $pattern_id_el = '/<a\s+[^>]*\bid=[\\\\]?["\']' . preg_quote($link_id, '/') . '[\\\\]?["\'][^>]*>(.*?)<\/a>/is';
+
+                    $new_json_str = preg_replace_callback($pattern_id_el, function ($match) use (&$modified_el) {
                         $modified_el = true;
                         return strip_tags($match[1]);
                     }, $json_str);

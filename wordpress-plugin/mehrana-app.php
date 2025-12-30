@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.8
+ * Version: 1.6.9
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.8';
+    private $version = '1.6.9';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -111,6 +111,13 @@ class Mehrana_App_Plugin
         register_rest_route($this->namespace, '/pages/(?P<id>\d+)/links/(?P<link_id>[a-zA-Z0-9_-]+)', [
             'methods' => 'DELETE',
             'callback' => [$this, 'remove_link'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
+
+        // Get logs (for debugging)
+        register_rest_route($this->namespace, '/logs', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_logs'],
             'permission_callback' => [$this, 'check_permission'],
         ]);
     }
@@ -1395,6 +1402,25 @@ class Mehrana_App_Plugin
             'elementor_active' => class_exists('\Elementor\Plugin'),
             'timestamp' => current_time('mysql')
         ]);
+    }
+
+    /**
+     * Get plugin logs
+     */
+    public function get_logs()
+    {
+        $log_file = WP_CONTENT_DIR . '/mehrana-app.log';
+        if (!file_exists($log_file)) {
+            return rest_ensure_response(['logs' => 'No log file found.']);
+        }
+
+        $content = file_get_contents($log_file);
+        // Return last 2000 characters
+        if (strlen($content) > 2000) {
+            $content = substr($content, -2000);
+        }
+
+        return rest_ensure_response(['logs' => $content]);
     }
 
     /**

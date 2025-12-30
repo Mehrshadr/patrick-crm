@@ -8,6 +8,7 @@ export type PipelineStage =
     | "FollowUp"
     | "Won"
     | "Lost"
+    | "Nurture"
     | "Ghosted"
 
 export const STAGE_CONFIG: Record<PipelineStage, {
@@ -33,7 +34,7 @@ export const STAGE_CONFIG: Record<PipelineStage, {
     "Meeting2": {
         label: "Audit Reveal",
         color: "bg-purple-50 border-purple-200 text-purple-700",
-        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Audit Presented", "Ghosted", "Other"]
+        subStatuses: ["Scheduled", "Rescheduled", "No Show", "Audit Presented", "Future Opportunity", "Ghosted", "Other"]
     },
     "Meeting3": {
         label: "Proposal Session",
@@ -54,6 +55,11 @@ export const STAGE_CONFIG: Record<PipelineStage, {
         label: "Lost",
         color: "bg-red-50 border-red-200 text-red-700",
         subStatuses: ["Not Interested", "Not Qualified", "Too Expensive", "Other"]
+    },
+    "Nurture": {
+        label: "Nurture",
+        color: "bg-teal-50 border-teal-200 text-teal-700",
+        subStatuses: ["In Campaign", "Re-engaged", "Cold - No Response", "Paused", "Ready to Contact", "Other"]
     },
     "Ghosted": {
         label: "Ghosted",

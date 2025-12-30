@@ -61,6 +61,7 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
             "FollowUp": [],
             "Won": [],
             "Lost": [],
+            "Nurture": [],
             "Ghosted": []
         }
 

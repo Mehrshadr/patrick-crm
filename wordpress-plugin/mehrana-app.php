@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.7.0';
+    private $version = '1.7.1';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1294,7 +1294,7 @@ class Mehrana_App_Plugin
         $skipped_nodes = [];
 
         // Forbidden parent tags (plus Gutenberg block comments are comments, so query('//text()') skips them automatically)
-        $forbidden_tags = ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'script', 'style', 'textarea', 'pre', 'code', 'button', 'select', 'option'];
+        $forbidden_tags = ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'script', 'style', 'textarea', 'pre', 'code', 'button', 'select', 'option'];
 
         $debug_stats = [
             'nodes_visited' => 0,

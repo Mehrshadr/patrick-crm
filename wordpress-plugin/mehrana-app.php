@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.6
+ * Version: 1.6.7
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.6';
+    private $version = '1.6.7';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -878,6 +878,80 @@ class Mehrana_App_Plugin
 
         $site_url = home_url();
         $modified = false;
+
+        // === STRATEGY 1: REMOVE BY HTML ID (Undo Button) ===
+        // Supports removing links created by CRM with lb- IDs
+        if (strpos($link_id, 'lb-') === 0) {
+            $this->log("Attempting removal by HTML ID: $link_id");
+            // Pattern to match specific ID <a ... id="lb-..." ...>...</a>
+            $pattern_id = '/<a\s+[^>]*\bid=["\']' . preg_quote($link_id, '/') . '["\'][^>]*>(.*?)<\/a>/is';
+
+            // 1. Post Content
+            $new_content_id = preg_replace_callback($pattern_id, function ($match) use (&$modified) {
+                $modified = true;
+                return strip_tags($match[1]); // Return anchor text
+            }, $post->post_content);
+
+            if ($modified) {
+                wp_update_post([
+                    'ID' => $page_id,
+                    'post_content' => $new_content_id
+                ]);
+                $this->log("Removed link by ID '$link_id' from post_content");
+                // Refresh post object for subsequent legacy checks if needed (though we return if modified)
+                $post->post_content = $new_content_id;
+            }
+
+            // 2. Elementor
+            $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+            if (!empty($elementor_data)) {
+                $data = is_string($elementor_data) ? json_decode($elementor_data, true) : $elementor_data;
+                if ($data) {
+                    $json_str = json_encode($data);
+                    $modified_el = false;
+                    $new_json_str = preg_replace_callback($pattern_id, function ($match) use (&$modified_el) {
+                        $modified_el = true;
+                        return strip_tags($match[1]);
+                    }, $json_str);
+
+                    if ($modified_el) {
+                        $data = json_decode($new_json_str, true);
+                        update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
+                        $this->log("Removed link by ID '$link_id' from Elementor data");
+                        $modified = true;
+                    }
+                }
+            }
+
+            // 3. Meta Fields
+            $all_meta = get_post_meta($page_id);
+            $content_meta_keys = $this->get_content_meta_keys($all_meta, true);
+            foreach ($content_meta_keys as $meta_key) {
+                $meta_value = get_post_meta($page_id, $meta_key, true);
+                if (empty($meta_value) || !is_string($meta_value))
+                    continue;
+
+                $meta_modified = false;
+                $new_meta_val = preg_replace_callback($pattern_id, function ($match) use (&$meta_modified) {
+                    $meta_modified = true;
+                    return strip_tags($match[1]);
+                }, $meta_value);
+
+                if ($meta_modified) {
+                    update_post_meta($page_id, $meta_key, $new_meta_val);
+                    $modified = true;
+                    $this->log("Removed link by ID '$link_id' from meta field '$meta_key'");
+                }
+            }
+
+            if ($modified) {
+                return rest_ensure_response([
+                    'success' => true,
+                    'message' => 'Link removed successfully (by ID)'
+                ]);
+            }
+            $this->log("ID '$link_id' not found, falling back to legacy search...");
+        }
 
         // Use RENDERED content to find link ID (must match get_page_links logic)
         $rendered_content = apply_filters('the_content', $post->post_content);

@@ -38,6 +38,7 @@ import {
     Search,
     Loader2,
     Clock,
+    Undo2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -902,6 +903,21 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                                     >
                                                                                         <ChevronDown className={`h-3 w-3 transition-transform ${isLogExpanded ? 'rotate-180' : ''}`} />
                                                                                     </button>
+                                                                                    {log.status === 'linked' && log.anchorId && (
+                                                                                        <Button
+                                                                                            variant="ghost"
+                                                                                            size="icon"
+                                                                                            className="h-6 w-6 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                                                                                            title="Undo Link (Remove)"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation()
+                                                                                                // @ts-ignore
+                                                                                                removeBacklink(log.id, log.pageId || 0, log.anchorId)
+                                                                                            }}
+                                                                                        >
+                                                                                            <Undo2 className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    )}
                                                                                 </div>
                                                                                 {isLogExpanded && (
                                                                                     <div className="bg-slate-100 px-3 py-2 text-xs">

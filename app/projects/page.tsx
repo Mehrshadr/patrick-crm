@@ -58,6 +58,7 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useUserAccess } from "@/lib/user-access"
 
 interface Project {
     id: number
@@ -75,11 +76,13 @@ interface Project {
 function SortableRow({
     project,
     onEdit,
-    onDelete
+    onDelete,
+    isSuperAdmin
 }: {
     project: Project;
     onEdit: () => void;
     onDelete: () => void;
+    isSuperAdmin: boolean;
 }) {
     const router = useRouter()
     const {
@@ -107,17 +110,19 @@ function SortableRow({
         >
             {/* Drag Handle */}
             <TableCell className="w-[30px] p-0 pl-2">
-                <button
-                    {...attributes}
-                    {...listeners}
-                    className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing text-muted-foreground"
-                    onPointerDown={(e) => {
-                        listeners?.onPointerDown?.(e);
-                        e.stopPropagation();
-                    }}
-                >
-                    <GripVertical className="h-4 w-4" />
-                </button>
+                {isSuperAdmin && (
+                    <button
+                        {...attributes}
+                        {...listeners}
+                        className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing text-muted-foreground"
+                        onPointerDown={(e) => {
+                            listeners?.onPointerDown?.(e);
+                            e.stopPropagation();
+                        }}
+                    >
+                        <GripVertical className="h-4 w-4" />
+                    </button>
+                )}
             </TableCell>
 
             {/* Clickable Area for Navigation */}
@@ -194,6 +199,8 @@ function SortableRow({
 function ProjectsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const userAccess = useUserAccess()
+    const isSuperAdmin = userAccess.role === 'SUPER_ADMIN'
     const [projects, setProjects] = useState<Project[]>([])
     const [loading, setLoading] = useState(true)
     const [dialogOpen, setDialogOpen] = useState(searchParams.get('new') === 'true')
@@ -395,6 +402,7 @@ function ProjectsContent() {
                                                 project={project}
                                                 onEdit={() => openEditDialog(project)}
                                                 onDelete={() => handleDelete(project)}
+                                                isSuperAdmin={isSuperAdmin}
                                             />
                                         ))}
                                     </TableBody>

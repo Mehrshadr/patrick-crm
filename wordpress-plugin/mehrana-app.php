@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.7.2
+ * Version: 1.7.5
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.7.2';
+    private $version = '1.7.3';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -444,7 +444,11 @@ class Mehrana_App_Plugin
                     continue;
 
                 $result = $this->process_elements($data, $keyword, $target_url, $anchor_id, $only_first);
-                $results[] = ['keyword' => $keyword, 'count' => $result['count']];
+                $results[] = [
+                    'keyword' => $keyword,
+                    'count' => $result['count'],
+                    'linked_count' => $result['linked_count'] ?? 0
+                ];
             }
 
             // Save Elementor Data
@@ -529,14 +533,29 @@ class Mehrana_App_Plugin
                     }
                 }
 
-                $results[] = ['keyword' => $keyword, 'count' => $total_linked];
+                $results[] = [
+                    'keyword' => $keyword,
+                    'count' => $total_linked,
+                    // Note: apply_links primarily cares about applied links, but we could return linked_count if needed
+                    // For now, we just stick to applied structure unless we want to track pre-existing during apply?
+                    // Let's assume apply returns what it DID.
+                ];
             }
 
             // Save Standard Content
-            wp_update_post([
+            // Save Standard Content
+            $update_result = wp_update_post([
                 'ID' => $page_id,
                 'post_content' => $content
             ]);
+
+            if (is_wp_error($update_result)) {
+                $this->log("Error updating post {$page_id}: " . $update_result->get_error_message());
+            } elseif ($update_result === 0) {
+                $this->log("Post {$page_id} update returned 0 (no changes or invalid ID)");
+            } else {
+                $this->log("Post {$page_id} updated successfully. Result ID: " . $update_result);
+            }
         }
 
         $this->log("Applied links to page {$page_id}: " . json_encode($results));
@@ -555,26 +574,34 @@ class Mehrana_App_Plugin
     private function process_elements(&$elements, $keyword, $target_url, $anchor_id, $only_first)
     {
         $total_count = 0;
+        $total_linked_count = 0;
 
         foreach ($elements as &$element) {
             // Process any widget type settings at any depth
             if (isset($element['settings']) && is_array($element['settings'])) {
-                $count = $this->process_settings_recursive($element['settings'], $keyword, $target_url, $anchor_id, $only_first && $total_count === 0);
-                $total_count += $count;
+                // Determine if we should stop based on combined count if only_first is true
+                $limit_reached = $only_first && ($total_count + $total_linked_count) > 0;
+
+                $result = $this->process_settings_recursive($element['settings'], $keyword, $target_url, $anchor_id, $only_first && !$limit_reached);
+                $total_count += $result['count'];
+                $total_linked_count += $result['linked_count'] ?? 0;
             }
 
             // Process nested elements
             if (isset($element['elements']) && is_array($element['elements'])) {
-                if ($only_first && $total_count > 0) {
+                $limit_reached = $only_first && ($total_count + $total_linked_count) > 0;
+
+                if ($only_first && $limit_reached) {
                     // Skip nested elements if limit reached
                 } else {
                     $nested = $this->process_elements($element['elements'], $keyword, $target_url, $anchor_id, $only_first);
                     $total_count += $nested['count'];
+                    $total_linked_count += $nested['linked_count'] ?? 0;
                 }
             }
         }
 
-        return ['count' => $total_count];
+        return ['count' => $total_count, 'linked_count' => $total_linked_count];
     }
 
     /**
@@ -583,10 +610,11 @@ class Mehrana_App_Plugin
     private function process_settings_recursive(&$data, $keyword, $target_url, $anchor_id, $only_first, $depth = 0)
     {
         $total_count = 0;
+        $total_linked_count = 0;
 
         // Prevent infinite recursion
         if ($depth > 10) {
-            return 0;
+            return ['count' => 0, 'linked_count' => 0];
         }
 
         // BLACKLIST: Skip fields that are definitely not content or should not contain HTML links
@@ -654,7 +682,7 @@ class Mehrana_App_Plugin
                 if (is_string($value) && strlen($value) > 3) {
                     // Check if contains keyword
                     if (stripos($value, $keyword) !== false) {
-                        if ($only_first && $total_count > 0) {
+                        if ($only_first && ($total_count + $total_linked_count) > 0) {
                             continue;
                         }
 
@@ -827,10 +855,11 @@ class Mehrana_App_Plugin
                 true  // dry_run=true
             );
 
-            if ($scan_result['count'] > 0) {
+            if ($scan_result['count'] > 0 || ($scan_result['linked_count'] ?? 0) > 0) {
                 $results[] = [
                     'keyword' => $keyword,
-                    'count' => $scan_result['count']
+                    'count' => $scan_result['count'],
+                    'linked_count' => $scan_result['linked_count'] ?? 0
                 ];
             }
         }
@@ -1258,6 +1287,7 @@ class Mehrana_App_Plugin
         $result = [
             'text' => $text,
             'count' => 0,
+            'linked_count' => 0,
             'skipped' => []
         ];
 
@@ -1294,9 +1324,13 @@ class Mehrana_App_Plugin
         // Use DOMDocument for HTML
         // Suppress warnings for malformed HTML (common in partial content)
         $dom = new DOMDocument();
-        $enc_text = mb_convert_encoding($text, 'HTML-ENTITIES', 'UTF-8');
+        $dom->encoding = 'UTF-8';
+
+        // Use XML declaration to preserve UTF-8 - DO NOT use mb_convert_encoding to HTML-ENTITIES as it breaks non-Latin chars!
         // Wrap in a root element to handle partials correctly
-        @$dom->loadHTML('<div>' . $enc_text . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><div>' . $text . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
 
         $xpath = new DOMXPath($dom);
 
@@ -1320,7 +1354,7 @@ class Mehrana_App_Plugin
         foreach ($text_nodes as $node) {
             $debug_stats['nodes_visited']++;
             // Check global limit including existing matches
-            if ($only_first && $count > 0)
+            if ($only_first && ($count + $result['linked_count']) > 0)
                 break;
 
             $content = $node->nodeValue;
@@ -1335,9 +1369,9 @@ class Mehrana_App_Plugin
             while ($parent && $parent->nodeName !== 'div') { // 'div' is our wrapper
                 if (in_array(strtolower($parent->nodeName), $forbidden_tags)) {
                     $is_forbidden = true;
-                    // If it's an existing link, count it!
+                    // If it's an existing link, count it as linked!
                     if (strtolower($parent->nodeName) === 'a') {
-                        $count++;
+                        $result['linked_count']++; // Count as existing link
                     }
 
                     // Log skip reason
@@ -1355,7 +1389,7 @@ class Mehrana_App_Plugin
                 continue;
 
             // Double check limit after potential increment from existing link
-            if ($only_first && $count > 0)
+            if ($only_first && ($count + $result['linked_count']) > 0)
                 continue;
 
             // Safe to link here

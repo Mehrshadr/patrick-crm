@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
 
             // Call Plugin Apply Links
             try {
+                console.log(`[Process] Calling apply-links for page ${pageId} with keywords:`, keywordData.map(k => k.keyword))
+
                 const applyRes = await fetch(`${pluginBase}/pages/${pageId}/apply-links`, {
                     method: 'POST',
                     headers: {
@@ -94,26 +96,31 @@ export async function POST(request: NextRequest) {
                     body: JSON.stringify({ keywords: keywordData })
                 })
 
+                const responseText = await applyRes.text()
+                console.log(`[Process] Response for page ${pageId}:`, responseText)
+
                 if (applyRes.ok) {
-                    const data = applyRes.json ? await applyRes.json() : {}
+                    let data: any = {}
+                    try {
+                        data = JSON.parse(responseText)
+                    } catch (e) {
+                        console.error(`[Process] Failed to parse JSON response for page ${pageId}`)
+                    }
 
                     // Handle Results
-                    // Update logs based on plugin response
                     // Plugin returns: { results: [{keyword, count}], skipped: [{keyword, reason}] }
-
-                    // Note: Order/Matching logic:
-                    // If multiple logs have same keyword (rare per page, but possible if multiple occurrences pending?),
-                    // plugin returns aggregated count.
-                    // We map back by keyword.
 
                     const processedKeywords = new Set<string>()
 
-                    if (data.results) {
+                    if (data.results && Array.isArray(data.results)) {
                         for (const res of data.results) {
+                            console.log(`[Process] Result for keyword "${res.keyword}": count=${res.count}`)
+
                             if (res.count > 0) {
                                 // Find logs for this keyword
                                 const relatedLogs = pageLogs.filter(l => l.keyword.keyword === res.keyword)
                                 for (const l of relatedLogs) {
+                                    console.log(`[Process] Updating log ${l.id} to 'linked'`)
                                     await prisma.linkBuildingLog.update({
                                         where: { id: l.id },
                                         data: {
@@ -130,15 +137,37 @@ export async function POST(request: NextRequest) {
                                     results.success++
                                 }
                                 processedKeywords.add(res.keyword)
+                            } else {
+                                // count is 0 - keyword not found or already linked
+                                // Mark as skipped with appropriate message
+                                const relatedLogs = pageLogs.filter(l => l.keyword.keyword === res.keyword)
+                                for (const l of relatedLogs) {
+                                    // Check if linked_count exists (existing links)
+                                    const hasExisting = res.linked_count > 0
+                                    console.log(`[Process] Keyword "${res.keyword}" count=0, linked_count=${res.linked_count || 0}`)
+
+                                    await prisma.linkBuildingLog.update({
+                                        where: { id: l.id },
+                                        data: {
+                                            status: hasExisting ? 'linked' : 'skipped',
+                                            message: hasExisting
+                                                ? `Already linked ${res.linked_count} time(s)`
+                                                : 'Keyword not found in content',
+                                            linkedCount: res.linked_count || 0
+                                        }
+                                    })
+                                    results.skipped++
+                                }
+                                processedKeywords.add(res.keyword)
                             }
                         }
                     }
 
-                    if (data.skipped) {
+                    if (data.skipped && Array.isArray(data.skipped)) {
                         for (const skip of data.skipped) {
                             const relatedLogs = pageLogs.filter(l => l.keyword.keyword === skip.keyword)
                             for (const l of relatedLogs) {
-                                // Only update if not already marked success (unlikely)
+                                // Only update if not already marked success
                                 if (!processedKeywords.has(skip.keyword)) {
                                     await prisma.linkBuildingLog.update({
                                         where: { id: l.id },
@@ -154,10 +183,8 @@ export async function POST(request: NextRequest) {
                     }
 
                 } else {
-                    console.error(`[Process] Failed page ${pageId}:`, await applyRes.text())
-                    // Mark logs as error? Or keep pending?
-                    // Keep pending for retry? Or mark error.
-                    // Let's mark error to avoid infinite retry loops in UI for now.
+                    console.error(`[Process] Failed page ${pageId}:`, responseText)
+                    // Mark logs as error
                     for (const l of pageLogs) {
                         await prisma.linkBuildingLog.update({
                             where: { id: l.id },

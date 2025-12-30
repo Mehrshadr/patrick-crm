@@ -546,6 +546,7 @@ model LinkBuildingLog {
   anchorId    String?              // e.g., "lb-5-1" for direct navigation
   status      String               // "linked", "skipped", "error"
   message     String?              // Additional info
+  linkedCount Int?                 // Count of existing links found
   
   createdAt   DateTime             @default(now())
 }

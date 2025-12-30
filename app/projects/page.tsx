@@ -38,8 +38,26 @@ import {
     Trash2,
     Globe,
     Link2,
+    GripVertical,
 } from "lucide-react"
 import { toast } from "sonner"
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Project {
     id: number
@@ -153,23 +171,175 @@ function ProjectsContent() {
         }
     }
 
-    return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-                    <p className="text-muted-foreground">
-                        Manage your SEO projects and tools
-                    </p>
-                </div>
-                <Button onClick={openNewDialog}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Project
-                </Button>
-            </div>
+    // Drag & Drop Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
-            {/* Projects Table */}
+    async function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (active.id !== over?.id) {
+            setProjects((items) => {
+                const oldIndex = items.findIndex((i) => i.id === active.id);
+                const newIndex = items.findIndex((i) => i.id === over?.id);
+                const newItems = arrayMove(items, oldIndex, newIndex);
+
+                // Save new order
+                saveOrder(newItems);
+
+                return newItems;
+            });
+        }
+    }
+
+    async function saveOrder(items: Project[]) {
+        try {
+            const orderedIds = items.map(p => p.id)
+            await fetch('/api/seo/projects/reorder', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderedIds })
+            })
+            // Passively update - no toast needed for reorder
+            window.dispatchEvent(new Event('project-update'))
+        } catch (error) {
+            console.error('Failed to save order', error)
+            toast.error('Failed to save order')
+        }
+    }
+
+    // Sortable Row Component
+    function SortableRow({ project }: { project: Project }) {
+        const {
+            attributes,
+            listeners,
+            setNodeRef,
+            transform,
+            transition,
+            isDragging,
+        } = useSortable({ id: project.id });
+
+        const style = {
+            transform: CSS.Transform.toString(transform),
+            transition,
+            zIndex: isDragging ? 1 : 0,
+            opacity: isDragging ? 0.5 : 1,
+            position: 'relative' as 'relative', // Fix type error
+        };
+
+        return (
+            <TableRow
+                ref={setNodeRef}
+                style={style}
+                className="hover:bg-muted/50 transition-colors"
+            // Don't put onClick here, it conflicts with drag
+            >
+                {/* Drag Handle */}
+                <TableCell className="w-[30px] p-0 pl-2">
+                    <button
+                        {...attributes}
+                        {...listeners}
+                        className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing text-muted-foreground"
+                    >
+                        <GripVertical className="h-4 w-4" />
+                    </button>
+                </TableCell>
+
+                {/* Clickable Area for Navigation */}
+                <TableCell
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/projects/${project.slug}`)}
+                >
+                    <div className="font-medium">{project.name}</div>
+                    {project.description && (
+                        <div className="text-sm text-muted-foreground truncate max-w-[300px]">
+                            {project.description}
+                        </div>
+                    )}
+                </TableCell>
+                <TableCell
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/projects/${project.slug}`)}
+                >
+                    {project.domain ? (
+                        <Badge variant="outline">
+                            <Globe className="h-3 w-3 mr-1" />
+                            {project.domain}
+                        </Badge>
+                    ) : (
+                        <span className="text-muted-foreground">—</span>
+                    )}
+                </TableCell>
+                <TableCell
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/projects/${project.slug}`)}
+                >
+                    <Badge variant="secondary">
+                        <Link2 className="h-3 w-3 mr-1" />
+                        {project._count.urls}
+                    </Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground cursor-pointer" onClick={() => router.push(`/projects/${project.slug}`)}>
+                    {new Date(project.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </TableCell>
+
+                {/* Actions */}
+                <TableCell>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation()
+                                openEditDialog(project)
+                            }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDelete(project)
+                                }}
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </TableCell>
+            </TableRow>
+        );
+    }
+    <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+                <p className="text-muted-foreground">
+                    Manage your SEO projects and tools
+                </p>
+            </div>
+            <Button onClick={openNewDialog}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Project
+            </Button>
+        </div>
+
+        {/* Projects Sortable List */}
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+        >
             <Card>
                 <CardContent className="p-0">
                     {loading ? (
@@ -189,143 +359,90 @@ function ProjectsContent() {
                             </Button>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Domain</TableHead>
-                                    <TableHead>URLs</TableHead>
-                                    <TableHead>Created</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {projects.map((project) => (
-                                    <TableRow
-                                        key={project.id}
-                                        className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => router.push(`/projects/${project.slug}`)}
-                                    >
-                                        <TableCell>
-                                            <div className="font-medium">{project.name}</div>
-                                            {project.description && (
-                                                <div className="text-sm text-muted-foreground truncate max-w-[300px]">
-                                                    {project.description}
-                                                </div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {project.domain ? (
-                                                <Badge variant="outline">
-                                                    <Globe className="h-3 w-3 mr-1" />
-                                                    {project.domain}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="secondary">
-                                                <Link2 className="h-3 w-3 mr-1" />
-                                                {project._count.urls}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground">
-                                            {new Date(project.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                                    <Button variant="ghost" size="icon">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        openEditDialog(project)
-                                                    }}>
-                                                        <Pencil className="h-4 w-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            handleDelete(project)
-                                                        }}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
+                        <SortableContext
+                            items={projects.map(p => p.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[30px]"></TableHead>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Domain</TableHead>
+                                        <TableHead>URLs</TableHead>
+                                        <TableHead>Created</TableHead>
+                                        <TableHead className="w-[50px]"></TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {projects.map((project) => (
+                                        <SortableRow key={project.id} project={project} />
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </SortableContext>
                     )}
                 </CardContent>
             </Card>
+        </DndContext>
 
-            {/* Create/Edit Dialog */}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingProject ? 'Edit Project' : 'New Project'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            {editingProject
-                                ? 'Update project details'
-                                : 'Create a new project to organize your SEO tools'}
-                        </DialogDescription>
-                    </DialogHeader>
+        {/* Create/Edit Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        {editingProject ? 'Edit Project' : 'New Project'}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {editingProject
+                            ? 'Update project details'
+                            : 'Create a new project to organize your SEO tools'}
+                    </DialogDescription>
+                </DialogHeader>
 
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Project Name *</Label>
-                            <Input
-                                id="name"
-                                placeholder="e.g., Mehrana Agency"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="domain">Domain</Label>
-                            <Input
-                                id="domain"
-                                placeholder="e.g., mehrana.agency"
-                                value={formData.domain}
-                                onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Textarea
-                                id="description"
-                                placeholder="Optional notes about this project"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            />
-                        </div>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Project Name *</Label>
+                        <Input
+                            id="name"
+                            placeholder="e.g., Mehrana Agency"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        />
                     </div>
 
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleSave} disabled={saving}>
-                            {saving ? 'Saving...' : editingProject ? 'Update' : 'Create'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="domain">Domain</Label>
+                        <Input
+                            id="domain"
+                            placeholder="e.g., mehrana.agency"
+                            value={formData.domain}
+                            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                            id="description"
+                            placeholder="Optional notes about this project"
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        />
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSave} disabled={saving}>
+                        {saving ? 'Saving...' : editingProject ? 'Update' : 'Create'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    </div>
     )
 }
 

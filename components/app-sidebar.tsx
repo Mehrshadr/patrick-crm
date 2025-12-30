@@ -77,29 +77,53 @@ export function AppSidebar() {
     const projectRefs = useRef<Map<string, HTMLDivElement>>(new Map())
     const activeProjectSlug = getActiveProjectSlug(pathname)
 
+    // Controlled state for open projects
+    const [openProjects, setOpenProjects] = useState<Record<number, boolean>>({})
+
     // Filter menu items based on user access
     const visibleMenuItems = PCRM_ITEMS.filter(item =>
         userAccess.isEditor || item.viewerVisible
     )
 
     // Fetch projects for sidebar
+    const fetchProjects = async () => {
+        try {
+            const res = await fetch('/api/seo/projects')
+            if (res.ok) {
+                const data = await res.json()
+                setProjects(data)
+            }
+        } catch (e) {
+            console.error('Failed to fetch projects', e)
+        }
+    }
+
     useEffect(() => {
-        fetch('/api/seo/projects')
-            .then(res => res.json())
-            .then(data => setProjects(data))
-            .catch(() => { })
+        fetchProjects()
+
+        // Listen for updates (from drag-drop reorder)
+        const handleUpdate = () => fetchProjects()
+        window.addEventListener('project-update', handleUpdate)
+
+        return () => window.removeEventListener('project-update', handleUpdate)
     }, [])
 
-    // Scroll to active project when pathname changes
+    // Scroll to active project and ensure it is OPEN
     useEffect(() => {
         if (activeProjectSlug && projects.length > 0) {
-            // Small delay to let the collapsible expand first
-            setTimeout(() => {
-                const ref = projectRefs.current.get(activeProjectSlug)
-                if (ref) {
-                    ref.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                }
-            }, 100)
+            const activeProject = projects.find(p => p.slug === activeProjectSlug)
+            if (activeProject) {
+                // Ensure it's open
+                setOpenProjects(prev => ({ ...prev, [activeProject.id]: true }))
+
+                // Scroll into view
+                setTimeout(() => {
+                    const ref = projectRefs.current.get(activeProjectSlug)
+                    if (ref) {
+                        ref.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }
+                }, 100)
+            }
         }
     }, [activeProjectSlug, projects])
 
@@ -176,7 +200,12 @@ export function AppSidebar() {
                                                 pathname.includes(`/projects/${project.slug}`)
 
                                             return (
-                                                <Collapsible key={project.id} defaultOpen={isProjectActive} className="group/project">
+                                                <Collapsible
+                                                    key={project.id}
+                                                    open={openProjects[project.id]}
+                                                    onOpenChange={(isOpen) => setOpenProjects(prev => ({ ...prev, [project.id]: isOpen }))}
+                                                    className="group/project"
+                                                >
                                                     <SidebarMenuSubItem>
                                                         <div
                                                             ref={(el) => {

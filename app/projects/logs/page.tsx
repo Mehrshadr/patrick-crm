@@ -86,11 +86,13 @@ export default function ProjectLogsPage() {
             const params = new URLSearchParams()
             if (selectedProject !== 'all') params.append('projectId', selectedProject)
             if (selectedCategory !== 'all') params.append('category', selectedCategory)
+            // Exclude Patrick CRM categories from SEO Activity Logs
+            params.append('exclude', 'AUTOMATION,LEAD,EMAIL,SMS,SYSTEM,COMMUNICATION')
 
             const res = await fetch(`/api/activity-logs?${params.toString()}`)
             if (res.ok) {
                 const data = await res.json()
-                setLogs(data)
+                setLogs(data.logs || [])
             }
         } catch (error) {
             console.error('Failed to fetch logs:', error)

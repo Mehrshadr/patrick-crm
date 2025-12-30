@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getGoogleAccessToken } from "@/lib/google-search-console"
 import { auth } from "@/lib/auth"
+import { logActivity } from "@/lib/activity-logger"
 
 // POST /api/seo/urls/submit - Submit URLs to Google Indexing API
 export async function POST(request: NextRequest) {
@@ -100,6 +101,19 @@ export async function POST(request: NextRequest) {
 
                 results.push({ url: urlRecord.url, status: 'SUBMITTED' })
                 submitted++
+
+                // Log Activity (Centralized)
+                await logActivity({
+                    userId: userEmail,
+                    userName: userName,
+                    projectId: urlRecord.projectId, // Assuming relation exists, checking loop variable
+                    category: 'LINK_INDEXING',
+                    action: 'SUBMITTED',
+                    description: `Submitted URL to Google: ${urlRecord.url}`,
+                    entityType: 'IndexingUrl',
+                    entityId: urlRecord.id,
+                    entityName: urlRecord.url
+                })
 
             } catch (apiError: any) {
                 console.error(`Failed to submit ${urlRecord.url}:`, apiError)

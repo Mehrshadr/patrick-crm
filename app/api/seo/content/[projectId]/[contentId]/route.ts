@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { logActivity } from "@/lib/activity-logger"
 
 // GET - Get single content
 export async function GET(
@@ -51,6 +52,19 @@ export async function DELETE(
                 id: parseInt(contentId),
                 projectId: parseInt(projectId)
             }
+        })
+
+        // Log Activity
+        await logActivity({
+            userId: session?.user?.email,
+            userName: session?.user?.name,
+            projectId: parseInt(projectId),
+            category: 'CONTENT_FACTORY',
+            action: 'DELETED',
+            description: `Deleted content (ID: ${contentId})`,
+            entityType: 'GeneratedContent',
+            entityId: parseInt(contentId),
+            entityName: `Content ${contentId}`
         })
 
         return NextResponse.json({ success: true })

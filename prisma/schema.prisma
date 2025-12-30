@@ -232,6 +232,10 @@ model ActivityLog {
   userId       String?  // Who performed the action
   userName     String?
   
+  // Project Context
+  projectId    Int?
+  project      IndexingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   createdAt    DateTime @default(now())
 }
 
@@ -290,6 +294,9 @@ model IndexingProject {
   jarvisConnections JarvisConnection[]
   jarvisFlows       JarvisFlow[]
   
+  // Activity Logs
+  activityLogs      ActivityLog[]
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

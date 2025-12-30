@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { logActivity } from "@/lib/activity-logger"
 
 // GET - List all content for a project
 export async function GET(
@@ -69,6 +70,20 @@ export async function POST(
                 status: 'DRAFT',
                 createdById: user?.id
             }
+        })
+
+        // Log Activity
+        await logActivity({
+            userId: user?.email,
+            userName: user?.name,
+            projectId: parseInt(projectId),
+            category: 'CONTENT_FACTORY',
+            action: 'GENERATED',
+            description: `Generated ${contentType} content: "${title || brief.substring(0, 30)}..."`,
+            details: { contentId: content.id, brief },
+            entityType: 'GeneratedContent',
+            entityId: content.id,
+            entityName: title || 'Untitled Content'
         })
 
         return NextResponse.json(content, { status: 201 })

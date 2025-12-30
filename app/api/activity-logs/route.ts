@@ -1,49 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { logActivity } from '@/lib/activity'
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
 
-// GET - List activity logs with optional filters
 export async function GET(request: NextRequest) {
     try {
+        const session = await auth()
+        if (!session?.user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        // Access Control: Strict SUPER_ADMIN only
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email! },
+            select: { role: true }
+        })
+
+        if (user?.role !== 'SUPER_ADMIN') {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+        }
+
         const { searchParams } = new URL(request.url)
+        const projectId = searchParams.get('projectId')
         const category = searchParams.get('category')
-        const entityType = searchParams.get('entityType')
         const limit = parseInt(searchParams.get('limit') || '50')
 
         const where: any = {}
-        if (category) where.category = category
-        if (entityType) where.entityType = entityType
 
-        const logs = await db.activityLog.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            take: Math.min(limit, 200)
-        })
-
-        return NextResponse.json({ success: true, logs })
-    } catch (error) {
-        console.error('Error fetching activity logs:', error)
-        return NextResponse.json({ success: false, error: 'Failed to fetch logs' }, { status: 500 })
-    }
-}
-
-// POST - Create a new activity log
-export async function POST(request: NextRequest) {
-    try {
-        const data = await request.json()
-
-        if (!data.category || !data.action || !data.description) {
-            return NextResponse.json(
-                { success: false, error: 'category, action, and description are required' },
-                { status: 400 }
-            )
+        if (projectId && projectId !== 'all') {
+            where.projectId = parseInt(projectId)
         }
 
-        await logActivity(data)
+        if (category && category !== 'all') {
+            where.category = category
+        }
 
-        return NextResponse.json({ success: true })
+        const logs = await prisma.activityLog.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            include: {
+                project: {
+                    select: { name: true, domain: true }
+                }
+            }
+        })
+
+        return NextResponse.json(logs)
     } catch (error) {
-        console.error('Error creating activity log:', error)
-        return NextResponse.json({ success: false, error: 'Failed to create log' }, { status: 500 })
+        console.error('Failed to fetch activity logs:', error)
+        return NextResponse.json({ error: 'Failed to fetch logs' }, { status: 500 })
     }
 }

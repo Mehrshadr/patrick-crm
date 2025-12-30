@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-logger"
+import { auth } from "@/lib/auth"
 
 // PUT /api/seo/urls/[id] - Update a URL
 export async function PUT(
@@ -44,8 +46,25 @@ export async function DELETE(
             return NextResponse.json({ error: 'Invalid URL ID' }, { status: 400 })
         }
 
+        // Fetch URL first to get context logic
+        const urlToCheck = await prisma.indexingUrl.findUnique({ where: { id: urlId } })
+
         await prisma.indexingUrl.delete({
             where: { id: urlId }
+        })
+
+        // Log Activity
+        const session = await auth()
+        await logActivity({
+            userId: session?.user?.email,
+            userName: session?.user?.name,
+            projectId: urlToCheck?.projectId,
+            category: 'LINK_INDEXING',
+            action: 'DELETED',
+            description: `Deleted URL: ${urlToCheck?.url || id}`,
+            entityType: 'IndexingUrl',
+            entityId: urlId,
+            entityName: urlToCheck?.url || `URL ${id}`
         })
 
         return NextResponse.json({ success: true })

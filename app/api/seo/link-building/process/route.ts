@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-logger"
+import { auth } from "@/lib/auth"
 
 // POST - Process pending link building logs
 export async function POST(request: NextRequest) {
@@ -172,6 +174,18 @@ export async function POST(request: NextRequest) {
 
             results.processed += pageLogs.length
         }
+
+        // Log Activity
+        const session = await auth()
+        await logActivity({
+            userId: session?.user?.email,
+            userName: session?.user?.name,
+            projectId: parseInt(projectId),
+            category: 'LINK_BUILDING',
+            action: 'EXECUTED',
+            description: `Link building complete. Success: ${results.success}, Skipped: ${results.skipped}, Errors: ${results.errors}`,
+            details: results
+        })
 
         return NextResponse.json({ success: true, stats: results })
 

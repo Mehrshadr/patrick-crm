@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import sharp from "sharp"
+import { logActivity } from "@/lib/activity-logger"
+import { auth } from "@/lib/auth"
 
 // POST - Compress image with smart algorithm
 // Target: Get as close to maxSize as possible without going over
@@ -138,6 +140,25 @@ export async function POST(request: NextRequest) {
         const base64 = bestResult.toString("base64")
         const mimeType = outputFormat === "webp" ? "image/webp" :
             outputFormat === "jpeg" || outputFormat === "jpg" ? "image/jpeg" : "image/png"
+
+
+        // Log Activity (Fire and forget)
+        // Note: ProjectId is not currently passed in formData, logging as general tool usage
+        const session = await auth()
+        logActivity({
+            userId: session?.user?.email,
+            userName: session?.user?.name,
+            projectId: null,
+            category: 'IMAGE_FACTORY',
+            action: 'COMPRESSED',
+            description: `Compressed image (Savings: ${savings}%)`,
+            details: {
+                originalSize: originalSizeKB,
+                finalSize: finalSizeKB,
+                format: outputFormat,
+                savings
+            }
+        })
 
         return NextResponse.json({
             success: true,

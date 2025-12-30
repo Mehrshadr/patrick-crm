@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-logger"
+import { auth } from "@/lib/auth"
 
 // GET /api/seo/projects/[id]/urls - List URLs for a project
 export async function GET(
@@ -101,6 +103,21 @@ export async function POST(
             added: newUrls.length,
             skipped: validUrls.length - newUrls.length
         }, { status: 201 })
+
+        // Log Activity
+        const session = await auth()
+        await logActivity({
+            userId: session?.user?.email,
+            userName: session?.user?.name,
+            projectId,
+            category: 'LINK_INDEXING',
+            action: 'ADDED',
+            description: `Added ${newUrls.length} URLs to index`,
+            details: { count: newUrls.length, skipped: validUrls.length - newUrls.length },
+            entityType: 'IndexingProject',
+            entityId: projectId,
+            entityName: `Batch Import`
+        })
     } catch (error) {
         console.error('Failed to add URLs:', error)
         return NextResponse.json({ error: 'Failed to add URLs' }, { status: 500 })

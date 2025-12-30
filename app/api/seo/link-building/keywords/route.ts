@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity-logger"
+import { auth } from "@/lib/auth"
 
 // GET - List keywords for a project
 export async function GET(request: NextRequest) {
@@ -48,6 +50,21 @@ export async function POST(request: NextRequest) {
                 onlyFirst: onlyFirst ?? true,
                 onlyFirstP: onlyFirstP ?? false
             }
+        })
+
+        // Log Activity
+        const session = await auth()
+        await logActivity({
+            userId: session?.user?.email,
+            userName: session?.user?.name,
+            projectId: parseInt(projectId),
+            category: 'LINK_BUILDING',
+            action: 'CREATED',
+            description: `Added keyword: "${keyword}"`,
+            details: { targetUrl, priority },
+            entityType: 'LinkBuildingKeyword',
+            entityId: newKeyword.id,
+            entityName: keyword
         })
 
         return NextResponse.json({ success: true, keyword: newKeyword })

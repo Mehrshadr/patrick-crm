@@ -319,130 +319,132 @@ function ProjectsContent() {
             </TableRow>
         );
     }
-    <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-                <p className="text-muted-foreground">
-                    Manage your SEO projects and tools
-                </p>
-            </div>
-            <Button onClick={openNewDialog}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Project
-            </Button>
-        </div>
 
-        {/* Projects Sortable List */}
-        <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-        >
-            <Card>
-                <CardContent className="p-0">
-                    {loading ? (
-                        <div className="p-8 text-center text-muted-foreground">
-                            Loading projects...
-                        </div>
-                    ) : projects.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <Globe className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                            <h3 className="font-medium mb-1">No projects yet</h3>
-                            <p className="text-sm text-muted-foreground mb-4">
-                                Create your first project to start using SEO tools
-                            </p>
-                            <Button onClick={openNewDialog}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create Project
-                            </Button>
-                        </div>
-                    ) : (
-                        <SortableContext
-                            items={projects.map(p => p.id)}
-                            strategy={verticalListSortingStrategy}
-                        >
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[30px]"></TableHead>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Domain</TableHead>
-                                        <TableHead>URLs</TableHead>
-                                        <TableHead>Created</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {projects.map((project) => (
-                                        <SortableRow key={project.id} project={project} />
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </SortableContext>
-                    )}
-                </CardContent>
-            </Card>
-        </DndContext>
-
-        {/* Create/Edit Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>
-                        {editingProject ? 'Edit Project' : 'New Project'}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {editingProject
-                            ? 'Update project details'
-                            : 'Create a new project to organize your SEO tools'}
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Project Name *</Label>
-                        <Input
-                            id="name"
-                            placeholder="e.g., Mehrana Agency"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="domain">Domain</Label>
-                        <Input
-                            id="domain"
-                            placeholder="e.g., mehrana.agency"
-                            value={formData.domain}
-                            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
-                        <Textarea
-                            id="description"
-                            placeholder="Optional notes about this project"
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        />
-                    </div>
+    return (
+        <div className="p-6 space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+                    <p className="text-muted-foreground">
+                        Manage your SEO projects and tools
+                    </p>
                 </div>
+                <Button onClick={openNewDialog}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Project
+                </Button>
+            </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSave} disabled={saving}>
-                        {saving ? 'Saving...' : editingProject ? 'Update' : 'Create'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    </div>
+            {/* Projects Sortable List */}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <Card>
+                    <CardContent className="p-0">
+                        {loading ? (
+                            <div className="p-8 text-center text-muted-foreground">
+                                Loading projects...
+                            </div>
+                        ) : projects.length === 0 ? (
+                            <div className="p-8 text-center">
+                                <Globe className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                                <h3 className="font-medium mb-1">No projects yet</h3>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    Create your first project to start using SEO tools
+                                </p>
+                                <Button onClick={openNewDialog}>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Create Project
+                                </Button>
+                            </div>
+                        ) : (
+                            <SortableContext
+                                items={projects.map(p => p.id)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-[30px]"></TableHead>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Domain</TableHead>
+                                            <TableHead>URLs</TableHead>
+                                            <TableHead>Created</TableHead>
+                                            <TableHead className="w-[50px]"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {projects.map((project) => (
+                                            <SortableRow key={project.id} project={project} />
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </SortableContext>
+                        )}
+                    </CardContent>
+                </Card>
+            </DndContext>
+
+            {/* Create/Edit Dialog */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingProject ? 'Edit Project' : 'New Project'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editingProject
+                                ? 'Update project details'
+                                : 'Create a new project to organize your SEO tools'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Project Name *</Label>
+                            <Input
+                                id="name"
+                                placeholder="e.g., Mehrana Agency"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="domain">Domain</Label>
+                            <Input
+                                id="domain"
+                                placeholder="e.g., mehrana.agency"
+                                value={formData.domain}
+                                onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="description">Description</Label>
+                            <Textarea
+                                id="description"
+                                placeholder="Optional notes about this project"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSave} disabled={saving}>
+                            {saving ? 'Saving...' : editingProject ? 'Update' : 'Create'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
     )
 }
 

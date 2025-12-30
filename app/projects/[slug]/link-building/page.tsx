@@ -27,6 +27,13 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import {
     ArrowLeft,
     Plus,
     Trash2,
@@ -39,6 +46,7 @@ import {
     Loader2,
     Clock,
     Undo2,
+    FileText,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -97,6 +105,38 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [logs, setLogs] = useState<Log[]>([])
     const [loading, setLoading] = useState(true)
     const [project, setProject] = useState<{ name: string; domain: string | null } | null>(null)
+    const [logsOpen, setLogsOpen] = useState(false)
+    const [pluginLogs, setPluginLogs] = useState<string>('')
+    const [logsLoading, setLogsLoading] = useState(false)
+
+    // Fetch plugin logs when dialog opens
+    useEffect(() => {
+        if (logsOpen) {
+            fetchPluginLogs()
+        }
+    }, [logsOpen])
+
+    const fetchPluginLogs = async () => {
+        if (!projectId) return
+        setLogsLoading(true)
+        try {
+            const res = await fetch(`/api/seo/link-building/logs?projectId=${projectId}`)
+            if (res.ok) {
+                const data = await res.json()
+                if (data.data) {
+                    setPluginLogs(data.data)
+                } else {
+                    setPluginLogs('No logs found or empty response.')
+                }
+            } else {
+                setPluginLogs('Failed to fetch logs.')
+            }
+        } catch (e) {
+            setPluginLogs('Error fetching logs.')
+        } finally {
+            setLogsLoading(false)
+        }
+    }
 
     // New keyword form
     const [newKeyword, setNewKeyword] = useState('')
@@ -595,6 +635,15 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                         >
                             Classic Run
                         </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setLogsOpen(true)}
+                            className="text-slate-400"
+                            title="View Plugin Logs"
+                        >
+                            <FileText className="h-4 w-4" />
+                        </Button>
                     </div>
                 </div>
 
@@ -1057,6 +1106,20 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                     </CollapsibleContent>
                 </Collapsible>
             </div>
+            {/* Logs Dialog */}
+            <Dialog open={logsOpen} onOpenChange={setLogsOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Plugin Logs</DialogTitle>
+                        <DialogDescription>
+                            Recent logs from the WordPress plugin ({project?.domain})
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-auto bg-slate-950 text-slate-50 p-4 rounded-md font-mono text-xs whitespace-pre-wrap">
+                        {logsLoading ? 'Loading logs...' : pluginLogs || 'No logs available.'}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

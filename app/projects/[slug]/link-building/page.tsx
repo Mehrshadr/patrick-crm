@@ -486,14 +486,17 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
             })
             if (res.ok) {
                 toast.success('Link removed')
-                // Refresh backlinks cache
-                setPageBacklinks(prev => ({
-                    ...prev,
-                    [logId]: {
-                        ...prev[logId],
-                        links: prev[logId].links.filter((l: any) => l.id !== linkId)
+                // Refresh backlinks cache if it exists
+                setPageBacklinks(prev => {
+                    if (!prev[logId]) return prev // No cache to update
+                    return {
+                        ...prev,
+                        [logId]: {
+                            ...prev[logId],
+                            links: prev[logId].links.filter((l: any) => l.id !== linkId)
+                        }
                     }
-                }))
+                })
                 fetchData() // Refresh logs to update status
             } else {
                 toast.error('Failed to remove link')

@@ -61,6 +61,9 @@ npx prisma migrate deploy
 
 ```bash
 npm run build
+# اگر رم سرور کمه (مثلاً ۴ یا ۶ گیگ) و بیلد فیل میشه، از این دستور استفاده کن (۵ گیگ رم میده):
+# NODE_OPTIONS="--max-old-space-size=5120" npm run build
+
 pm2 start npm --name "patrick-crm" -- start
 pm2 save
 pm2 startup

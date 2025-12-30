@@ -109,8 +109,11 @@ export function AppSidebar() {
     }, [])
 
     // Scroll to active project and ensure it is OPEN
+    // Scroll to active project and ensure it is OPEN
     useEffect(() => {
-        if (activeProjectSlug && projects.length > 0) {
+        if (projects.length === 0) return
+
+        if (activeProjectSlug) {
             const activeProject = projects.find(p => p.slug === activeProjectSlug)
             if (activeProject) {
                 // Ensure it's open
@@ -124,6 +127,9 @@ export function AppSidebar() {
                     }
                 }, 100)
             }
+        } else {
+            // If we are on the root /projects page, collapse all projects
+            setOpenProjects({})
         }
     }, [activeProjectSlug, projects])
 

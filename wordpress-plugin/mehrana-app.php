@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.3
+ * Version: 1.6.4
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.3';
+    private $version = '1.6.4';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -812,10 +812,10 @@ class Mehrana_App_Plugin
         $links = [];
         $site_url = home_url();
 
-        // Get rendered content
+        // Get rendered content to find all visible links
         $content = apply_filters('the_content', $post->post_content);
 
-        // Also check Elementor data
+        // Also check Elementor data (raw JSON contains link markup)
         $elementor_data = get_post_meta($page_id, '_elementor_data', true);
         if (!empty($elementor_data)) {
             if (is_string($elementor_data)) {
@@ -867,10 +867,11 @@ class Mehrana_App_Plugin
         $site_url = home_url();
         $modified = false;
 
-        // Build combined content exactly like get_page_links does
+        // Use RENDERED content to find link ID (must match get_page_links logic)
         $rendered_content = apply_filters('the_content', $post->post_content);
         $elementor_data = get_post_meta($page_id, '_elementor_data', true);
 
+        // Combined content for finding links (same as get_page_links)
         $combined_content = $rendered_content;
         if (!empty($elementor_data) && is_string($elementor_data)) {
             $combined_content .= $elementor_data;
@@ -907,18 +908,58 @@ class Mehrana_App_Plugin
 
         $this->log("Found link to remove: URL=$target_url, Anchor=$target_anchor");
 
+        // Normalize target URL for comparison (remove site_url prefix if present)
+        $target_url_path = $target_url;
+        if (strpos($target_url, $site_url) === 0) {
+            $target_url_path = substr($target_url, strlen($site_url));
+        }
+
+        // Log for debugging
+        $this->log("Searching in post_content (length: " . strlen($post->post_content) . ")");
+        $this->log("Target URL path: $target_url_path, Target anchor: $target_anchor");
+
+        // Debug: Find all links in raw post_content to see what's there
+        preg_match_all($pattern, $post->post_content, $raw_matches, PREG_SET_ORDER);
+        $this->log("Links found in raw post_content: " . count($raw_matches));
+
+        // Log first 3 links found in raw content
+        $debug_count = 0;
+        foreach ($raw_matches as $rm) {
+            if ($debug_count >= 3)
+                break;
+            $this->log("Raw link $debug_count: URL=" . $rm[1] . ", Anchor=" . strip_tags($rm[2]));
+            $debug_count++;
+        }
+
         // Now remove from post_content using URL+anchor matching
-        $new_content = preg_replace_callback($pattern, function ($match) use ($target_url, $target_anchor, &$modified) {
+        $new_content = preg_replace_callback($pattern, function ($match) use ($target_url, $target_url_path, $target_anchor, $site_url, &$modified) {
             $url = $match[1];
             $anchor = strip_tags($match[2]);
 
-            // Match by URL and anchor text (more reliable than index)
-            if ($url === $target_url && $anchor === $target_anchor && !$modified) {
+            // Normalize both URLs to handle http vs https differences
+            $normalized_url = preg_replace('#^https?://#', '', $url);
+            $normalized_target = preg_replace('#^https?://#', '', $target_url);
+            $site_domain = preg_replace('#^https?://#', '', $site_url);
+
+            // Extract path from normalized URL
+            $url_path = $url;
+            if (strpos($normalized_url, $site_domain) === 0) {
+                $url_path = substr($normalized_url, strlen($site_domain));
+            } elseif (strpos($url, $site_url) === 0) {
+                $url_path = substr($url, strlen($site_url));
+            }
+
+            // Match by normalized URL or path (handles http/https and relative URLs)
+            $url_matches = ($normalized_url === $normalized_target || $url_path === $target_url_path || $url === $target_url_path);
+
+            if ($url_matches && $anchor === $target_anchor && !$modified) {
                 $modified = true;
                 return strip_tags($match[2]); // Return just the anchor text without the <a> tag
             }
             return $match[0];
         }, $post->post_content);
+
+        $this->log("Modified after post_content check: " . ($modified ? 'YES' : 'NO'));
 
         if ($modified) {
             // Update regular content
@@ -928,16 +969,24 @@ class Mehrana_App_Plugin
             ]);
             $this->log("Removed link from post_content in page $page_id");
         } else {
+            $this->log("Not found in post_content, trying Elementor data...");
             // Try in Elementor data
             if (!empty($elementor_data)) {
+                $this->log("Elementor data exists (length: " . strlen($elementor_data) . ")");
                 $data = is_string($elementor_data) ? json_decode($elementor_data, true) : $elementor_data;
                 if ($data) {
+                    $this->log("Elementor JSON parsed, searching for link...");
                     $this->remove_link_by_target($data, $target_url, $target_anchor, $modified);
+                    $this->log("After Elementor search, modified: " . ($modified ? 'YES' : 'NO'));
                     if ($modified) {
                         update_post_meta($page_id, '_elementor_data', wp_slash(json_encode($data)));
                         $this->log("Removed link from Elementor data in page $page_id");
                     }
+                } else {
+                    $this->log("Failed to parse Elementor JSON");
                 }
+            } else {
+                $this->log("No Elementor data found for this page");
             }
         }
 
@@ -957,15 +1006,29 @@ class Mehrana_App_Plugin
     private function remove_link_by_target(&$data, $target_url, $target_anchor, &$modified)
     {
         $pattern = '/<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is';
+        $site_url = home_url();
+
+        // Normalize target URL
+        $target_url_path = $target_url;
+        if (strpos($target_url, $site_url) === 0) {
+            $target_url_path = substr($target_url, strlen($site_url));
+        }
 
         if (is_array($data)) {
             foreach ($data as $key => &$value) {
                 if (is_string($value) && preg_match($pattern, $value)) {
-                    $value = preg_replace_callback($pattern, function ($match) use ($target_url, $target_anchor, &$modified) {
+                    $value = preg_replace_callback($pattern, function ($match) use ($target_url, $target_url_path, $target_anchor, $site_url, &$modified) {
                         $url = $match[1];
                         $anchor = strip_tags($match[2]);
 
-                        if ($url === $target_url && $anchor === $target_anchor && !$modified) {
+                        // Normalize matched URL
+                        $url_path = $url;
+                        if (strpos($url, $site_url) === 0) {
+                            $url_path = substr($url, strlen($site_url));
+                        }
+
+                        // Match with normalized URLs
+                        if (($url === $target_url || $url_path === $target_url_path || $url === $target_url_path) && $anchor === $target_anchor && !$modified) {
                             $modified = true;
                             return strip_tags($match[2]);
                         }

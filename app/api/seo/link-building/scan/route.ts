@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'pageId required for scan_page' }, { status: 400 })
             }
 
-            const { pageType } = body // Get page type from request
+            const { pageType, pageUrl, pageTitle } = body // Get page info from request
 
             // Get enabled keywords
             let keywords = await prisma.linkBuildingKeyword.findMany({
@@ -92,6 +92,16 @@ export async function POST(request: NextRequest) {
                     const allowedTypes = JSON.parse(kw.pageTypes)
                     if (allowedTypes.length === 0) return true // Empty array = all pages
                     return allowedTypes.includes(pageType)
+                })
+            }
+
+            // Filter out keywords whose targetUrl matches the current page URL
+            // This prevents linking a page to itself
+            if (pageUrl) {
+                const normalizedPageUrl = pageUrl.replace(/\/$/, '').toLowerCase()
+                keywords = keywords.filter(kw => {
+                    const normalizedTargetUrl = kw.targetUrl.replace(/\/$/, '').toLowerCase()
+                    return normalizedTargetUrl !== normalizedPageUrl
                 })
             }
 
@@ -178,8 +188,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Re-fetch keywords to be safe or use map logic above
-            // Using the map logic we built:
-            const { pageUrl, pageTitle } = body
+            // Using the map logic we built (pageUrl, pageTitle already extracted above):
 
             for (const cand of candidates) {
                 const kw = keywords.find(k => k.keyword === cand.keyword)

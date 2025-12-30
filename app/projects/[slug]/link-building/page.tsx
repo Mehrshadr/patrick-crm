@@ -125,6 +125,17 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [processProgress, setProcessProgress] = useState({ current: 0, total: 0 })
     const [pendingCount, setPendingCount] = useState(0)
 
+    // Stats Dashboard
+    const [showStats, setShowStats] = useState(true)
+    const [stats, setStats] = useState<{
+        totalLinks: number
+        linksThisWeek: number
+        pendingCount: number
+        skippedCount: number
+        successRate: number
+        topKeywords: { id: number; keyword: string; targetUrl: string; linksCreated: number }[]
+    } | null>(null)
+
     useEffect(() => {
         fetchData()
     }, [slug])
@@ -174,6 +185,13 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
             if (typesRes.ok) {
                 const data = await typesRes.json()
                 setDiscoveredPageTypes(data.pageTypes || [])
+            }
+
+            // Fetch stats
+            const statsRes = await fetch(`/api/seo/link-building/stats?projectId=${pid}`)
+            if (statsRes.ok) {
+                const statsData = await statsRes.json()
+                setStats(statsData)
             }
         } catch (e) {
             toast.error('Failed to load data')
@@ -513,22 +531,27 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                     <div className="flex gap-2 items-center flex-wrap">
                         {/* Scan Button */}
                         <Button
-                            variant={scanStatus === 'scanning' ? "secondary" : "outline"}
+                            variant={scanStatus !== 'idle' ? "secondary" : "outline"}
                             size="sm"
                             onClick={handleScan}
-                            disabled={scanStatus === 'scanning' || running || !project?.domain}
+                            disabled={scanStatus !== 'idle' || running || !project?.domain}
                         >
-                            {scanStatus === 'scanning' ? (
+                            {scanStatus === 'init' ? (
+                                <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    <span className="text-xs">Initializing...</span>
+                                </>
+                            ) : scanStatus === 'scanning' ? (
                                 <>
                                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                     <span className="text-xs">
-                                        {Math.round((scanProgress.current / scanProgress.total) * 100)}%
+                                        {scanProgress.total > 0 ? Math.round((scanProgress.current / scanProgress.total) * 100) : 0}%
                                     </span>
                                 </>
                             ) : (
                                 <>
                                     <Search className="mr-1 h-3 w-3" />
-                                    Scan
+                                    {selectedKeywords.length > 0 ? `Scan (${selectedKeywords.length})` : 'Scan All'}
                                 </>
                             )}
                         </Button>
@@ -588,6 +611,62 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
 
             {/* Main Content - Scrollable */}
             <div className="flex-1 overflow-auto p-4 space-y-4">
+                {/* Stats Dashboard */}
+                {stats && (
+                    <Collapsible open={showStats} onOpenChange={setShowStats}>
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 rounded-lg border p-3">
+                            <CollapsibleTrigger className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-4">
+                                    <div className="text-left">
+                                        <p className="text-xs text-muted-foreground">Total Links</p>
+                                        <p className="text-xl font-bold text-blue-600">{stats.totalLinks}</p>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs text-muted-foreground">This Week</p>
+                                        <p className="text-xl font-bold text-green-600">+{stats.linksThisWeek}</p>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs text-muted-foreground">Pending</p>
+                                        <p className="text-xl font-bold text-orange-500">{stats.pendingCount}</p>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-xs text-muted-foreground">Success Rate</p>
+                                        <p className="text-xl font-bold text-purple-600">{stats.successRate}%</p>
+                                    </div>
+                                </div>
+                                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showStats ? 'rotate-180' : ''}`} />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="pt-3 mt-3 border-t">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-sm font-medium mb-2">Top Keywords</p>
+                                        {stats.topKeywords.length > 0 ? (
+                                            <div className="space-y-1">
+                                                {stats.topKeywords.map((tk, i) => (
+                                                    <div key={tk.id} className="flex items-center justify-between text-xs bg-white dark:bg-slate-700 rounded px-2 py-1">
+                                                        <span className="truncate max-w-[200px]">{tk.keyword}</span>
+                                                        <Badge variant="outline" className="ml-2">{tk.linksCreated}</Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">No links created yet</p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium mb-2">Summary</p>
+                                        <div className="text-xs space-y-1">
+                                            <p>✅ {stats.totalLinks} links created successfully</p>
+                                            <p>⏳ {stats.pendingCount} opportunities waiting</p>
+                                            <p>⏭️ {stats.skippedCount} skipped</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CollapsibleContent>
+                        </div>
+                    </Collapsible>
+                )}
+
                 {/* Add Keyword */}
                 <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border">
                     <Input

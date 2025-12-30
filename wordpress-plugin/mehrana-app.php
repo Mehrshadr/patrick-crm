@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.5
+ * Version: 1.6.6
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.5';
+    private $version = '1.6.6';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -656,8 +656,9 @@ class Mehrana_App_Plugin
     /**
      * Get meta keys that might contain HTML/text content
      * Checks for ACF, Yoast, RankMath, WooCommerce, and custom content fields
+     * @param bool $include_seo If true, also returns SEO fields (useful for cleanup/removal)
      */
-    private function get_content_meta_keys($all_meta)
+    private function get_content_meta_keys($all_meta, $include_seo = false)
     {
         $content_keys = [];
 
@@ -697,6 +698,17 @@ class Mehrana_App_Plugin
             '/_metadesc$/i',
             '/_title$/i',
         ];
+
+        // If cleaning up ($include_seo = true), DO NOT exclude SEO patterns
+        if ($include_seo) {
+            // Remove SEO patterns from exclude list
+            $exclude_patterns = array_diff($exclude_patterns, [
+                '/_yoast_wpseo_/',
+                '/^rank_math_/',
+                '/_metadesc$/i',
+                '/_title$/i',
+            ]);
+        }
 
         // Also exclude specific keys
         $exclude_exact = [
@@ -990,8 +1002,56 @@ class Mehrana_App_Plugin
             }
         }
 
+        // Also check all meta fields (in case it was injected there by older version)
         if (!$modified) {
-            return new WP_Error('not_found', 'Link not found in content', ['status' => 404]);
+            $this->log("Not found in content/elementor, checking meta fields...");
+            $all_meta = get_post_meta($page_id);
+            // We use the SAME logic as we used to inject, to find where it might be
+            // Note: We intentionally don't filter out SEO fields here because we want to CLEAN them
+            $content_meta_keys = $this->get_content_meta_keys($all_meta, true);
+
+            foreach ($content_meta_keys as $meta_key) {
+                $meta_value = get_post_meta($page_id, $meta_key, true);
+                if (empty($meta_value) || !is_string($meta_value))
+                    continue;
+
+                $meta_modified = false;
+                // Use regex replace logic on meta value
+                $new_meta_val = preg_replace_callback($pattern, function ($match) use ($target_url, $target_url_path, $target_anchor, $site_url, &$meta_modified) {
+                    $url = $match[1];
+                    $anchor = strip_tags($match[2]);
+
+                    // Normalize (reuse match logic)
+                    $normalized_url = preg_replace('#^https?://#', '', $url);
+                    $normalized_target = preg_replace('#^https?://#', '', $target_url);
+                    $site_domain = preg_replace('#^https?://#', '', $site_url);
+
+                    $url_path = $url;
+                    if (strpos($normalized_url, $site_domain) === 0) {
+                        $url_path = substr($normalized_url, strlen($site_domain));
+                    } elseif (strpos($url, $site_url) === 0) {
+                        $url_path = substr($url, strlen($site_url));
+                    }
+
+                    $url_matches = ($normalized_url === $normalized_target || $url_path === $target_url_path || $url === $target_url_path);
+
+                    if ($url_matches && $anchor === $target_anchor) {
+                        $meta_modified = true;
+                        return strip_tags($match[2]);
+                    }
+                    return $match[0];
+                }, $meta_value);
+
+                if ($meta_modified) {
+                    update_post_meta($page_id, $meta_key, $new_meta_val);
+                    $modified = true;
+                    $this->log("Removed link from meta field '$meta_key' in page $page_id");
+                }
+            }
+        }
+
+        if (!$modified) {
+            return new WP_Error('not_found', 'Link not found in content or meta', ['status' => 404]);
         }
 
         return rest_ensure_response([

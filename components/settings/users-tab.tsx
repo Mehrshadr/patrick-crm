@@ -30,6 +30,7 @@ interface ProjectAccess {
 // Available apps for project access
 const AVAILABLE_APPS = [
     { id: 'LINK_INDEXING', name: 'Link Indexing', icon: '🔗' },
+    { id: 'LINK_BUILDING', name: 'Link Building', icon: '🧱' },
     { id: 'CONTENT_FACTORY', name: 'Content Factory', icon: '✨' },
     { id: 'IMAGE_FACTORY', name: 'Image Factory', icon: '🖼️' },
     { id: 'DASHBOARD', name: 'Dashboard', icon: '📊', disabled: true, comingSoon: true }

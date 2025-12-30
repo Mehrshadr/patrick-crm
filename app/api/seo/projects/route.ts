@@ -91,9 +91,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Project name is required' }, { status: 400 })
         }
 
+        // Simple slug generation
+        let slug = name.trim().toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+            .replace(/^-+|-+$/g, '')     // Trim dashes from start/end
+
+        if (!slug) {
+            slug = `project-${Date.now()}`
+        }
+
+        // Check for duplicate slug and append timestamp if needed to avoid crash
+        const existing = await prisma.indexingProject.findUnique({ where: { slug } })
+        if (existing) {
+            slug = `${slug}-${Math.floor(Math.random() * 1000)}`
+        }
+
         const project = await prisma.indexingProject.create({
             data: {
                 name: name.trim(),
+                slug,
                 domain: domain?.trim() || null,
                 description: description?.trim() || null,
                 platform: platform || null

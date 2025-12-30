@@ -163,7 +163,7 @@ function SortableRow({
                                 <ShoppingCart className="h-3 w-3" />
                             </div>
                         )}
-                        {!project.platform && (
+                        {(project.platform === 'custom' || !project.platform) && (
                             <Globe className="h-4 w-4 text-muted-foreground mr-1" />
                         )}
                         <Badge variant="outline" className="font-normal">

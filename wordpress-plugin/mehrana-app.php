@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.6.9
+ * Version: 1.7.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.6.9';
+    private $version = '1.7.0';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -436,13 +436,30 @@ class Mehrana_App_Plugin
 
             // Save Elementor Data
             $new_data = wp_json_encode($data);
-            update_post_meta($page_id, '_elementor_data', wp_slash($new_data));
+            $update_result = update_post_meta($page_id, '_elementor_data', wp_slash($new_data));
 
-            // Clear Elementor cache
+            $this->log("Elementor save result for page {$page_id}: " . ($update_result ? 'SUCCESS' : 'FAILED'));
+            $this->log("Data length: " . strlen($new_data) . " bytes");
+
+            // CRITICAL: Trigger Elementor regeneration
+            // Method 1: Update edit timestamp to trigger Elementor
+            update_post_meta($page_id, '_edit_last', get_current_user_id());
+            update_post_meta($page_id, '_edit_lock', time() . ':' . get_current_user_id());
+
+            // Method 2: Clear ALL Elementor caches
             if (class_exists('\Elementor\Plugin')) {
                 \Elementor\Plugin::$instance->files_manager->clear_cache();
+                // Also clear this specific page's cache
+                delete_post_meta($page_id, '_elementor_css');
+                delete_post_meta($page_id, '_elementor_page_assets');
             }
-            delete_post_meta($page_id, '_elementor_css');
+
+            // Method 3: Touch the post to update modification time
+            wp_update_post([
+                'ID' => $page_id,
+                'post_modified' => current_time('mysql'),
+                'post_modified_gmt' => current_time('mysql', 1)
+            ]);
 
         } else {
             // Process Standard Content + ALL Meta Fields

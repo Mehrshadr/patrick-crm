@@ -1017,7 +1017,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                         <div className="space-y-4">
                             <div className="border-2 border-dashed rounded-lg p-6 text-center">
                                 <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                                <Label htmlFor="csv-upload" className="cursor-pointer text-primary hover:underline text-sm">
+                                <Label htmlFor="csv-upload" className="cursor-pointer text-primary hover:underline text-sm w-full justify-center">
                                     Click to upload
                                 </Label>
                                 <Input

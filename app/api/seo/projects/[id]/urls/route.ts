@@ -50,13 +50,21 @@ export async function POST(
         // Validate URLs
         const validUrls: string[] = []
         for (const url of urls) {
-            const trimmed = url.trim()
+            let trimmed = url.trim()
             if (trimmed) {
                 try {
+                    // Try parsing as is
                     new URL(trimmed)
                     validUrls.push(trimmed)
                 } catch {
-                    // Skip invalid URLs
+                    // If failed, try prepending https://
+                    try {
+                        const withProtocol = `https://${trimmed}`
+                        new URL(withProtocol)
+                        validUrls.push(withProtocol)
+                    } catch {
+                        // Skip completely invalid URLs
+                    }
                 }
             }
         }
@@ -99,25 +107,29 @@ export async function POST(
             )
         )
 
+        // Log Activity
+        try {
+            const session = await auth()
+            await logActivity({
+                userId: session?.user?.email,
+                userName: session?.user?.name,
+                projectId,
+                category: 'LINK_INDEXING',
+                action: 'ADDED',
+                description: `Added ${newUrls.length} URLs to index`,
+                details: { count: newUrls.length, skipped: validUrls.length - newUrls.length },
+                entityType: 'IndexingProject',
+                entityId: projectId,
+                entityName: `Batch Import`
+            })
+        } catch (logError) {
+            console.error('Failed to log activity:', logError)
+        }
+
         return NextResponse.json({
             added: newUrls.length,
             skipped: validUrls.length - newUrls.length
         }, { status: 201 })
-
-        // Log Activity
-        const session = await auth()
-        await logActivity({
-            userId: session?.user?.email,
-            userName: session?.user?.name,
-            projectId,
-            category: 'LINK_INDEXING',
-            action: 'ADDED',
-            description: `Added ${newUrls.length} URLs to index`,
-            details: { count: newUrls.length, skipped: validUrls.length - newUrls.length },
-            entityType: 'IndexingProject',
-            entityId: projectId,
-            entityName: `Batch Import`
-        })
     } catch (error) {
         console.error('Failed to add URLs:', error)
         return NextResponse.json({ error: 'Failed to add URLs' }, { status: 500 })

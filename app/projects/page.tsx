@@ -236,7 +236,6 @@ function ProjectsContent() {
                 ref={setNodeRef}
                 style={style}
                 className="hover:bg-muted/50 transition-colors"
-            // Don't put onClick here, it conflicts with drag
             >
                 {/* Drag Handle */}
                 <TableCell className="w-[30px] p-0 pl-2">

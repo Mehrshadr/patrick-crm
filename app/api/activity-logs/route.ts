@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const projectId = searchParams.get('projectId')
         const category = searchParams.get('category')
+        const exclude = searchParams.get('exclude') // Comma-separated categories to exclude
         const limit = parseInt(searchParams.get('limit') || '50')
 
         const where: any = {}
@@ -32,6 +33,12 @@ export async function GET(request: NextRequest) {
 
         if (category && category !== 'all') {
             where.category = category
+        }
+
+        // Exclude specified categories (for separating Patrick vs SEO logs)
+        if (exclude) {
+            const excludeList = exclude.split(',')
+            where.category = { notIn: excludeList }
         }
 
         const logs = await prisma.activityLog.findMany({

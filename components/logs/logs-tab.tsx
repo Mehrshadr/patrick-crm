@@ -58,6 +58,8 @@ export function LogsTab() {
         try {
             const params = new URLSearchParams()
             if (categoryFilter !== '__ALL__') params.set('category', categoryFilter)
+            // Exclude SEO-related categories from Patrick CRM logs
+            params.set('exclude', 'CONTENT_FACTORY,LINK_INDEXING,LINK_BUILDING,IMAGE_FACTORY')
 
             const res = await fetch(`/api/activity-logs?${params}`).then(r => r.json())
             if (res.success) {

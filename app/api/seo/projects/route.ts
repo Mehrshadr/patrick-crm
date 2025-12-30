@@ -27,9 +27,11 @@ export async function GET() {
             include: { projectAccess: true }
         }) : null
 
+        let projects: any[] = []
+
         // SUPER_ADMIN sees all projects
         if (user?.role === 'SUPER_ADMIN') {
-            const projects = await prisma.indexingProject.findMany({
+            projects = await prisma.indexingProject.findMany({
                 orderBy: [
                     { sortOrder: 'asc' },
                     { name: 'asc' }
@@ -40,13 +42,11 @@ export async function GET() {
                     }
                 }
             })
-            return NextResponse.json(projects)
         }
 
-        // Regular users only see assigned projects
         if (user && user.projectAccess.length > 0) {
             const projectIds = user.projectAccess.map(pa => pa.projectId)
-            const projects = await prisma.indexingProject.findMany({
+            projects = await prisma.indexingProject.findMany({
                 where: { id: { in: projectIds } },
                 orderBy: [
                     { sortOrder: 'asc' },
@@ -58,11 +58,42 @@ export async function GET() {
                     }
                 }
             })
-            return NextResponse.json(projects)
         }
 
-        // No access - return empty array
-        return NextResponse.json([])
+        // Return empty if no access
+        if (!projects && user?.role !== 'SUPER_ADMIN') {
+            return NextResponse.json([])
+        }
+
+        // Self-healing: Fix missing slugs for legacy projects
+        for (const p of projects) {
+            if (!p.slug) {
+                let newSlug = p.name.trim().toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '')
+
+                if (!newSlug) newSlug = `project-${p.id}`
+
+                try {
+                    // Try to update with simple slug
+                    await prisma.indexingProject.update({
+                        where: { id: p.id },
+                        data: { slug: newSlug }
+                    })
+                    p.slug = newSlug
+                } catch {
+                    // Collision? Append ID
+                    newSlug = `${newSlug}-${p.id}`
+                    await prisma.indexingProject.update({
+                        where: { id: p.id },
+                        data: { slug: newSlug }
+                    })
+                    p.slug = newSlug
+                }
+            }
+        }
+
+        return NextResponse.json(projects)
     } catch (error) {
         console.error('Failed to fetch projects:', error)
         return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 })

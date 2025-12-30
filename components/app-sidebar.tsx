@@ -212,17 +212,26 @@ export function AppSidebar() {
                                                                 if (el) projectRefs.current.set(project.slug, el)
                                                                 else projectRefs.current.delete(project.slug)
                                                             }}
-                                                            className="flex items-center"
+                                                            className="flex items-center w-full"
                                                         >
                                                             <Link
                                                                 href={`/projects/${project.slug}`}
-                                                                className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l"
+                                                                className="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-l min-w-0"
+                                                                title={project.name}
                                                             >
                                                                 <FolderOpen className="h-3 w-3 shrink-0" />
-                                                                <span className="truncate">{project.name}</span>
+                                                                <span
+                                                                    className="whitespace-nowrap overflow-hidden block"
+                                                                    style={{
+                                                                        maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
+                                                                        WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)'
+                                                                    }}
+                                                                >
+                                                                    {project.name}
+                                                                </span>
                                                             </Link>
                                                             <CollapsibleTrigger asChild>
-                                                                <button className="p-1.5 hover:bg-slate-100 rounded-r">
+                                                                <button className="p-1.5 hover:bg-slate-100 rounded-r shrink-0">
                                                                     <ChevronDown className="h-3 w-3 shrink-0 transition-transform group-data-[state=open]/project:rotate-180" />
                                                                 </button>
                                                             </CollapsibleTrigger>

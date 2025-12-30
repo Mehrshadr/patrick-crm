@@ -87,7 +87,7 @@ export default function ProjectLogsPage() {
             if (selectedProject !== 'all') params.append('projectId', selectedProject)
             if (selectedCategory !== 'all') params.append('category', selectedCategory)
             // Exclude Patrick CRM categories from SEO Activity Logs
-            params.append('exclude', 'AUTOMATION,LEAD,EMAIL,SMS,SYSTEM,COMMUNICATION')
+            params.append('exclude', 'AUTOMATION,LEAD,EMAIL,SMS,SYSTEM,COMMUNICATION,MEETING,CALENDAR')
 
             const res = await fetch(`/api/activity-logs?${params.toString()}`)
             if (res.ok) {

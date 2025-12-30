@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.7.1
+ * Version: 1.7.2
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.7.1';
+    private $version = '1.7.2';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -408,10 +408,23 @@ class Mehrana_App_Plugin
             return new WP_Error('invalid_page', 'Content not found', ['status' => 404]);
         }
 
+        $this->log("Applying links to page {$page_id}. Keywords count: " . count($keywords));
+
         // Get Elementor data
         $elementor_data = get_post_meta($page_id, '_elementor_data', true);
 
         $is_elementor = !empty($elementor_data);
+        $this->log("Elementor Detection for {$page_id}: " . ($is_elementor ? 'YES' : 'NO'));
+        if (!$is_elementor) {
+            $raw_meta = get_post_meta($page_id, '_elementor_data'); // Get array to see if it exists but empty
+            $this->log("Raw _elementor_data meta count: " . (is_array($raw_meta) ? count($raw_meta) : 'Not Array'));
+            // Check if user is using Block Editor
+            $has_blocks = has_blocks($page->post_content);
+            $this->log("Has Gutenberg Blocks: " . ($has_blocks ? 'YES' : 'NO'));
+        } else {
+            $this->log("Elementor Data Length: " . strlen($elementor_data) . " chars");
+        }
+
         $results = [];
 
         if ($is_elementor) {
@@ -463,6 +476,7 @@ class Mehrana_App_Plugin
 
         } else {
             // Process Standard Content + ALL Meta Fields
+            $this->log("Processing as STANDARD CONTENT (Elementor not detected or empty)");
             $content = $page->post_content;
             $all_skipped = [];
             $total_linked = 0;

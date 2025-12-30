@@ -30,7 +30,10 @@ export async function GET() {
         // SUPER_ADMIN sees all projects
         if (user?.role === 'SUPER_ADMIN') {
             const projects = await prisma.indexingProject.findMany({
-                orderBy: { name: 'asc' },
+                orderBy: [
+                    { sortOrder: 'asc' },
+                    { name: 'asc' }
+                ],
                 include: {
                     _count: {
                         select: { urls: true }
@@ -45,7 +48,10 @@ export async function GET() {
             const projectIds = user.projectAccess.map(pa => pa.projectId)
             const projects = await prisma.indexingProject.findMany({
                 where: { id: { in: projectIds } },
-                orderBy: { name: 'asc' },
+                orderBy: [
+                    { sortOrder: 'asc' },
+                    { name: 'asc' }
+                ],
                 include: {
                     _count: {
                         select: { urls: true }

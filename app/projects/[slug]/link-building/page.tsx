@@ -920,7 +920,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                         // @ts-ignore - pageId might exist
                                                                         const logPageId = log.pageId || 0
                                                                         const isLinked = log.status === 'linked'
-                                                                        const hasExisting = (log.linkedCount || 0) > 0
+                                                                        // Check message for existing links indicator
+                                                                        const hasExisting = log.message?.includes('existing') || log.message?.includes('Already linked')
 
                                                                         return (
                                                                             <div key={log.id} className="border-b last:border-b-0">
@@ -929,7 +930,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                                         <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                                                                                     ) : hasExisting ? (
                                                                                         <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200 flex-shrink-0">
-                                                                                            {log.linkedCount}
+                                                                                            ✓
                                                                                         </Badge>
                                                                                     ) : (
                                                                                         <Checkbox

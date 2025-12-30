@@ -111,7 +111,10 @@ function SortableRow({
                     {...attributes}
                     {...listeners}
                     className="p-1 hover:bg-slate-200 rounded cursor-grab active:cursor-grabbing text-muted-foreground"
-                    onPointerDown={(e) => e.stopPropagation()} // Prevent row click
+                    onPointerDown={(e) => {
+                        listeners?.onPointerDown?.(e);
+                        e.stopPropagation();
+                    }}
                 >
                     <GripVertical className="h-4 w-4" />
                 </button>

@@ -111,6 +111,7 @@ export function AppSidebar() {
     // Scroll to active project and ensure it is OPEN
     // Scroll to active project and ensure it is OPEN
     useEffect(() => {
+        // If projects aren't loaded yet, do nothing (wait for them)
         if (projects.length === 0) return
 
         if (activeProjectSlug) {
@@ -126,9 +127,14 @@ export function AppSidebar() {
                         ref.scrollIntoView({ behavior: 'smooth', block: 'center' })
                     }
                 }, 100)
+            } else {
+                // Active slug exists but no matching project (e.g. /projects/logs)
+                // We might want to collapse others or leave as is. User asked for "back to projects" (root) behavior.
+                // For now, let's play safe and check if it's strictly root.
             }
         } else {
-            // If we are on the root /projects page, collapse all projects
+            // Path is exactly /projects (or doesn't match /projects/[slug])
+            // Collapse all projects
             setOpenProjects({})
         }
     }, [activeProjectSlug, projects])
@@ -208,7 +214,7 @@ export function AppSidebar() {
                                             return (
                                                 <Collapsible
                                                     key={project.id}
-                                                    open={openProjects[project.id]}
+                                                    open={!!openProjects[project.id]}
                                                     onOpenChange={(isOpen) => setOpenProjects(prev => ({ ...prev, [project.id]: isOpen }))}
                                                     className="group/project"
                                                 >

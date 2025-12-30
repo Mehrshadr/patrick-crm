@@ -43,7 +43,7 @@ export async function PUT(
         const { id } = await params
         const projectId = parseInt(id)
         const body = await request.json()
-        const { name, domain, description } = body
+        const { name, domain, description, platform } = body
 
         if (isNaN(projectId)) {
             return NextResponse.json({ error: 'Invalid project ID' }, { status: 400 })
@@ -58,7 +58,8 @@ export async function PUT(
             data: {
                 name: name.trim(),
                 domain: domain?.trim() || null,
-                description: description?.trim() || null
+                description: description?.trim() || null,
+                platform: platform || null
             }
         })
 

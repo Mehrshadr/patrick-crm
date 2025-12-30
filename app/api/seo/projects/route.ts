@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { name, domain, description } = body
+        const { name, domain, description, platform } = body
 
         if (!name?.trim()) {
             return NextResponse.json({ error: 'Project name is required' }, { status: 400 })
@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
             data: {
                 name: name.trim(),
                 domain: domain?.trim() || null,
-                description: description?.trim() || null
+                description: description?.trim() || null,
+                platform: platform || null
             }
         })
 

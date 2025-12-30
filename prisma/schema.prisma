@@ -275,6 +275,7 @@ model IndexingProject {
   slug        String?   @unique // URL-friendly: "mehrana", "epochtimes", "morsun-kitchen" - Optional during migration
   domain      String?   // "mehrana.agency"
   description String?
+  platform    String?   // "wordpress", "shopify", "custom"
   sortOrder   Int       @default(0)  // For custom ordering (lower = higher in list)
   
   urls          IndexingUrl[]

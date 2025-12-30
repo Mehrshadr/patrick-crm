@@ -39,7 +39,16 @@ import {
     Globe,
     Link2,
     GripVertical,
+    ListFilter,
+    ShoppingCart,
 } from "lucide-react"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import {
     DndContext,
@@ -66,6 +75,7 @@ interface Project {
     slug: string
     domain: string | null
     description: string | null
+    platform: string | null
     createdAt: string
     _count: {
         urls: number
@@ -142,10 +152,24 @@ function SortableRow({
                 onClick={() => router.push(`/projects/${project.slug}`)}
             >
                 {project.domain ? (
-                    <Badge variant="outline">
-                        <Globe className="h-3 w-3 mr-1" />
-                        {project.domain}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        {project.platform === 'wordpress' && (
+                            <div className="h-6 w-6 bg-[#21759b] text-white rounded-full p-1 shrink-0 flex items-center justify-center" title="WordPress">
+                                <span className="font-bold text-[10px]">W</span>
+                            </div>
+                        )}
+                        {project.platform === 'shopify' && (
+                            <div className="h-6 w-6 bg-[#95BF47] text-white rounded-full p-1 shrink-0 flex items-center justify-center" title="Shopify">
+                                <ShoppingCart className="h-3 w-3" />
+                            </div>
+                        )}
+                        {!project.platform && (
+                            <Globe className="h-4 w-4 text-muted-foreground mr-1" />
+                        )}
+                        <Badge variant="outline" className="font-normal">
+                            {project.domain}
+                        </Badge>
+                    </div>
                 ) : (
                     <span className="text-muted-foreground">—</span>
                 )}
@@ -208,9 +232,16 @@ function ProjectsContent() {
     const [formData, setFormData] = useState({
         name: '',
         domain: '',
-        description: ''
+        description: '',
+        platform: 'wordpress'
     })
     const [saving, setSaving] = useState(false)
+    const [filterPlatform, setFilterPlatform] = useState<string>('all')
+
+    const filteredProjects = projects.filter(p => {
+        if (filterPlatform === 'all') return true
+        return p.platform === filterPlatform
+    })
 
     useEffect(() => {
         fetchProjects()
@@ -232,7 +263,7 @@ function ProjectsContent() {
 
     function openNewDialog() {
         setEditingProject(null)
-        setFormData({ name: '', domain: '', description: '' })
+        setFormData({ name: '', domain: '', description: '', platform: 'wordpress' })
         setDialogOpen(true)
     }
 
@@ -241,7 +272,8 @@ function ProjectsContent() {
         setFormData({
             name: project.name,
             domain: project.domain || '',
-            description: project.description || ''
+            description: project.description || '',
+            platform: project.platform || 'wordpress'
         })
         setDialogOpen(true)
     }
@@ -349,10 +381,25 @@ function ProjectsContent() {
                         Manage your SEO projects and tools
                     </p>
                 </div>
-                <Button onClick={openNewDialog}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Project
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+                        <SelectTrigger className="w-[180px]">
+                            <ListFilter className="w-4 h-4 mr-2" />
+                            <SelectValue placeholder="Filter Platform" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Platforms</SelectItem>
+                            <SelectItem value="wordpress">WordPress</SelectItem>
+                            <SelectItem value="shopify">Shopify</SelectItem>
+                            <SelectItem value="custom">Custom/Other</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Button onClick={openNewDialog}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Project
+                    </Button>
+                </div>
             </div>
 
             {/* Projects Sortable List */}
@@ -367,12 +414,12 @@ function ProjectsContent() {
                             <div className="p-8 text-center text-muted-foreground">
                                 Loading projects...
                             </div>
-                        ) : projects.length === 0 ? (
+                        ) : filteredProjects.length === 0 ? (
                             <div className="p-8 text-center">
                                 <Globe className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                                <h3 className="font-medium mb-1">No projects yet</h3>
+                                <h3 className="font-medium mb-1">No projects found</h3>
                                 <p className="text-sm text-muted-foreground mb-4">
-                                    Create your first project to start using SEO tools
+                                    Try adjusting your filters or create a new project
                                 </p>
                                 <Button onClick={openNewDialog}>
                                     <Plus className="mr-2 h-4 w-4" />
@@ -381,7 +428,7 @@ function ProjectsContent() {
                             </div>
                         ) : (
                             <SortableContext
-                                items={projects.map(p => p.id)}
+                                items={filteredProjects.map(p => p.id)}
                                 strategy={verticalListSortingStrategy}
                             >
                                 <Table>
@@ -389,14 +436,14 @@ function ProjectsContent() {
                                         <TableRow>
                                             <TableHead className="w-[30px]"></TableHead>
                                             <TableHead>Name</TableHead>
-                                            <TableHead>Domain</TableHead>
+                                            <TableHead>Platform & Domain</TableHead>
                                             <TableHead>URLs</TableHead>
                                             <TableHead>Created</TableHead>
                                             <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {projects.map((project) => (
+                                        {filteredProjects.map((project) => (
                                             <SortableRow
                                                 key={project.id}
                                                 project={project}
@@ -456,6 +503,23 @@ function ProjectsContent() {
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="platform">Platform</Label>
+                            <Select
+                                value={formData.platform}
+                                onValueChange={(val) => setFormData({ ...formData, platform: val })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select platform" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="wordpress">WordPress</SelectItem>
+                                    <SelectItem value="shopify">Shopify</SelectItem>
+                                    <SelectItem value="custom">Custom / Other</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 

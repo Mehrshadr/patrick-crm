@@ -5,9 +5,13 @@ import OpenAI from 'openai'
 import fs from 'fs'
 import path from 'path'
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-})
+let openaiClient: OpenAI | null = null
+function getOpenAI(): OpenAI {
+    if (!openaiClient) {
+        openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    }
+    return openaiClient
+}
 
 // POST - Regenerate a specific image
 export async function POST(
@@ -49,7 +53,7 @@ export async function POST(
 
         console.log(`[Regenerate] Final prompt: "${imagePrompt}"`)
 
-        const response = await openai.images.generate({
+        const response = await getOpenAI().images.generate({
             model: "dall-e-3",
             prompt: imagePrompt,
             n: 1,

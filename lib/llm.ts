@@ -2,9 +2,16 @@ import OpenAI from 'openai'
 import fs from 'fs'
 import path from 'path'
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-})
+let openaiClient: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+    if (!openaiClient) {
+        openaiClient = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        })
+    }
+    return openaiClient
+}
 
 interface GenerateContentOptions {
     brief: string
@@ -214,7 +221,7 @@ ${brief}`
         // Use gpt-4.1 for best instruction following and longer output
         const model = process.env.OPENAI_MODEL || 'gpt-4.1'
 
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
             model,
             messages: [
                 { role: 'system', content: systemPrompt },
@@ -277,7 +284,7 @@ export async function generateImages(
         try {
             console.log(`[GPT-Image] Generating image ${image.position}: ${image.filename}`)
 
-            const response = await openai.images.generate({
+            const response = await getOpenAI().images.generate({
                 model: "dall-e-3",
                 prompt: image.prompt,
                 n: 1,
@@ -353,7 +360,7 @@ Return a JSON object with:
 Only return the JSON object, no markdown or code blocks.`
 
     try {
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
             model: process.env.OPENAI_MODEL || 'gpt-4.1',
             messages: [
                 { role: 'system', content: systemPrompt },
@@ -417,7 +424,7 @@ ${surroundingContext ? `## Surrounding Context:\n${surroundingContext}` : ''}
 Please improve the selected text according to the feedback.`
 
     try {
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
             model: process.env.OPENAI_MODEL || 'gpt-4.1',
             messages: [
                 { role: 'system', content: systemPrompt },

@@ -14,8 +14,10 @@ import {
     Globe,
     ArrowLeft,
     Bot,
+    Lock,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useProjectAccess } from "@/lib/project-access"
 
 interface Project {
     id: number
@@ -36,6 +38,10 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
     const [project, setProject] = useState<Project | null>(null)
     const [loading, setLoading] = useState(true)
 
+    // Access check - pass project ID once we have it
+    const [projectId, setProjectId] = useState<number | null>(null)
+    const access = useProjectAccess(projectId)
+
     useEffect(() => {
         fetchProject()
     }, [slug])
@@ -48,7 +54,9 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
                 router.push('/projects')
                 return
             }
-            setProject(await res.json())
+            const data = await res.json()
+            setProject(data)
+            setProjectId(data.id)
         } catch (error) {
             toast.error('Failed to load project')
         } finally {
@@ -56,7 +64,7 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
         }
     }
 
-    if (loading) {
+    if (loading || access.loading) {
         return (
             <div className="p-6 h-full flex items-center justify-center">
                 <div className="animate-pulse">Loading...</div>
@@ -64,7 +72,16 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
         )
     }
 
+    // Access check happens in hook - redirects if no project access
     if (!project) return null
+
+    // Map app types to tool configs
+    const APP_TYPE_MAP: Record<string, string> = {
+        'Link Indexing': 'LINK_INDEXING',
+        'Link Building': 'LINK_BUILDING',
+        'Content Factory': 'CONTENT_FACTORY',
+        'Image Factory': 'IMAGE_FACTORY',
+    }
 
     const tools = [
         {
@@ -115,6 +132,17 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
         },
     ]
 
+    // Filter tools based on user's app access
+    const accessibleTools = tools.filter(tool => {
+        const appType = APP_TYPE_MAP[tool.name]
+        // If no appType mapping (like Jarvis), show as coming soon
+        if (!appType) return true
+        // SUPER_ADMIN sees all
+        if (access.accessLevel === 'SUPER_ADMIN') return true
+        // Check if user has access to this app
+        return access.apps.includes(appType)
+    })
+
     return (
         <div className="h-full flex flex-col overflow-hidden">
             {/* Header */}
@@ -140,40 +168,52 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
             <div className="flex-1 overflow-auto p-6">
                 <div className="max-w-4xl mx-auto">
                     <h2 className="text-lg font-semibold mb-4">SEO Tools</h2>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        {tools.map((tool) => {
-                            const Icon = tool.icon
-                            const isComingSoon = 'comingSoon' in tool && tool.comingSoon
-                            return (
-                                <Card
-                                    key={tool.name}
-                                    className={`transition-shadow ${isComingSoon ? 'opacity-60' : 'cursor-pointer hover:shadow-md'}`}
-                                    onClick={() => !isComingSoon && router.push(tool.href)}
-                                >
-                                    <CardHeader className="pb-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className={`p-2 rounded-lg ${tool.color}`}>
-                                                <Icon className="h-5 w-5" />
+
+                    {accessibleTools.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                            <h3 className="font-medium mb-2">No Tools Available</h3>
+                            <p className="text-muted-foreground text-sm">
+                                You don't have access to any tools for this project.<br />
+                                Contact an administrator to request access.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-4 md:grid-cols-2">
+                            {accessibleTools.map((tool) => {
+                                const Icon = tool.icon
+                                const isComingSoon = 'comingSoon' in tool && tool.comingSoon
+                                return (
+                                    <Card
+                                        key={tool.name}
+                                        className={`transition-shadow ${isComingSoon ? 'opacity-60' : 'cursor-pointer hover:shadow-md'}`}
+                                        onClick={() => !isComingSoon && router.push(tool.href)}
+                                    >
+                                        <CardHeader className="pb-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className={`p-2 rounded-lg ${tool.color}`}>
+                                                    <Icon className="h-5 w-5" />
+                                                </div>
+                                                {isComingSoon ? (
+                                                    <Badge variant="outline" className="text-muted-foreground">
+                                                        Coming Soon
+                                                    </Badge>
+                                                ) : tool.count !== null && (
+                                                    <Badge variant="secondary">
+                                                        {tool.count} {tool.countLabel}
+                                                    </Badge>
+                                                )}
                                             </div>
-                                            {isComingSoon ? (
-                                                <Badge variant="outline" className="text-muted-foreground">
-                                                    Coming Soon
-                                                </Badge>
-                                            ) : tool.count !== null && (
-                                                <Badge variant="secondary">
-                                                    {tool.count} {tool.countLabel}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <CardTitle className="text-lg">{tool.name}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <CardDescription>{tool.description}</CardDescription>
-                                    </CardContent>
-                                </Card>
-                            )
-                        })}
-                    </div>
+                                            <CardTitle className="text-lg">{tool.name}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <CardDescription>{tool.description}</CardDescription>
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

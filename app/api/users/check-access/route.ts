@@ -4,15 +4,19 @@ import { auth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-// GET - Check if current user has access to a specific app in a project
-// Query: projectId, appType
+// GET - Check if current user has access to a specific project and optionally an app
+// Query: projectId, appType (optional)
 export async function GET(request: NextRequest) {
     try {
         const session = await auth()
         const userEmail = session?.user?.email
 
         if (!userEmail) {
-            return NextResponse.json({ hasAccess: false, error: 'Not authenticated' }, { status: 401 })
+            return NextResponse.json({
+                hasProjectAccess: false,
+                hasAppAccess: false,
+                error: 'Not authenticated'
+            }, { status: 401 })
         }
 
         const searchParams = request.nextUrl.searchParams
@@ -20,7 +24,11 @@ export async function GET(request: NextRequest) {
         const appType = searchParams.get('appType')
 
         if (!projectId) {
-            return NextResponse.json({ hasAccess: false, error: 'projectId required' }, { status: 400 })
+            return NextResponse.json({
+                hasProjectAccess: false,
+                hasAppAccess: false,
+                error: 'projectId required'
+            }, { status: 400 })
         }
 
         // Get user from database
@@ -30,13 +38,19 @@ export async function GET(request: NextRequest) {
         })
 
         if (!user) {
-            return NextResponse.json({ hasAccess: false, error: 'User not found' }, { status: 404 })
+            return NextResponse.json({
+                hasProjectAccess: false,
+                hasAppAccess: false,
+                error: 'User not found'
+            }, { status: 404 })
         }
 
         // SUPER_ADMIN has access to everything
         if (user.role === 'SUPER_ADMIN') {
             return NextResponse.json({
-                hasAccess: true,
+                hasProjectAccess: true,
+                hasAppAccess: true,
+                hasAccess: true, // backward compatibility
                 accessLevel: 'SUPER_ADMIN',
                 apps: ['LINK_INDEXING', 'LINK_BUILDING', 'CONTENT_FACTORY', 'IMAGE_FACTORY', 'DASHBOARD']
             })
@@ -57,6 +71,8 @@ export async function GET(request: NextRequest) {
 
         if (!projectAccess) {
             return NextResponse.json({
+                hasProjectAccess: false,
+                hasAppAccess: false,
                 hasAccess: false,
                 error: 'No access to this project',
                 apps: []
@@ -70,7 +86,9 @@ export async function GET(request: NextRequest) {
         if (appType) {
             const hasAppAccess = apps.includes(appType)
             return NextResponse.json({
-                hasAccess: hasAppAccess,
+                hasProjectAccess: true,
+                hasAppAccess,
+                hasAccess: hasAppAccess, // backward compatibility
                 accessLevel: projectAccess.role,
                 apps,
                 requestedApp: appType
@@ -79,12 +97,18 @@ export async function GET(request: NextRequest) {
 
         // Return all app access
         return NextResponse.json({
+            hasProjectAccess: true,
+            hasAppAccess: true,
             hasAccess: true,
             accessLevel: projectAccess.role,
             apps
         })
     } catch (error: any) {
         console.error('[CheckAccess] Error:', error)
-        return NextResponse.json({ hasAccess: false, error: error.message }, { status: 500 })
+        return NextResponse.json({
+            hasProjectAccess: false,
+            hasAppAccess: false,
+            error: error.message
+        }, { status: 500 })
     }
 }

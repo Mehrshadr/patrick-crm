@@ -24,9 +24,15 @@ export default async function ImageFactoryPage({ params }: PageProps) {
     }
 
     // Check access
-    const { hasAccess } = await checkProjectAppAccess(project.id, 'IMAGE_FACTORY')
+    const { hasProjectAccess, hasAppAccess } = await checkProjectAppAccess(project.id, 'IMAGE_FACTORY')
 
-    if (!hasAccess) {
+    // No project access at all - redirect to projects list
+    if (!hasProjectAccess) {
+        redirect('/projects')
+    }
+
+    // Has project access but no app access
+    if (!hasAppAccess) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="text-6xl mb-4">🔒</div>

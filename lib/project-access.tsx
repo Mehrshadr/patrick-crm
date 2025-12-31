@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface AccessCheckResult {
-    hasAccess: boolean
+    hasProjectAccess: boolean  // Does user have ANY access to this project?
+    hasAppAccess: boolean      // Does user have access to the specific app?
     accessLevel: string | null
     apps: string[]
     loading: boolean
@@ -11,13 +13,15 @@ interface AccessCheckResult {
 }
 
 /**
- * Hook to check user's access to a specific app in a project
+ * Hook to check user's access to a project and optionally a specific app
  * @param projectId - The project ID
- * @param appType - The app type to check (LINK_INDEXING, LINK_BUILDING, CONTENT_FACTORY, IMAGE_FACTORY)
+ * @param appType - Optional app type to check (LINK_INDEXING, LINK_BUILDING, CONTENT_FACTORY, IMAGE_FACTORY)
  */
 export function useProjectAccess(projectId: string | number | null, appType?: string): AccessCheckResult {
+    const router = useRouter()
     const [result, setResult] = useState<AccessCheckResult>({
-        hasAccess: false,
+        hasProjectAccess: false,
+        hasAppAccess: false,
         accessLevel: null,
         apps: [],
         loading: true,
@@ -39,8 +43,15 @@ export function useProjectAccess(projectId: string | number | null, appType?: st
                 const res = await fetch(url)
                 const data = await res.json()
 
+                // If no project access, redirect to projects list
+                if (!data.hasProjectAccess) {
+                    router.replace('/projects')
+                    return
+                }
+
                 setResult({
-                    hasAccess: data.hasAccess,
+                    hasProjectAccess: data.hasProjectAccess,
+                    hasAppAccess: data.hasAppAccess ?? data.hasAccess ?? true, // backward compatibility
                     accessLevel: data.accessLevel || null,
                     apps: data.apps || [],
                     loading: false,
@@ -48,7 +59,8 @@ export function useProjectAccess(projectId: string | number | null, appType?: st
                 })
             } catch (e: any) {
                 setResult({
-                    hasAccess: false,
+                    hasProjectAccess: false,
+                    hasAppAccess: false,
                     accessLevel: null,
                     apps: [],
                     loading: false,
@@ -58,7 +70,7 @@ export function useProjectAccess(projectId: string | number | null, appType?: st
         }
 
         checkAccess()
-    }, [projectId, appType])
+    }, [projectId, appType, router])
 
     return result
 }
@@ -79,13 +91,13 @@ export function RequireAppAccess({
     fallback?: React.ReactNode
     loadingFallback?: React.ReactNode
 }) {
-    const { hasAccess, loading, error } = useProjectAccess(projectId, appType)
+    const { hasAppAccess, loading, error } = useProjectAccess(projectId, appType)
 
     if (loading) {
         return loadingFallback || <div className="flex items-center justify-center py-12 text-muted-foreground">Checking access...</div>
     }
 
-    if (!hasAccess) {
+    if (!hasAppAccess) {
         return fallback || (
             <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="text-4xl mb-4">🔒</div>

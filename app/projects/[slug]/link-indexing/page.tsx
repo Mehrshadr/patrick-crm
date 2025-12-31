@@ -666,7 +666,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
         )
     }
 
-    if (!access.hasAccess) {
+    if (!access.hasAppAccess) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="text-6xl mb-4">🔒</div>

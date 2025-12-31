@@ -555,7 +555,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
 
-    if (!access.hasAccess) {
+    if (!access.hasAppAccess) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="text-6xl mb-4">🔒</div>

@@ -15,23 +15,33 @@ export async function GET() {
                     }
                 }
             })
-            return NextResponse.json(projects)
+            // Add all apps for dev bypass
+            return NextResponse.json(projects.map(p => ({
+                ...p,
+                userApps: ['LINK_INDEXING', 'LINK_BUILDING', 'CONTENT_FACTORY', 'IMAGE_FACTORY', 'DASHBOARD']
+            })))
         }
 
         const session = await auth()
         const userEmail = session?.user?.email
 
-        // Get user from database
+        // Get user from database with project access AND app access
         const user = userEmail ? await prisma.user.findUnique({
             where: { email: userEmail },
-            include: { projectAccess: true }
+            include: {
+                projectAccess: {
+                    include: {
+                        appAccess: true
+                    }
+                }
+            }
         }) : null
 
         let projects: any[] = []
 
-        // SUPER_ADMIN sees all projects
+        // SUPER_ADMIN sees all projects with all apps
         if (user?.role === 'SUPER_ADMIN') {
-            projects = await prisma.indexingProject.findMany({
+            const allProjects = await prisma.indexingProject.findMany({
                 orderBy: [
                     { sortOrder: 'asc' },
                     { name: 'asc' }
@@ -42,11 +52,14 @@ export async function GET() {
                     }
                 }
             })
-        }
-
-        if (user && user.projectAccess.length > 0) {
+            // Add all apps for SUPER_ADMIN
+            projects = allProjects.map(p => ({
+                ...p,
+                userApps: ['LINK_INDEXING', 'LINK_BUILDING', 'CONTENT_FACTORY', 'IMAGE_FACTORY', 'DASHBOARD']
+            }))
+        } else if (user && user.projectAccess.length > 0) {
             const projectIds = user.projectAccess.map(pa => pa.projectId)
-            projects = await prisma.indexingProject.findMany({
+            const fetchedProjects = await prisma.indexingProject.findMany({
                 where: { id: { in: projectIds } },
                 orderBy: [
                     { sortOrder: 'asc' },
@@ -58,10 +71,20 @@ export async function GET() {
                     }
                 }
             })
+
+            // Map projects with their user-specific app access
+            projects = fetchedProjects.map(p => {
+                const access = user.projectAccess.find(pa => pa.projectId === p.id)
+                const userApps = access?.appAccess.map(a => a.appType) || []
+                return {
+                    ...p,
+                    userApps
+                }
+            })
         }
 
         // Return empty if no access
-        if (!projects && user?.role !== 'SUPER_ADMIN') {
+        if (projects.length === 0) {
             return NextResponse.json([])
         }
 

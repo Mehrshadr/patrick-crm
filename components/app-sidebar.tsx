@@ -57,6 +57,7 @@ interface Project {
     name: string
     slug: string
     domain: string | null
+    userApps?: string[]  // Apps the user has access to for this project
 }
 
 // Extract active project slug from pathname
@@ -250,46 +251,54 @@ export function AppSidebar() {
                                                         </div>
                                                         <CollapsibleContent>
                                                             <div className="pl-4 space-y-1 py-1">
-                                                                <Link
-                                                                    href={`/projects/${project.slug}/link-indexing`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/link-indexing`
-                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                        : 'text-slate-600 hover:bg-slate-50'
-                                                                        }`}
-                                                                >
-                                                                    <Link2 className="h-3 w-3" />
-                                                                    Link Indexing
-                                                                </Link>
-                                                                <Link
-                                                                    href={`/projects/${project.slug}/link-building`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/link-building`
-                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                        : 'text-slate-600 hover:bg-slate-50'
-                                                                        }`}
-                                                                >
-                                                                    <Anchor className="h-3 w-3" />
-                                                                    Link Building
-                                                                </Link>
-                                                                <Link
-                                                                    href={`/projects/${project.slug}/content-factory`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/content-factory`
-                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                        : 'text-slate-600 hover:bg-slate-50'
-                                                                        }`}
-                                                                >
-                                                                    <Sparkles className="h-3 w-3" />
-                                                                    Content Factory
-                                                                </Link>
-                                                                <Link
-                                                                    href={`/projects/${project.slug}/image-factory`}
-                                                                    className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/image-factory`
-                                                                        ? 'bg-slate-100 text-slate-900 font-medium'
-                                                                        : 'text-slate-600 hover:bg-slate-50'
-                                                                        }`}
-                                                                >
-                                                                    <ImageIcon className="h-3 w-3" />
-                                                                    Image Factory
-                                                                </Link>
+                                                                {(!project.userApps || project.userApps.includes('LINK_INDEXING')) && (
+                                                                    <Link
+                                                                        href={`/projects/${project.slug}/link-indexing`}
+                                                                        className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/link-indexing`
+                                                                            ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                            : 'text-slate-600 hover:bg-slate-50'
+                                                                            }`}
+                                                                    >
+                                                                        <Link2 className="h-3 w-3" />
+                                                                        Link Indexing
+                                                                    </Link>
+                                                                )}
+                                                                {(!project.userApps || project.userApps.includes('LINK_BUILDING')) && (
+                                                                    <Link
+                                                                        href={`/projects/${project.slug}/link-building`}
+                                                                        className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/link-building`
+                                                                            ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                            : 'text-slate-600 hover:bg-slate-50'
+                                                                            }`}
+                                                                    >
+                                                                        <Anchor className="h-3 w-3" />
+                                                                        Link Building
+                                                                    </Link>
+                                                                )}
+                                                                {(!project.userApps || project.userApps.includes('CONTENT_FACTORY')) && (
+                                                                    <Link
+                                                                        href={`/projects/${project.slug}/content-factory`}
+                                                                        className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/content-factory`
+                                                                            ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                            : 'text-slate-600 hover:bg-slate-50'
+                                                                            }`}
+                                                                    >
+                                                                        <Sparkles className="h-3 w-3" />
+                                                                        Content Factory
+                                                                    </Link>
+                                                                )}
+                                                                {(!project.userApps || project.userApps.includes('IMAGE_FACTORY')) && (
+                                                                    <Link
+                                                                        href={`/projects/${project.slug}/image-factory`}
+                                                                        className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${pathname === `/projects/${project.slug}/image-factory`
+                                                                            ? 'bg-slate-100 text-slate-900 font-medium'
+                                                                            : 'text-slate-600 hover:bg-slate-50'
+                                                                            }`}
+                                                                    >
+                                                                        <ImageIcon className="h-3 w-3" />
+                                                                        Image Factory
+                                                                    </Link>
+                                                                )}
                                                             </div>
                                                         </CollapsibleContent>
                                                     </SidebarMenuSubItem>

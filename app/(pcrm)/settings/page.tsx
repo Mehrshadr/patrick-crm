@@ -2,21 +2,23 @@ import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { SettingsTab } from "@/components/settings/settings-tab"
+import { checkPatrickAccess } from "@/lib/permissions"
 
 export default async function SettingsPage() {
-    // DEV_BYPASS: Skip auth and use fake user
-    let user = { email: 'dev@mehrana.agency', name: 'Dev User', role: 'SUPER_ADMIN' }
+    const session = await auth()
 
-    if (process.env.DEV_BYPASS !== 'true') {
-        const session = await auth()
-        if (!session?.user) {
-            redirect("/login")
-        }
-        user = session.user as any
+    if (!session?.user) {
+        redirect("/login")
+    }
+
+    // Check Patrick CRM access server-side (Settings requires at least VIEWER access)
+    const { hasAccess } = await checkPatrickAccess(session.user.email || '')
+    if (!hasAccess) {
+        redirect("/projects")
     }
 
     return (
-        <DashboardLayout user={user} title="⚙️ Settings">
+        <DashboardLayout user={session.user} title="⚙️ Settings">
             <SettingsTab />
         </DashboardLayout>
     )

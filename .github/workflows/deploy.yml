@@ -28,6 +28,8 @@ jobs:
 
       - name: Build application
         run: npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@v4

@@ -120,7 +120,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         if (!projectId) return
         setLogsLoading(true)
         try {
-            const res = await fetch(`/api/seo/link-building/logs?projectId=${projectId}`)
+            const res = await fetch(`/api/seo/link-building/logs?projectId=${projectId}&source=wordpress`)
             if (res.ok) {
                 const data = await res.json()
                 if (data.logs) {

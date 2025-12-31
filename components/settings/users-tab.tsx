@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Users, Shield, Eye, Clock, RefreshCw, FolderOpen, Star, ChevronRight, ChevronDown } from 'lucide-react'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Users, Shield, Eye, Clock, RefreshCw, FolderOpen, Star, ChevronRight, ChevronDown, Plus, Trash2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
@@ -70,6 +73,19 @@ export function UsersTab() {
     const [projectApps, setProjectApps] = useState<Record<number, string[]>>({})
     const [savingAccess, setSavingAccess] = useState(false)
 
+    // Create user dialog
+    const [showCreateDialog, setShowCreateDialog] = useState(false)
+    const [newUserEmail, setNewUserEmail] = useState('')
+    const [newUserName, setNewUserName] = useState('')
+    const [newUserRole, setNewUserRole] = useState('USER')
+    const [newUserPatrick, setNewUserPatrick] = useState('HIDDEN')
+    const [creatingUser, setCreatingUser] = useState(false)
+
+    // Delete user dialog
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+    const [userToDelete, setUserToDelete] = useState<User | null>(null)
+    const [deletingUser, setDeletingUser] = useState(false)
+
     useEffect(() => {
         fetchUsers()
         fetchProjects()
@@ -88,6 +104,70 @@ export function UsersTab() {
             toast.error('Failed to fetch users')
         }
         setLoading(false)
+    }
+
+    async function createUser() {
+        if (!newUserEmail.trim()) {
+            toast.error('Email is required')
+            return
+        }
+
+        setCreatingUser(true)
+        try {
+            const res = await fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: newUserEmail.trim(),
+                    name: newUserName.trim() || null,
+                    role: newUserRole,
+                    patrickAccess: newUserPatrick
+                })
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success('User created successfully!')
+                setShowCreateDialog(false)
+                setNewUserEmail('')
+                setNewUserName('')
+                setNewUserRole('USER')
+                setNewUserPatrick('HIDDEN')
+                fetchUsers()
+            } else {
+                toast.error(res.error || 'Failed to create user')
+            }
+        } catch (e) {
+            toast.error('Failed to create user')
+        }
+        setCreatingUser(false)
+    }
+
+    async function deleteUser() {
+        if (!userToDelete) return
+
+        setDeletingUser(true)
+        try {
+            const res = await fetch(`/api/users?userId=${userToDelete.id}`, {
+                method: 'DELETE'
+            }).then(r => r.json())
+
+            if (res.success) {
+                toast.success(res.message || 'User deleted')
+                setShowDeleteDialog(false)
+                setUserToDelete(null)
+                fetchUsers()
+            } else {
+                toast.error(res.error || 'Failed to delete user')
+            }
+        } catch (e) {
+            toast.error('Failed to delete user')
+        }
+        setDeletingUser(false)
+    }
+
+    function openDeleteDialog(user: User) {
+        setUserToDelete(user)
+        setShowDeleteDialog(true)
     }
 
     async function fetchProjects() {
@@ -255,10 +335,16 @@ export function UsersTab() {
                     <h2 className="text-lg font-semibold">User Management</h2>
                     <p className="text-xs text-muted-foreground">Manage access and project assignments</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchUsers}>
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Refresh
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={fetchUsers}>
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Refresh
+                    </Button>
+                    <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Add User
+                    </Button>
+                </div>
             </div>
 
             {/* Stats - responsive grid */}
@@ -429,6 +515,19 @@ export function UsersTab() {
                                             <ChevronRight className="h-3 w-3 ml-auto" />
                                         </Button>
                                     )}
+
+                                    {/* Delete User Button */}
+                                    {user.role !== 'SUPER_ADMIN' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full h-8 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() => openDeleteDialog(user)}
+                                        >
+                                            <Trash2 className="h-3 w-3 mr-1.5" />
+                                            Delete User
+                                        </Button>
+                                    )}
                                 </div>
                             </CollapsibleContent>
                         </Collapsible>
@@ -505,6 +604,106 @@ export function UsersTab() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Create User Dialog */}
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add New User</DialogTitle>
+                        <DialogDescription>
+                            Create a new user account. They can log in with their email via Google.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email *</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="user@mehrana.agency"
+                                value={newUserEmail}
+                                onChange={(e) => setNewUserEmail(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Name</Label>
+                            <Input
+                                id="name"
+                                placeholder="Full Name"
+                                value={newUserName}
+                                onChange={(e) => setNewUserName(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Role</Label>
+                                <Select value={newUserRole} onValueChange={setNewUserRole}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="USER">User</SelectItem>
+                                        <SelectItem value="ADMIN">Admin</SelectItem>
+                                        <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Patrick CRM</Label>
+                                <Select value={newUserPatrick} onValueChange={setNewUserPatrick}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="HIDDEN">Hidden</SelectItem>
+                                        <SelectItem value="VIEWER">Viewer</SelectItem>
+                                        <SelectItem value="EDITOR">Editor</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={createUser} disabled={creatingUser}>
+                            {creatingUser ? 'Creating...' : 'Create User'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete User Confirmation */}
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete User</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete <strong>{userToDelete?.name || userToDelete?.email}</strong>?
+                            <br /><br />
+                            • Project access will be removed<br />
+                            • Login history will be deleted<br />
+                            • <strong>Activity logs will be preserved</strong> for audit purposes
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={deleteUser}
+                            disabled={deletingUser}
+                            className="bg-red-500 hover:bg-red-600"
+                        >
+                            {deletingUser ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

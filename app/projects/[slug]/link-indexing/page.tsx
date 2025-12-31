@@ -72,6 +72,7 @@ import {
 import { toast } from "sonner"
 import { ProgressDialog } from "@/components/seo/progress-dialog"
 import { QuotaCounter } from "@/components/seo/quota-counter"
+import { useProjectAccess } from "@/lib/project-access"
 
 interface IndexingUrl {
     id: number
@@ -307,6 +308,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
     // Sort state: null = default, 'asc' = ascending, 'desc' = descending
     const [sortColumn, setSortColumn] = useState<string | null>(null)
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null)
+
+    // Access control
+    const access = useProjectAccess(projectId, 'LINK_INDEXING')
 
     // Toggle sort on column click (3 states: asc -> desc -> none)
     const toggleSort = (column: string) => {
@@ -654,10 +658,25 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
         }
     }
 
-    if (loading) {
+    if (loading || access.loading) {
         return (
             <div className="p-6 h-full flex items-center justify-center">
                 <div className="animate-pulse">Loading...</div>
+            </div>
+        )
+    }
+
+    if (!access.hasAccess) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="text-6xl mb-4">🔒</div>
+                <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-md mb-4">
+                    You don't have access to Link Indexing for this project.
+                </p>
+                <Button variant="outline" asChild>
+                    <Link href={`/projects/${slug}`}>← Back to Project</Link>
+                </Button>
             </div>
         )
     }

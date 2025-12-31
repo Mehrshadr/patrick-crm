@@ -49,6 +49,7 @@ import {
     FileUp,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useProjectAccess } from "@/lib/project-access"
 
 interface GeneratedContent {
     id: number
@@ -131,6 +132,9 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ slug:
     const [improveFeedback, setImproveFeedback] = useState('')
     const [improving, setImproving] = useState(false)
     const contentRef = useRef<HTMLElement>(null)
+
+    // Access control
+    const access = useProjectAccess(projectId, 'CONTENT_FACTORY')
 
     useEffect(() => {
         fetchProjectData()
@@ -399,10 +403,25 @@ export default function ContentFactoryPage({ params }: { params: Promise<{ slug:
         }
     }
 
-    if (loading) {
+    if (loading || access.loading) {
         return (
             <div className="p-6 h-full flex items-center justify-center">
                 <div className="animate-pulse">Loading...</div>
+            </div>
+        )
+    }
+
+    if (!access.hasAccess) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="text-6xl mb-4">🔒</div>
+                <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-md mb-4">
+                    You don't have access to Content Factory for this project.
+                </p>
+                <Button variant="outline" asChild>
+                    <Link href={`/projects/${slug}`}>← Back to Project</Link>
+                </Button>
             </div>
         )
     }

@@ -49,6 +49,7 @@ import {
     FileText,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useProjectAccess } from "@/lib/project-access"
 
 interface KeywordLog {
     id: number
@@ -105,6 +106,10 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [logs, setLogs] = useState<Log[]>([])
     const [loading, setLoading] = useState(true)
     const [project, setProject] = useState<{ name: string; domain: string | null } | null>(null)
+
+    // Access control
+    const access = useProjectAccess(projectId, 'LINK_BUILDING')
+
     const [logsOpen, setLogsOpen] = useState(false)
     const [pluginLogs, setPluginLogs] = useState<string>('')
     const [logsLoading, setLogsLoading] = useState(false)
@@ -546,8 +551,23 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         }
     }
 
-    if (loading) {
+    if (loading || access.loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
+    }
+
+    if (!access.hasAccess) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="text-6xl mb-4">🔒</div>
+                <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-md mb-4">
+                    You don't have access to Link Building for this project.
+                </p>
+                <Button variant="outline" asChild>
+                    <Link href={`/projects/${slug}`}>← Back to Project</Link>
+                </Button>
+            </div>
+        )
     }
 
     return (

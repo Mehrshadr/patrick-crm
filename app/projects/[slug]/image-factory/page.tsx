@@ -1,9 +1,11 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { ImageCompressor } from "@/components/images/image-compressor"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ImageIcon, ScanSearch } from "lucide-react"
+import { ImageIcon, ScanSearch, Lock } from "lucide-react"
 import Link from "next/link"
+import { checkProjectAppAccess } from "@/lib/project-access-server"
+import { Button } from "@/components/ui/button"
 
 interface PageProps {
     params: Promise<{ slug: string }>
@@ -19,6 +21,24 @@ export default async function ImageFactoryPage({ params }: PageProps) {
 
     if (!project) {
         notFound()
+    }
+
+    // Check access
+    const { hasAccess } = await checkProjectAppAccess(project.id, 'IMAGE_FACTORY')
+
+    if (!hasAccess) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="text-6xl mb-4">🔒</div>
+                <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+                <p className="text-muted-foreground max-w-md mb-4">
+                    You don't have access to Image Factory for this project.
+                </p>
+                <Button variant="outline" asChild>
+                    <Link href={`/projects/${slug}`}>← Back to Project</Link>
+                </Button>
+            </div>
+        )
     }
 
     return (

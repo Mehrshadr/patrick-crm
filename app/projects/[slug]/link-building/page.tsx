@@ -276,7 +276,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
             setScanProgress({ current: 0, total: pages.length })
 
             // 2. Batch Scan
-            const batchSize = 3 // Concurrent requests
+            // Reduced batch size to 1 to avoid 429 Rate Limit from WP server
+            const batchSize = 1
             let processed = 0
 
             // Function to scan single page
@@ -320,10 +321,12 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                 toast.info(`Skipping ${redirectedCount} redirected pages`)
             }
 
-            // Loop batches
+            // Loop batches with delay
             for (let i = 0; i < activePages.length; i += batchSize) {
                 const chunk = activePages.slice(i, i + batchSize)
                 await Promise.all(chunk.map(scanPage))
+                // Add delay to prevent rate limiting
+                await new Promise(r => setTimeout(r, 1000))
             }
 
             setScanStatus('complete')

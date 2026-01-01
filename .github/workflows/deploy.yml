@@ -46,5 +46,6 @@ jobs:
             cd /var/www/patrick-crm
             npm ci --production
             npx prisma generate
+            npx prisma db push
             pm2 restart patrick-crm || pm2 start npm --name "patrick-crm" -- start
             echo "✅ Deployment completed!"

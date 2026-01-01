@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 2.1.0
+ * Version: 2.2.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '2.1.0';
+    private $version = '2.2.0';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -141,9 +141,15 @@ class Mehrana_App_Plugin
             return rest_ensure_response(['error' => 'Post not found']);
         }
 
+        // Check for HTTP redirect option (query param: ?check_http=1)
+        $check_http = isset($request['check_http']) && ($request['check_http'] === '1' || $request['check_http'] === 'true');
+
         $elementor_data = get_post_meta($page_id, '_elementor_data', true);
         $has_blocks = has_blocks($post->post_content);
         $is_wpbakery = strpos($post->post_content, '[vc_') !== false;
+
+        // Get redirect status
+        $redirect_info = $this->check_redirect($page_id, $check_http);
 
         $result = [
             'page_id' => $page_id,
@@ -155,6 +161,9 @@ class Mehrana_App_Plugin
             'has_elementor' => !empty($elementor_data),
             'has_gutenberg_blocks' => $has_blocks,
             'has_wpbakery' => $is_wpbakery,
+            'has_redirect' => $redirect_info['has_redirect'],
+            'redirect_url' => $redirect_info['redirect_url'],
+            'redirect_source' => $redirect_info['redirect_source'],
         ];
 
         // Determine content type
@@ -394,8 +403,10 @@ class Mehrana_App_Plugin
 
     /**
      * Check if a post has a redirect configured (Rank Math, Yoast, Redirection plugin, etc.)
+     * @param int $post_id The post ID to check
+     * @param bool $check_http Whether to also check via HTTP HEAD request (slower but catches all redirects)
      */
-    private function check_redirect($post_id)
+    private function check_redirect($post_id, $check_http = false)
     {
         $result = [
             'has_redirect' => false,
@@ -467,6 +478,54 @@ class Mehrana_App_Plugin
                 $result['redirect_url'] = $seopress_url;
                 $result['redirect_source'] = 'seopress';
                 return $result;
+            }
+        }
+
+        // 7. HTTP HEAD Request check (if enabled and no meta redirect found)
+        if ($check_http) {
+            $post_url = get_permalink($post_id);
+            if ($post_url) {
+                $http_result = $this->check_http_redirect($post_url);
+                if ($http_result['has_redirect']) {
+                    return $http_result;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Check if a URL redirects via HTTP HEAD request
+     */
+    private function check_http_redirect($url)
+    {
+        $result = [
+            'has_redirect' => false,
+            'redirect_url' => null,
+            'redirect_source' => 'http'
+        ];
+
+        // Use wp_remote_head to make a HEAD request without following redirects
+        $response = wp_remote_head($url, [
+            'timeout' => 5,
+            'redirection' => 0, // Don't follow redirects
+            'sslverify' => false
+        ]);
+
+        if (is_wp_error($response)) {
+            return $result;
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+
+        // Check for redirect status codes (301, 302, 303, 307, 308)
+        if (in_array($status_code, [301, 302, 303, 307, 308])) {
+            $location = wp_remote_retrieve_header($response, 'location');
+            if ($location) {
+                $result['has_redirect'] = true;
+                $result['redirect_url'] = $location;
+                $result['redirect_source'] = 'http_' . $status_code;
             }
         }
 

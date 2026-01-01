@@ -109,11 +109,16 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ success: true, processed: 0, candidates: 0 })
             }
 
+            // Get redirect check method from body (meta, http, both) - default to 'both'
+            const redirectCheckMethod = body.redirectCheckMethod || 'both'
+            const checkHttp = redirectCheckMethod === 'http' || redirectCheckMethod === 'both'
+
             // Check for redirects BEFORE scanning (for warning display only, not skipping)
             let hasRedirect = false
             let redirectUrl: string | null = null
             try {
-                const debugRes = await fetch(`${pluginBase}/debug/${pageId}`, {
+                const debugUrl = `${pluginBase}/debug/${pageId}${checkHttp ? '?check_http=1' : ''}`
+                const debugRes = await fetch(debugUrl, {
                     headers: authHeaders
                 })
                 if (debugRes.ok) {
@@ -121,7 +126,7 @@ export async function POST(request: NextRequest) {
                     if (debugData.has_redirect) {
                         hasRedirect = true
                         redirectUrl = debugData.redirect_url || 'unknown'
-                        console.log(`[Scan] Page ${pageId} has redirect to ${redirectUrl} (warning only)`)
+                        console.log(`[Scan] Page ${pageId} has redirect to ${redirectUrl} (source: ${debugData.redirect_source}, method: ${redirectCheckMethod})`)
                     }
                 }
             } catch (e) {

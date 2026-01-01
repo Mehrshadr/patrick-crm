@@ -171,6 +171,10 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [processProgress, setProcessProgress] = useState({ current: 0, total: 0 })
     const [pendingCount, setPendingCount] = useState(0)
 
+    // Redirect Check Options
+    const [showScanOptions, setShowScanOptions] = useState(false)
+    const [redirectCheckMethod, setRedirectCheckMethod] = useState<'meta' | 'http' | 'both'>('both')
+
     // Stats Dashboard
     const [showStats, setShowStats] = useState(true)
     const [stats, setStats] = useState<{
@@ -294,7 +298,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                             pageUrl: page.url,
                             pageTitle: page.title,
                             pageType: page.type, // Pass page type for keyword filtering
-                            keywordIds: selectedKeywords.length ? selectedKeywords : undefined
+                            keywordIds: selectedKeywords.length ? selectedKeywords : undefined,
+                            redirectCheckMethod // meta, http, or both
                         })
                     })
                 } catch (e) {

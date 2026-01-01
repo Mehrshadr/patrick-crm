@@ -75,6 +75,34 @@ export async function POST(request: NextRequest) {
 
         // Process each page batch
         for (const [pageId, pageLogs] of logsByPage) {
+            // Check if page has redirect BEFORE processing
+            try {
+                const debugRes = await fetch(`${pluginBase}/debug/${pageId}`, {
+                    headers: authHeaders
+                })
+                if (debugRes.ok) {
+                    const debugData = await debugRes.json()
+                    if (debugData.has_redirect) {
+                        console.log(`[Process] Skipping page ${pageId} - has redirect to ${debugData.redirect_url}`)
+                        // Mark all logs for this page as 'redirect'
+                        for (const log of pageLogs) {
+                            await prisma.linkBuildingLog.update({
+                                where: { id: log.id },
+                                data: {
+                                    status: 'skipped',
+                                    message: `Page redirects to: ${debugData.redirect_url || 'unknown'}`
+                                }
+                            })
+                            results.skipped++
+                        }
+                        results.processed += pageLogs.length
+                        continue // Skip to next page
+                    }
+                }
+            } catch (e) {
+                console.log(`[Process] Could not check redirect for page ${pageId}, proceeding anyway`)
+            }
+
             // Prepare keyword data
             const keywordData = pageLogs.map(log => ({
                 keyword: log.keyword.keyword,

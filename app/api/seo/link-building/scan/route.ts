@@ -44,8 +44,38 @@ export async function POST(request: NextRequest) {
 
         // === ACTION: INIT (Get Pages) ===
         if (action === 'init') {
+            // 1. Try fetching from Local DB (ProjectPage)
+            const localPages = await prisma.projectPage.findMany({
+                where: { projectId: parseInt(projectId) },
+                select: {
+                    cmsId: true,
+                    title: true,
+                    url: true,
+                    pageType: true,
+                    hasRedirect: true,
+                    redirectUrl: true,
+                    lastSyncedAt: true
+                }
+            })
+
+            if (localPages.length > 0) {
+                console.log(`[Scan] Loaded ${localPages.length} pages from local cache (ProjectPage)`)
+                const formattedPages = localPages.map(p => ({
+                    id: parseInt(p.cmsId) || p.cmsId,
+                    title: p.title,
+                    url: p.url,
+                    type: p.pageType,
+                    has_redirect: p.hasRedirect,
+                    redirect_url: p.redirectUrl,
+                    local_synced: true,
+                    last_synced: p.lastSyncedAt
+                }))
+                return NextResponse.json({ success: true, pages: formattedPages, source: 'local' })
+            }
+
+            // 2. Fallback: Remote Fetch logic
             const scanUrl = `${pluginBase}/pages`
-            console.log('[Scan] Fetching pages from:', scanUrl)
+            console.log('[Scan] Fetching pages from remote:', scanUrl)
 
             const pagesRes = await fetch(scanUrl, {
                 headers: authHeaders
@@ -61,9 +91,8 @@ export async function POST(request: NextRequest) {
             }
 
             const pagesData = await pagesRes.json()
-            // Plugin now returns { pages: [...], debug: {...} }
-            const pages = pagesData.pages || pagesData // Fallback for old format
-            return NextResponse.json({ success: true, pages, debug: pagesData.debug })
+            const pages = pagesData.pages || pagesData
+            return NextResponse.json({ success: true, pages, debug: pagesData.debug, source: 'remote' })
         }
 
         // === ACTION: SCAN PAGE ===
@@ -112,6 +141,85 @@ export async function POST(request: NextRequest) {
             // Get redirect check method from body (meta, http, both) - default to 'both'
             const redirectCheckMethod = body.redirectCheckMethod || 'both'
             const checkHttp = redirectCheckMethod === 'http' || redirectCheckMethod === 'both'
+
+            // === LOCAL CACHE SCAN ===
+            try {
+                const localPage = await prisma.projectPage.findUnique({
+                    where: {
+                        projectId_cmsId: {
+                            projectId: parseInt(projectId),
+                            cmsId: String(pageId)
+                        }
+                    }
+                })
+
+                if (localPage && localPage.content) {
+                    console.log(`[Scan] Scanning page ${pageId} using LOCAL CACHE`)
+
+                    const contentLower = localPage.content.toLowerCase()
+                    let newCandidates = 0
+                    const hasRedirect = localPage.hasRedirect
+                    const redirectUrl = localPage.redirectUrl
+
+                    for (const kw of keywords) {
+                        const keywordLower = kw.keyword.toLowerCase()
+                        // Basic inclusion check (TODO: improve with regex for whole words if needed)
+                        if (contentLower.includes(keywordLower)) {
+
+                            // Check existing log
+                            const existingLog = await prisma.linkBuildingLog.findFirst({
+                                where: {
+                                    projectId: parseInt(projectId),
+                                    keywordId: kw.id,
+                                    pageId: parseInt(pageId)
+                                }
+                            })
+
+                            if (existingLog) {
+                                // If log exists, update redirect info if needed
+                                if (hasRedirect && !existingLog.redirectUrl) {
+                                    await prisma.linkBuildingLog.update({
+                                        where: { id: existingLog.id },
+                                        data: {
+                                            redirectUrl: redirectUrl,
+                                            message: existingLog.message + (existingLog.message?.includes('[REDIRECT:') ? '' : ` [REDIRECT: ${redirectUrl}]`)
+                                        }
+                                    })
+                                }
+                            } else {
+                                // Create new log
+                                const messageBase = `Found keyword "${kw.keyword}" in synced content.`
+                                const redirectMsg = hasRedirect ? ` [REDIRECT: ${redirectUrl}]` : ''
+
+                                await prisma.linkBuildingLog.create({
+                                    data: {
+                                        projectId: parseInt(projectId),
+                                        keywordId: kw.id,
+                                        pageId: parseInt(pageId),
+                                        pageUrl: pageUrl,
+                                        pageTitle: pageTitle || localPage.title || `Page ${pageId}`,
+                                        status: 'pending',
+                                        message: messageBase + redirectMsg,
+                                        redirectUrl: hasRedirect ? redirectUrl : null
+                                    }
+                                })
+                                newCandidates++
+                            }
+                        }
+                    }
+
+                    return NextResponse.json({
+                        success: true,
+                        processed: 1,
+                        candidates: newCandidates,
+                        source: 'local_db',
+                        redirect_detected: hasRedirect
+                    })
+                }
+            } catch (e) {
+                console.error('[Scan] Local cache scan error:', e)
+                // Fallback to remote scan silently if local fails
+            }
 
             // Check for redirects BEFORE scanning (for warning display only, not skipping)
             let hasRedirect = false

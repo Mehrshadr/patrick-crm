@@ -47,6 +47,7 @@ import {
     Clock,
     Undo2,
     FileText,
+    RefreshCcw,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useProjectAccess } from "@/lib/project-access"
@@ -577,6 +578,38 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         }
     }
 
+    const [syncing, setSyncing] = useState(false)
+
+    async function handleSync(mode: 'full' | 'incremental' = 'full') {
+        const msg = mode === 'full'
+            ? 'This will fetch ALL pages from WordPress/Elementor and save them to the CRM database for offline scanning. It might take a minute. Continue?'
+            : 'Sync new pages?'
+
+        if (!confirm(msg)) return
+
+        setSyncing(true)
+        try {
+            const res = await fetch('/api/seo/sync-pages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, mode })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                toast.success(`Synced ${data.synced} pages (Redirects: ${data.redirectsFound})`)
+                fetchData() // Refresh view
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Sync failed')
+            }
+        } catch (e) {
+            toast.error('Sync failed')
+        } finally {
+            setSyncing(false)
+        }
+    }
+
     if (loading || access.loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -619,6 +652,18 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                         </p>
                     </div>
                     <div className="flex gap-2 items-center flex-wrap">
+                        {/* Sync Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSync('full')}
+                            disabled={syncing || running || !project?.domain}
+                            title="Download website content locally for fast scanning"
+                        >
+                            <RefreshCcw className={`mr-1 h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
+                            Sync Pages
+                        </Button>
+
                         {/* Scan Button */}
                         <Button
                             variant={scanStatus !== 'idle' ? "secondary" : "outline"}

@@ -213,6 +213,7 @@ model IndexingProject {
   linkBuildingLogs     LinkBuildingLog[]
   assignedUsers        ProjectAccess[]
   settings             ProjectSettings?
+  cachedPages          ProjectPage[]
 }
 
 model ProjectAccess {
@@ -462,4 +463,23 @@ model JarvisLog {
   duration    Int?
   timestamp   DateTime        @default(now())
   execution   JarvisExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+}
+
+model ProjectPage {
+  id             Int             @id @default(autoincrement())
+  projectId      Int
+  cmsId          String          // Original ID from CMS (e.g. WP post ID)
+  url            String
+  title          String?
+  content        String?         @db.Text // Cached content for keyword scanning
+  pageType       String?         // post, page, product, etc.
+  hasRedirect    Boolean         @default(false)
+  redirectUrl    String?
+  lastSyncedAt   DateTime        @default(now())
+  lastModifiedAt DateTime?       // Remote modification time for incremental sync
+  
+  project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, cmsId]) // Prevent duplicate pages per project (by CMS ID)
+  @@index([projectId, url])
 }

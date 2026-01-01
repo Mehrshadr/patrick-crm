@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,373 +8,268 @@ datasource db {
 }
 
 model Lead {
-  id              Int      @id @default(autoincrement())
-  
-  // Contact Info
-  name            String
-  phone           String   // We index this for search usually, but sqlite is simple
-  email           String?
-  website         String?
-  
-  // Status & Pipeline
-  status          String   @default("New")
-  stage           String   @default("New") // We can store stage explicitly or derive it, let's derive for now to match logic
-
-  // Outcomes
-  call1Outcome    String?
-  meeting1Outcome String?
-  meeting2Outcome String?
-  meeting3Outcome String?
-  
-  auditStatus     String?
-  
-  // Meta
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  // Nurture State
-  nurtureStage    Int       @default(0) // 0=None, 1=Stage1 Sent, 2=Stage2 Sent...
-  automationStatus String?  // User-facing status: "Waiting for Welcome 2" or "Welcome 1 Done"
-  nextNurtureAt   DateTime? // When is the next action due?
-  
-  nextMeetingAt   DateTime? // When is the confirmed meeting?
-  meetingId       String?   // Google Calendar Event ID to track cancellations
-  
-  // Tags
-  quality         String?   // Hot, Warm, Cold
-  businessType    String?   // Service, Product
-  subStatus       String?   // Scheduled, Rescheduled, Done, Ghosted, etc.
-  
-  links           Link[]
-  logs            Log[]
-  notes           Note[]
-  tasks           Task[]
-  // automationQueue AutomationQueue[]
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  phone              String
+  email              String?
+  website            String?
+  status             String              @default("New")
+  stage              String              @default("New")
+  call1Outcome       String?
+  meeting1Outcome    String?
+  meeting2Outcome    String?
+  meeting3Outcome    String?
+  auditStatus        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  nurtureStage       Int                 @default(0)
+  nextNurtureAt      DateTime?
+  quality            String?
+  businessType       String?
+  subStatus          String?
+  nextMeetingAt      DateTime?
+  automationStatus   String?
+  meetingId          String?
+  links              Link[]
+  logs               Log[]
+  notes              Note[]
+  tasks              Task[]
   workflowExecutions WorkflowExecution[]
 }
 
 model Link {
   id        Int      @id @default(autoincrement())
   leadId    Int
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  
-  type      String   // "AUDIT", "PROPOSAL", "RECORDING"
-  title     String   // "Meeting 1", "M2", "Audit Doc"
+  type      String
+  title     String
   url       String
-  
   createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }
 
 model Log {
   id        Int      @id @default(autoincrement())
   leadId    Int
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  
-  type      String   // "EMAIL", "SMS", "SYSTEM", "MANUAL", "STATUS_CHANGE"
-  stage     String?  // "Stage 1", "Stage 2"
-  status    String   // "SENT", "PENDING", "FAILED", "COMPLETED"
-  
+  type      String
+  stage     String?
+  status    String
   title     String
-  content   String   // The HTML body or SMS text
-  meta      String?  // JSON string for extra data
-  
-  // User tracking
-  userEmail String?  // Email of user who performed the action
-  userName  String?  // Name of user who performed the action
-  
+  content   String
+  meta      String?
+  userEmail String?
+  userName  String?
   createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }
 
 model Note {
   id        Int      @id @default(autoincrement())
   leadId    Int
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  
-  stage     String?  // "Meeting 1", "Meeting 2", "Meeting 3", "Other"
+  stage     String?
   content   String
   createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }
 
 model MessageTemplate {
-  id          Int      @id @default(autoincrement())
-  name        String   // "Welcome Email 1", "Welcome SMS 1"
-  type        String   // "EMAIL", "SMS"
-  scenario    String   // "welcome_1", "welcome_2", "ghosted_recovery"
-  
-  subject     String?  // For emails
-  body        String   // The template content with {name}, {website}, etc.
-  signature   String?  // HTML signature for emails
-  
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations can be removed or pointed to something else if needed
-  // emailRules  AutomationRule[] @relation("EmailTemplate")
-  // smsRules    AutomationRule[] @relation("SmsTemplate")
+  id            Int            @id @default(autoincrement())
+  name          String
+  type          String
+  scenario      String
+  subject       String?
+  body          String
+  signature     String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   workflowSteps WorkflowStep[]
 }
 
-// Workflows (Advanced Automation Sequence)
 model Workflow {
-  id              Int       @id @default(autoincrement())
-  name            String
-  description     String?
-  isActive        Boolean   @default(true)
-  
-  // Execution Settings
-  executionMode   String    @default("AUTO")   // "AUTO" = runs automatically, "MANUAL" = requires user confirmation
-  pipelineStage   String?   // null = General (applies to all stages), or specific stage like "Meeting 1"
-  
-  // Trigger Settings
-  triggerType     String    // "ON_STATUS_CHANGE", "MANUAL"
-  triggerStatus   String?   // "New", "Meeting1" - when status changes to this
-  triggerSubStatus String?  // "Scheduled", "Ghosted"
-  
-  // Settings
-  requireApproval Boolean   @default(true)  // Require approval before starting sequence?
-  cancelOnStatus  String?   // Global cancel trigger
+  id                Int                 @id @default(autoincrement())
+  name              String
+  description       String?
+  isActive          Boolean             @default(true)
+  executionMode     String              @default("AUTO")
+  pipelineStage     String?
+  triggerType       String
+  triggerStatus     String?
+  triggerSubStatus  String?
+  requireApproval   Boolean             @default(true)
+  cancelOnStatus    String?
   cancelOnSubStatus String?
-
-  steps           WorkflowStep[]
-  executions      WorkflowExecution[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  executions        WorkflowExecution[]
+  steps             WorkflowStep[]
 }
 
 model WorkflowStep {
-  id           Int      @id @default(autoincrement())
-  workflowId   Int
-  workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  
-  name         String   // "Send Welcome Email"
-  type         String   // "EMAIL", "SMS", "DELAY", "CONDITION", "ACTION"
-  order        Int      // 1, 2, 3...
-  
-  // Configuration (stored as JSON string for flexibility)
-  // EMAIL: { templateId: 10, subject: "..." }
-  // DELAY: { duration: 3, unit: "DAYS/HOURS" }
-  // ACTION: { provider: "INSTANTLY", campaignId: "..." }
-  config       String    
-  
-  parentId     Int?     // For future branching logic
-  
-  // Relations for easy access if needed (optional)
-  templateId   Int?
-  template     MessageTemplate? @relation(fields: [templateId], references: [id])
+  id         Int              @id @default(autoincrement())
+  workflowId Int
+  name       String
+  type       String
+  order      Int
+  config     String
+  parentId   Int?
+  templateId Int?
+  template   MessageTemplate? @relation(fields: [templateId], references: [id])
+  workflow   Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 }
 
-// Tracks the state of a lead in a workflow
 model WorkflowExecution {
-  id            Int       @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   workflowId    Int
-  workflow      Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   leadId        Int
-  lead          Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  
-  status        String    // "PENDING_APPROVAL", "ACTIVE", "COMPLETED", "CANCELLED", "PAUSED"
-  currentStepId Int?      // Which step is NEXT? (null if just starting or finished)
-  
-  startDate     DateTime? // When it actually started running (after approval)
-  scheduledFor  DateTime? // When the NEXT step should run
-  
+  status        String
+  currentStepId Int?
+  startDate     DateTime?
+  scheduledFor  DateTime?
   completedAt   DateTime?
   cancelledAt   DateTime?
   cancelReason  String?
-  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  lead          Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  workflow      Workflow      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   logs          WorkflowLog[]
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
 }
 
 model WorkflowLog {
-  id            Int      @id @default(autoincrement())
-  executionId   Int
-  execution     WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  
-  stepId        Int?     // Which step was executed?
-  status        String   // "SUCCESS", "FAILED"
-  message       String?
-  
-  createdAt     DateTime @default(now())
+  id          Int               @id @default(autoincrement())
+  executionId Int
+  stepId      Int?
+  status      String
+  message     String?
+  createdAt   DateTime          @default(now())
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 }
 
-// App Settings
 model AppSettings {
-  id                  Int      @id @default(autoincrement())
-  key                 String   @unique
-  value               String
-  updatedAt           DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
-// Activity Logs (Comprehensive System Logging)
 model ActivityLog {
-  id           Int      @id @default(autoincrement())
-  
-  category     String   // "AUTOMATION", "LEAD", "EMAIL", "SMS", "SYSTEM"
-  action       String   // "CREATED", "UPDATED", "DELETED", "SENT", "EXECUTED", "FAILED"
-  
-  // Context
-  entityType   String?  // "Workflow", "Lead", "Email", etc.
-  entityId     Int?
-  entityName   String?  // Human-readable name
-  
-  // Details
-  description  String
-  details      String?  // JSON string for extra data
-  
-  // Actor
-  userId       String?  // Who performed the action
-  userName     String?
-  
-  // Project Context
-  projectId    Int?
-  project      IndexingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  createdAt    DateTime @default(now())
+  id          Int              @id @default(autoincrement())
+  category    String
+  action      String
+  entityType  String?
+  entityId    Int?
+  entityName  String?
+  description String
+  details     String?
+  userId      String?
+  userName    String?
+  projectId   Int?
+  createdAt   DateTime         @default(now())
+  project     IndexingProject? @relation(fields: [projectId], references: [id])
 }
 
-// User Accounts (for authentication and access control)
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  name      String?
-  role      String    @default("USER")  // "SUPER_ADMIN", "ADMIN", "USER"
-  patrickAccess String @default("HIDDEN")  // "EDITOR", "VIEWER", "HIDDEN"
-  createdAt DateTime  @default(now())
-  lastLogin DateTime?
-  lastLoginIp String?
-  
+  id                Int                @id @default(autoincrement())
+  email             String             @unique
+  name              String?
+  role              String             @default("USER")
+  patrickAccess     String             @default("HIDDEN")
+  createdAt         DateTime           @default(now())
+  lastLogin         DateTime?
+  lastLoginIp       String?
+  generatedContents GeneratedContent[]
   loginLogs         LoginLog[]
   projectAccess     ProjectAccess[]
-  createdTasks      Task[]  @relation("TaskCreator")
-  generatedContents GeneratedContent[]
+  createdTasks      Task[]             @relation("TaskCreator")
 }
 
-// Login History (for security auditing)
 model LoginLog {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
   ip        String?
   userAgent String?
   success   Boolean  @default(true)
-  
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-// ============================================
-// SEO TOOLS: Link Indexing
-// ============================================
 
 model IndexingProject {
-  id          Int       @id @default(autoincrement())
-  name        String    // "Mehrana", "Epochtimes", "Morsun Kitchen"
-  slug        String?   @unique // URL-friendly: "mehrana", "epochtimes", "morsun-kitchen" - Optional during migration
-  domain      String?   // "mehrana.agency"
-  description String?
-  platform    String?   // "wordpress", "shopify", "custom"
-  sortOrder   Int       @default(0)  // For custom ordering (lower = higher in list)
-  
-  urls          IndexingUrl[]
-  assignedUsers ProjectAccess[]
-  settings      ProjectSettings?
-  contents      GeneratedContent[]
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  slug                 String?               @unique
+  domain               String?
+  description          String?
+  sortOrder            Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  platform             String?
+  activityLogs         ActivityLog[]
+  discoveredPageTypes  DiscoveredPageType[]
+  contents             GeneratedContent[]
+  urls                 IndexingUrl[]
+  jarvisConnections    JarvisConnection[]
+  jarvisFlows          JarvisFlow[]
   linkBuildingKeywords LinkBuildingKeyword[]
   linkBuildingLogs     LinkBuildingLog[]
-  discoveredPageTypes  DiscoveredPageType[]
-  
-  // Jarvis Automation
-  jarvisConnections JarvisConnection[]
-  jarvisFlows       JarvisFlow[]
-  
-  // Activity Logs
-  activityLogs      ActivityLog[]
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  assignedUsers        ProjectAccess[]
+  settings             ProjectSettings?
 }
 
-// User-Project Access Control
 model ProjectAccess {
-  id        Int             @id @default(autoincrement())
+  id        Int                @id @default(autoincrement())
   userId    Int
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   projectId Int
-  project   IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  role      String          @default("MEMBER")  // "OWNER", "MEMBER", "VIEWER"
+  role      String             @default("MEMBER")
+  createdAt DateTime           @default(now())
+  project   IndexingProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   appAccess ProjectAppAccess[]
-  createdAt DateTime        @default(now())
-  
+
   @@unique([userId, projectId])
 }
 
 model IndexingUrl {
-  id          Int              @id @default(autoincrement())
-  projectId   Int
-  project     IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  url         String
-  
-  // Status tracking
-  status      String    @default("PENDING")  // "PENDING", "SUBMITTED", "INDEXED", "ERROR"
-  
-  // Scheduling
-  interval    String?   // "DAILY", "WEEKLY", "MONTHLY", null = one-time
-  lastSubmittedAt DateTime?
-  nextSubmitAt    DateTime?
-  
-  // Google API Response
-  lastInspectionResult String?  // JSON from Search Console API
+  id                   Int             @id @default(autoincrement())
+  projectId            Int
+  url                  String
+  status               String          @default("PENDING")
+  interval             String?
+  lastSubmittedAt      DateTime?
+  nextSubmitAt         DateTime?
+  lastInspectionResult String?
   lastInspectedAt      DateTime?
-  lastCrawledAt        DateTime?  // When Google last crawled this URL
-  
-  logs        IndexingLog[]
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  @@unique([projectId, url])  // No duplicate URLs per project
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  lastCrawledAt        DateTime?
+  logs                 IndexingLog[]
+  project              IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, url])
 }
 
 model IndexingLog {
-  id        Int          @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   urlId     Int
-  url       IndexingUrl  @relation(fields: [urlId], references: [id], onDelete: Cascade)
-  
-  action    String       // "SUBMIT", "INSPECT", "ERROR"
-  status    String       // "SUCCESS", "FAILED"
-  response  String?      // API response JSON
-  
-  // User tracking
+  action    String
+  status    String
+  response  String?
+  createdAt DateTime    @default(now())
   userId    Int?
   userName  String?
-  
-  createdAt DateTime     @default(now())
+  url       IndexingUrl @relation(fields: [urlId], references: [id], onDelete: Cascade)
 }
 
-// Google OAuth Tokens for Search Console API
 model GoogleOAuthToken {
   id           Int      @id @default(autoincrement())
-  
-  // OAuth tokens
   accessToken  String
   refreshToken String
   expiresAt    DateTime
-  
-  // Scopes this token has access to
-  scope        String   // Space-separated scopes
-  
-  // Meta
-  email        String?  // Google account email
+  scope        String
+  email        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
-// Google Docs API OAuth Tokens
 model GoogleDocsToken {
   id           Int      @id @default(autoincrement())
   accessToken  String
@@ -387,253 +279,186 @@ model GoogleDocsToken {
   updatedAt    DateTime @updatedAt
 }
 
-// ============================================
-// TASKS
-// ============================================
-
 model Task {
   id          Int       @id @default(autoincrement())
-  
   title       String
   description String?
   dueDate     DateTime
-  
-  // Status
-  status      String    @default("PENDING")  // "PENDING", "COMPLETED", "CANCELLED"
-  priority    String    @default("NORMAL")   // "LOW", "NORMAL", "HIGH"
-  
-  // Link to Lead (optional - can be general task)
+  status      String    @default("PENDING")
+  priority    String    @default("NORMAL")
   leadId      Int?
-  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  
-  // Creator (for filtering per-user)
   createdById Int?
-  createdBy   User?     @relation("TaskCreator", fields: [createdById], references: [id])
-  
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
+  createdBy   User?     @relation("TaskCreator", fields: [createdById], references: [id])
+  lead        Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }
 
-// ============================================
-// SEO TOOLS: Content Factory
-// ============================================
-
-// Global Content Generator Settings
 model ContentGeneratorConfig {
-  id           Int      @id @default(autoincrement())
-  guidelines   String?  // Content Guidelines text
-  aiRules      String?  // AI Rules text
-  llmProvider  String   @default("openai")  // openai, anthropic, google
-  llmModel     String   @default("gpt-4")
-  updatedAt    DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  guidelines  String?
+  aiRules     String?
+  llmProvider String   @default("openai")
+  llmModel    String   @default("gpt-4")
+  updatedAt   DateTime @updatedAt
 }
 
-// Per-Project Settings (Brand Statement, CMS Credentials, etc.)
 model ProjectSettings {
-  id             Int              @id @default(autoincrement())
-  projectId      Int              @unique
-  project        IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id             Int             @id @default(autoincrement())
+  projectId      Int             @unique
   brandStatement String?
-  
-  // CMS Integration
-  cmsType        String?  // "wordpress", "shopify"
-  cmsUrl         String?  // API Base URL
-  cmsUsername    String?  // WordPress username
-  cmsAppPassword String?  // WordPress Application Password
-  cmsApiKey      String?  // Patrick Link Builder API Key (no App Password needed!)
-  shopifyToken   String?  // Shopify Admin API Token
-  shopifyStore   String?  // Shopify store name (xyz.myshopify.com)
-  
-  updatedAt      DateTime         @updatedAt
+  updatedAt      DateTime        @updatedAt
+  cmsAppPassword String?
+  cmsType        String?
+  cmsUrl         String?
+  cmsUsername    String?
+  shopifyStore   String?
+  shopifyToken   String?
+  cmsApiKey      String?
+  project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// Per-App Access for each Project-User assignment
 model ProjectAppAccess {
-  id         Int              @id @default(autoincrement())
-  accessId   Int
-  access     ProjectAccess    @relation(fields: [accessId], references: [id], onDelete: Cascade)
-  appType    String           // "LINK_INDEXING", "CONTENT_FACTORY", "DASHBOARD"
-  createdAt  DateTime         @default(now())
-  
+  id        Int           @id @default(autoincrement())
+  accessId  Int
+  appType   String
+  createdAt DateTime      @default(now())
+  access    ProjectAccess @relation(fields: [accessId], references: [id], onDelete: Cascade)
+
   @@unique([accessId, appType])
 }
 
-// Generated Content Items
 model GeneratedContent {
-  id            Int              @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   projectId     Int
-  project       IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
   title         String?
-  contentType   String           // "BLOG_POST", "SERVICE_PAGE"
-  brief         String           // User's brief/prompt
-  
-  content       String?          // Generated content (can be long)
-  llmPrompt     String?          // Full prompt sent to LLM (for debugging)
-  status        String           @default("DRAFT")  // "DRAFT", "GENERATING", "DONE"
-  
-  useGuidelines Boolean          @default(true)
-  useAiRules    Boolean          @default(true)
-  
-  // Conversation history for feedback loop (JSON array)
+  contentType   String
+  brief         String
+  content       String?
+  status        String          @default("DRAFT")
+  useGuidelines Boolean         @default(true)
+  useAiRules    Boolean         @default(true)
   conversation  String?
-  
-  // User tracking
   createdById   Int?
-  createdBy     User?            @relation(fields: [createdById], references: [id])
-  
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  llmPrompt     String?
+  createdBy     User?           @relation(fields: [createdById], references: [id])
+  project       IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// Analytics counters for tracking various metrics
 model AnalyticsCounter {
   id        Int      @id @default(autoincrement())
-  key       String   @unique // e.g. 'patrick_clicks'
+  key       String   @unique
   value     Int      @default(0)
   updatedAt DateTime @updatedAt
 }
 
-// Patrick Easter Egg click logs (for fun analytics!)
 model PatrickClick {
   id        Int      @id @default(autoincrement())
   clickedAt DateTime @default(now())
-  hour      Int      // 0-23
-  dayOfWeek Int      // 0=Sunday, 1=Monday, ... 6=Saturday
-  date      String   // YYYY-MM-DD for easy grouping
+  hour      Int
+  dayOfWeek Int
+  date      String
 }
 
-// ============================================
-// SEO TOOLS: Link Building
-// ============================================
-
 model LinkBuildingKeyword {
-  id          Int              @id @default(autoincrement())
-  projectId   Int
-  project     IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  keyword     String           // Keyword to find and link
-  targetUrl   String           // URL to link to
-  priority    Int              @default(0)  // Higher = processed first (for longer phrases)
-  isEnabled   Boolean          @default(true)
-  
-  // Rules
-  pageTypes   String?          // JSON: ["blog", "service", "product"]
-  onlyFirst   Boolean          @default(true)   // Only first occurrence per page
-  onlyFirstP  Boolean          @default(false)  // Only in first paragraph
-  
-  // Stats
-  linksCreated Int             @default(0)
+  id           Int               @id @default(autoincrement())
+  projectId    Int
+  keyword      String
+  targetUrl    String
+  priority     Int               @default(0)
+  isEnabled    Boolean           @default(true)
+  pageTypes    String?
+  onlyFirst    Boolean           @default(true)
+  onlyFirstP   Boolean           @default(false)
+  linksCreated Int               @default(0)
   lastRunAt    DateTime?
-  
-  logs        LinkBuildingLog[]
-  
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  project      IndexingProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  logs         LinkBuildingLog[]
 }
 
 model LinkBuildingLog {
-  id          Int                  @id @default(autoincrement())
+  id          Int                 @id @default(autoincrement())
   projectId   Int
-  project     IndexingProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   keywordId   Int
-  keyword     LinkBuildingKeyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
-  
-  pageId      Int?                 // WordPress Post ID
-  pageUrl     String               // Full URL of the page
-  pageTitle   String?              // Title of the page
-  anchorId    String?              // e.g., "lb-5-1" for direct navigation
-  status      String               // "linked", "skipped", "error"
-  message     String?              // Additional info
-  linkedCount Int?                 // Count of existing links found
-  
-  createdAt   DateTime             @default(now())
+  pageUrl     String
+  pageTitle   String?
+  anchorId    String?
+  status      String
+  message     String?
+  createdAt   DateTime            @default(now())
+  pageId      Int?
+  linkedCount Int?
+  keyword     LinkBuildingKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  project     IndexingProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// Discovered Page Types (from Crawl)
 model DiscoveredPageType {
-  id        Int              @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   projectId Int
-  project   IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  typeName  String           // e.g. "blog", "service", "product"
-  count     Int              @default(0)
-  
+  typeName  String
+  count     Int             @default(0)
+  project   IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@unique([projectId, typeName])
 }
 
-// ============================================
-// JARVIS: Automation Builder
-// ============================================
-
-// Project-level API connections
 model JarvisConnection {
-  id            Int              @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   projectId     Int
-  project       IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  connectorType String           // "monday", "mailchimp", "facebook", "instantly", "webhook", "http"
-  name          String           // User-friendly name: "Monday - Main Board"
-  icon          String?          // Emoji or URL
-  credentials   String           // JSON encrypted: API keys, tokens
-  config        String?          // JSON: extra config like board IDs, list IDs
-  isActive      Boolean          @default(true)
-  
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  connectorType String
+  name          String
+  icon          String?
+  credentials   String
+  config        String?
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  project       IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// Automation flows
 model JarvisFlow {
-  id          Int              @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   projectId   Int
-  project     IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  name        String           // "Facebook to Monday"
+  name        String
   description String?
-  nodes       String           // JSON: React Flow nodes
-  edges       String           // JSON: React Flow edges
-  isActive    Boolean          @default(true)
-  
-  webhookId   String?          @unique // Unique ID for webhook trigger
-  
+  nodes       String
+  edges       String
+  isActive    Boolean           @default(true)
+  webhookId   String?           @unique
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   executions  JarvisExecution[]
-  
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  project     IndexingProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// Execution logs
 model JarvisExecution {
-  id          Int              @id @default(autoincrement())
+  id          Int         @id @default(autoincrement())
   flowId      Int
-  flow        JarvisFlow       @relation(fields: [flowId], references: [id], onDelete: Cascade)
-  
-  status      String           @default("running") // "running", "success", "failed"
-  triggerType String?          // "webhook", "manual", "schedule"
-  triggerData String?          // JSON: incoming data
-  
-  startedAt   DateTime         @default(now())
+  status      String      @default("running")
+  triggerType String?
+  triggerData String?
+  startedAt   DateTime    @default(now())
   finishedAt  DateTime?
-  
+  flow        JarvisFlow  @relation(fields: [flowId], references: [id], onDelete: Cascade)
   logs        JarvisLog[]
 }
 
-// Step-by-step logs within execution
 model JarvisLog {
-  id          Int              @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   executionId Int
-  execution   JarvisExecution  @relation(fields: [executionId], references: [id], onDelete: Cascade)
-  
-  nodeId      String           // React Flow node ID
-  nodeName    String           // Human readable
-  nodeType    String           // "trigger", "action"
-  
-  status      String           // "success", "error", "skipped"
-  input       String?          // JSON
-  output      String?          // JSON
+  nodeId      String
+  nodeName    String
+  nodeType    String
+  status      String
+  input       String?
+  output      String?
   error       String?
-  duration    Int?             // ms
-  
-  timestamp   DateTime         @default(now())
+  duration    Int?
+  timestamp   DateTime        @default(now())
+  execution   JarvisExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 }

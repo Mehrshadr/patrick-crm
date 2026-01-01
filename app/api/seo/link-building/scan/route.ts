@@ -242,12 +242,22 @@ export async function POST(request: NextRequest) {
                             }
                         })
                         newCandidates++
-                    } else if (existingLog.status === 'pending') {
-                        // Update message if needed
-                        await prisma.linkBuildingLog.update({
-                            where: { id: existingLog.id },
-                            data: { message: messageBase + redirectWarning }
-                        })
+                    } else {
+                        // Always update message with redirect warning if applicable (for any status)
+                        // This ensures redirect badge shows for existing logs too
+                        const currentMessage = existingLog.message || ''
+                        const needsRedirectUpdate = hasRedirect && !currentMessage.includes('[REDIRECT:')
+
+                        if (existingLog.status === 'pending' || needsRedirectUpdate) {
+                            await prisma.linkBuildingLog.update({
+                                where: { id: existingLog.id },
+                                data: {
+                                    message: existingLog.status === 'pending'
+                                        ? messageBase + redirectWarning
+                                        : (currentMessage + redirectWarning)
+                                }
+                            })
+                        }
                     }
                 }
             }

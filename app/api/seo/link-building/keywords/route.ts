@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         orderBy: [{ priority: 'desc' }, { keyword: 'asc' }],
         include: {
             logs: {
-                where: { status: { in: ['linked', 'pending'] } },
+                where: { status: { in: ['linked', 'pending', 'skipped'] } },
                 orderBy: { createdAt: 'desc' }
             },
             _count: { select: { logs: true } }

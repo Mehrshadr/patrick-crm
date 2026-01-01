@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ success: true, processed: 0, candidates: 0 })
             }
 
-            // Check for redirects BEFORE scanning
+            // Check for redirects BEFORE scanning (for warning display only, not skipping)
             let hasRedirect = false
             let redirectUrl: string | null = null
             try {
@@ -121,51 +121,11 @@ export async function POST(request: NextRequest) {
                     if (debugData.has_redirect) {
                         hasRedirect = true
                         redirectUrl = debugData.redirect_url || 'unknown'
-                        console.log(`[Scan] Page ${pageId} has redirect to ${redirectUrl}`)
+                        console.log(`[Scan] Page ${pageId} has redirect to ${redirectUrl} (warning only)`)
                     }
                 }
             } catch (e) {
                 console.log(`[Scan] Could not check redirect for page ${pageId}`)
-            }
-
-            // If page has redirect, create skipped logs immediately
-            if (hasRedirect) {
-                let skippedCount = 0
-                for (const kw of keywords) {
-                    const existingLog = await prisma.linkBuildingLog.findFirst({
-                        where: {
-                            projectId: parseInt(projectId),
-                            keywordId: kw.id,
-                            pageUrl: pageUrl
-                        }
-                    })
-
-                    if (!existingLog) {
-                        await prisma.linkBuildingLog.create({
-                            data: {
-                                projectId: parseInt(projectId),
-                                keywordId: kw.id,
-                                pageId: parseInt(pageId),
-                                pageUrl: pageUrl,
-                                pageTitle: pageTitle || `Page ${pageId}`,
-                                status: 'skipped',
-                                message: `Page redirects to: ${redirectUrl}`
-                            }
-                        })
-                        skippedCount++
-                    } else if (existingLog.status === 'pending') {
-                        // Update existing pending log to reflect redirect
-                        await prisma.linkBuildingLog.update({
-                            where: { id: existingLog.id },
-                            data: {
-                                status: 'skipped',
-                                message: `Page redirects to: ${redirectUrl}`
-                            }
-                        })
-                        skippedCount++
-                    }
-                }
-                return NextResponse.json({ success: true, processed: 1, candidates: 0, skipped: skippedCount, redirected: true })
             }
 
             // Prepare keywords for plugin
@@ -260,6 +220,10 @@ export async function POST(request: NextRequest) {
                         }
                     })
 
+                    // Build message with redirect warning if applicable
+                    const redirectWarning = hasRedirect ? ` [REDIRECT: ${redirectUrl}]` : ''
+                    const messageBase = `Found ${cand.count} occurrence(s)${cand.linked_count > 0 ? ` (+${cand.linked_count} existing)` : ''}`
+
                     if (!existingLog) {
                         await prisma.linkBuildingLog.create({
                             data: {
@@ -269,7 +233,7 @@ export async function POST(request: NextRequest) {
                                 pageUrl: pageUrl,
                                 pageTitle: pageTitle || `Page ${pageId}`,
                                 status: 'pending',
-                                message: `Found ${cand.count} occurrence(s)${cand.linked_count > 0 ? ` (+${cand.linked_count} existing)` : ''}`
+                                message: messageBase + redirectWarning
                             }
                         })
                         newCandidates++
@@ -277,7 +241,7 @@ export async function POST(request: NextRequest) {
                         // Update message if needed
                         await prisma.linkBuildingLog.update({
                             where: { id: existingLog.id },
-                            data: { message: `Found ${cand.count} occurrence(s)` }
+                            data: { message: messageBase + redirectWarning }
                         })
                     }
                 }

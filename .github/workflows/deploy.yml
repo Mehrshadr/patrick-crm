@@ -29,7 +29,7 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+          NODE_OPTIONS: "--max-old-space-size=5120"
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@v4
@@ -47,5 +47,6 @@ jobs:
             npm ci --production
             npx prisma generate
             npx prisma db push
-            pm2 restart patrick-crm || pm2 start npm --name "patrick-crm" -- start
+            pm2 delete patrick-crm || true
+            pm2 start npm --name "patrick-crm" --node-args="--max-old-space-size=5120" -- start
             echo "✅ Deployment completed!"

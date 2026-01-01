@@ -174,6 +174,9 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [processProgress, setProcessProgress] = useState({ current: 0, total: 0 })
     const [pendingCount, setPendingCount] = useState(0)
 
+    // Redirect Checking State
+    const [checkingRedirects, setCheckingRedirects] = useState(false)
+
     // Redirect Check Options
     const [showScanOptions, setShowScanOptions] = useState(false)
     const [redirectCheckMethod, setRedirectCheckMethod] = useState<'meta' | 'http' | 'both'>('both')
@@ -610,6 +613,64 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         }
     }
 
+    // Check redirects for all pages (gentle mode)
+    async function handleCheckAllRedirects() {
+        if (!confirm('This will check HTTP redirects for ALL pages. Takes ~4 min. Continue?')) return
+
+        setCheckingRedirects(true)
+        try {
+            const res = await fetch('/api/seo/check-redirects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, mode: 'full', concurrency: 5, delay: 500 })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                toast.success(`Checked ${data.checked} pages. Found ${data.redirectsFound} redirects.`)
+                fetchData()
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Check failed')
+            }
+        } catch (e) {
+            toast.error('Check failed')
+        } finally {
+            setCheckingRedirects(false)
+        }
+    }
+
+    // Quick check for selected logs only
+    async function handleCheckSelectedRedirects() {
+        if (selectedLogs.length === 0) {
+            toast.error('Select items first')
+            return
+        }
+
+        setCheckingRedirects(true)
+        try {
+            const res = await fetch('/api/seo/check-redirects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, mode: 'selected', logIds: selectedLogs })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                toast.success(`Checked ${data.checked}. Found ${data.redirectsFound} redirects.`)
+                setSelectedLogs([])
+                fetchData()
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Check failed')
+            }
+        } catch (e) {
+            toast.error('Check failed')
+        } finally {
+            setCheckingRedirects(false)
+        }
+    }
+
     if (loading || access.loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -664,6 +725,22 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                             Sync Pages
                         </Button>
 
+                        {/* Check Redirects Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCheckAllRedirects}
+                            disabled={checkingRedirects || syncing || running}
+                            title="HTTP check all pages for redirects (~4 min)"
+                        >
+                            {checkingRedirects ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            ) : (
+                                <ExternalLink className="mr-1 h-3 w-3" />
+                            )}
+                            Check Redirects
+                        </Button>
+
                         {/* Scan Button */}
                         <Button
                             variant={scanStatus !== 'idle' ? "secondary" : "outline"}
@@ -716,6 +793,24 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                 </>
                             )}
                         </Button>
+
+                        {/* Quick Check Selected Redirects */}
+                        {selectedLogs.length > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCheckSelectedRedirects}
+                                disabled={checkingRedirects}
+                                title="Check redirects for selected items only"
+                            >
+                                {checkingRedirects ? (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                    <ExternalLink className="mr-1 h-3 w-3" />
+                                )}
+                                Check ({selectedLogs.length})
+                            </Button>
+                        )}
 
                         <Button
                             variant="ghost"

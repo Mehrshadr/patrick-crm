@@ -139,8 +139,34 @@ export async function POST(request: NextRequest) {
                 id: kw.id
             }))
 
+            // Fallback: If plugin didn't find redirect, try direct check from CRM server
+            // This bypasses WP internal loopback issues or outdated plugin versions
+            if (!hasRedirect && ['http', 'both'].includes(redirectCheckMethod)) {
+                try {
+                    const directCheck = await fetch(pageUrl, {
+                        method: 'HEAD',
+                        redirect: 'manual', // Don't follow automatically
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (compatible; PatrickCRM/1.0; +https://mehrana.agency)'
+                        }
+                    })
+
+                    if ([301, 302, 303, 307, 308].includes(directCheck.status)) {
+                        const location = directCheck.headers.get('location')
+                        if (location) {
+                            hasRedirect = true
+                            redirectUrl = location.startsWith('/')
+                                ? new URL(location, pageUrl).toString()
+                                : location
+                            console.log(`[Scan] Direct server check detected redirect: ${pageUrl} -> ${location}`)
+                        }
+                    }
+                } catch (e) {
+                    console.error('[Scan] Direct redirect check failed:', e)
+                }
+            }
+
             // CRITICAL FIX: If redirect detected, force update ALL existing logs for this page/project immediately
-            // This ensures even "linked" (purple) rows get the warning, even if plugin scan returns no candidates
             if (hasRedirect) {
                 const existingLogs = await prisma.linkBuildingLog.findMany({
                     where: {

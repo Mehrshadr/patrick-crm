@@ -277,15 +277,15 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
             setScanProgress({ current: 0, total: pages.length })
 
             // 2. Batch Scan
-            // Reduced batch size to 1 to avoid 429 Rate Limit from WP server
-            const batchSize = 1
+            // Increased batch size for faster local scanning
+            const batchSize = 25
             let processed = 0
 
             // Function to scan single page
             const scanPage = async (page: any) => {
                 // Skip redirected pages
                 if (page.has_redirect) {
-                    console.log(`[Scan] Skipping redirected page: ${page.url} → ${page.redirect_url}`)
+                    // console.log(`[Scan] Skipping redirected page: ${page.url} → ${page.redirect_url}`)
                     processed++
                     setScanProgress(prev => ({ ...prev, current: processed }))
                     return
@@ -322,12 +322,12 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                 toast.info(`Skipping ${redirectedCount} redirected pages`)
             }
 
-            // Loop batches with delay
+            // Loop batches with minimal delay
             for (let i = 0; i < activePages.length; i += batchSize) {
                 const chunk = activePages.slice(i, i + batchSize)
                 await Promise.all(chunk.map(scanPage))
-                // Add delay to prevent rate limiting
-                await new Promise(r => setTimeout(r, 1000))
+                // Minimal delay to prevent browser freeze
+                await new Promise(r => setTimeout(r, 10))
             }
 
             setScanStatus('complete')

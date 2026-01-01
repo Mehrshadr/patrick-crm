@@ -70,12 +70,12 @@ export async function POST(req: NextRequest) {
                         }
                     })
                 } else {
-                    // For logs, update the log and mark as skipped if redirect found
+                    // For logs, just mark the redirectUrl but don't change status
+                    // This allows the item to stay visible with a redirect badge
                     await prisma.linkBuildingLog.update({
                         where: { id: item.id },
                         data: {
                             redirectUrl: redirectUrl,
-                            status: isRedirect ? 'skipped' : undefined,
                             message: isRedirect ? `Redirects to: ${redirectUrl}` : undefined
                         }
                     })

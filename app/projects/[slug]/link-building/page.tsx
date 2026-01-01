@@ -671,6 +671,50 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         }
     }
 
+    // Check redirects for all logs under selected keywords
+    async function handleCheckKeywordRedirects() {
+        if (selectedKeywords.length === 0) {
+            toast.error('Select keywords first')
+            return
+        }
+
+        // Get all log IDs for selected keywords
+        const keywordLogIds: number[] = []
+        for (const kw of keywords) {
+            if (selectedKeywords.includes(kw.id) && kw.logs) {
+                keywordLogIds.push(...kw.logs.map((l: any) => l.id))
+            }
+        }
+
+        if (keywordLogIds.length === 0) {
+            toast.error('No logs found for selected keywords')
+            return
+        }
+
+        setCheckingRedirects(true)
+        try {
+            const res = await fetch('/api/seo/check-redirects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, mode: 'selected', logIds: keywordLogIds })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                toast.success(`Checked ${data.checked} pages. Found ${data.redirectsFound} redirects.`)
+                setSelectedKeywords([])
+                fetchData()
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Check failed')
+            }
+        } catch (e) {
+            toast.error('Check failed')
+        } finally {
+            setCheckingRedirects(false)
+        }
+    }
+
     if (loading || access.loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -809,6 +853,24 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                     <ExternalLink className="mr-1 h-3 w-3" />
                                 )}
                                 Check ({selectedLogs.length})
+                            </Button>
+                        )}
+
+                        {/* Check Redirects for Selected Keywords */}
+                        {selectedKeywords.length > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCheckKeywordRedirects}
+                                disabled={checkingRedirects}
+                                title="Check redirects for all pages under selected keywords"
+                            >
+                                {checkingRedirects ? (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                    <ExternalLink className="mr-1 h-3 w-3" />
+                                )}
+                                Check Keywords ({selectedKeywords.length})
                             </Button>
                         )}
 

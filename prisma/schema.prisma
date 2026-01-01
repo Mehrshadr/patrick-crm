@@ -471,7 +471,7 @@ model ProjectPage {
   cmsId          String          // Original ID from CMS (e.g. WP post ID)
   url            String
   title          String?
-  content        String?         @db.Text // Cached content for keyword scanning
+  content        String?         // Cached content for keyword scanning
   pageType       String?         // post, page, product, etc.
   hasRedirect    Boolean         @default(false)
   redirectUrl    String?

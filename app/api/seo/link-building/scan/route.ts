@@ -139,6 +139,30 @@ export async function POST(request: NextRequest) {
                 id: kw.id
             }))
 
+            // CRITICAL FIX: If redirect detected, force update ALL existing logs for this page/project immediately
+            // This ensures even "linked" (purple) rows get the warning, even if plugin scan returns no candidates
+            if (hasRedirect) {
+                const existingLogs = await prisma.linkBuildingLog.findMany({
+                    where: {
+                        projectId: parseInt(projectId),
+                        pageId: parseInt(pageId),
+                        keywordId: { in: keywords.map(k => k.id) }
+                    }
+                })
+
+                for (const log of existingLogs) {
+                    const currentMessage = log.message || ''
+                    if (!currentMessage.includes('[REDIRECT:')) {
+                        const redirectWarning = ` [REDIRECT: ${redirectUrl}]`
+                        await prisma.linkBuildingLog.update({
+                            where: { id: log.id },
+                            data: { message: currentMessage + redirectWarning }
+                        })
+                        console.log(`[Scan] Forced redirect warning update for log ${log.id}`)
+                    }
+                }
+            }
+
             // Call Plugin Scan
             const scanRes = await fetch(`${pluginBase}/pages/${pageId}/scan`, {
                 method: 'POST',

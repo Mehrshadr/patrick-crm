@@ -152,13 +152,20 @@ export async function POST(request: NextRequest) {
 
                 for (const log of existingLogs) {
                     const currentMessage = log.message || ''
-                    if (!currentMessage.includes('[REDIRECT:')) {
-                        const redirectWarning = ` [REDIRECT: ${redirectUrl}]`
+                    // Update if redirectUrl is missing OR message tag is missing
+                    const needsMessageUpdate = !currentMessage.includes('[REDIRECT:')
+                    const needsUrlUpdate = !log.redirectUrl
+
+                    if (needsMessageUpdate || needsUrlUpdate) {
+                        const redirectWarning = needsMessageUpdate ? ` [REDIRECT: ${redirectUrl}]` : ''
                         await prisma.linkBuildingLog.update({
                             where: { id: log.id },
-                            data: { message: currentMessage + redirectWarning }
+                            data: {
+                                message: needsMessageUpdate ? (currentMessage + redirectWarning) : undefined,
+                                redirectUrl: redirectUrl // Store natively
+                            }
                         })
-                        console.log(`[Scan] Forced redirect warning update for log ${log.id}`)
+                        console.log(`[Scan] Forced redirect info update for log ${log.id}`)
                     }
                 }
             }
@@ -262,7 +269,8 @@ export async function POST(request: NextRequest) {
                                 pageUrl: pageUrl,
                                 pageTitle: pageTitle || `Page ${pageId}`,
                                 status: 'pending',
-                                message: messageBase + redirectWarning
+                                message: messageBase + redirectWarning,
+                                redirectUrl: hasRedirect ? redirectUrl : null
                             }
                         })
                         newCandidates++
@@ -271,14 +279,18 @@ export async function POST(request: NextRequest) {
                         // This ensures redirect badge shows for existing logs too
                         const currentMessage = existingLog.message || ''
                         const needsRedirectUpdate = hasRedirect && !currentMessage.includes('[REDIRECT:')
+                        // Also check if we need to sync redirectUrl to DB
+                        const needsUrlUpdate = hasRedirect && !existingLog.redirectUrl
 
-                        if (existingLog.status === 'pending' || needsRedirectUpdate) {
+                        // We update if status is pending OR we have new redirect info to save
+                        if (existingLog.status === 'pending' || needsRedirectUpdate || needsUrlUpdate) {
                             await prisma.linkBuildingLog.update({
                                 where: { id: existingLog.id },
                                 data: {
                                     message: existingLog.status === 'pending'
                                         ? messageBase + redirectWarning
-                                        : (currentMessage + redirectWarning)
+                                        : (needsRedirectUpdate ? currentMessage + redirectWarning : undefined),
+                                    redirectUrl: hasRedirect ? redirectUrl : undefined
                                 }
                             })
                         }

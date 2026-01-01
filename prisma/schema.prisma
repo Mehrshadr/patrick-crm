@@ -393,6 +393,7 @@ model LinkBuildingLog {
   createdAt   DateTime            @default(now())
   pageId      Int?
   linkedCount Int?
+  redirectUrl String?
   keyword     LinkBuildingKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
   project     IndexingProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

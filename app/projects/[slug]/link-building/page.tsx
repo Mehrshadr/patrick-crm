@@ -58,6 +58,7 @@ interface KeywordLog {
     anchorId: string | null
     status: string
     message: string | null
+    redirectUrl: string | null
     createdAt: string
 }
 
@@ -81,6 +82,7 @@ interface Log {
     anchorId: string | null
     status: string
     message: string | null
+    redirectUrl: string | null
     createdAt: string
     keyword: { keyword: string; targetUrl: string }
 }
@@ -964,7 +966,7 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                         // Check message for existing links indicator
                                                                         const hasExisting = log.message?.includes('existing') || log.message?.includes('Already linked')
                                                                         // Check for redirect warning (works for pending and skipped)
-                                                                        const hasRedirectWarning = log.message?.includes('[REDIRECT:') || log.message?.includes('redirects to:')
+                                                                        const hasRedirectWarning = !!log.redirectUrl || log.message?.includes('[REDIRECT:') || log.message?.includes('redirects to:')
 
                                                                         return (
                                                                             <div key={log.id} className="border-b last:border-b-0">

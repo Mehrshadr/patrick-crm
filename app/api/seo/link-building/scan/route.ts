@@ -158,14 +158,27 @@ export async function POST(request: NextRequest) {
 
                     if (needsMessageUpdate || needsUrlUpdate) {
                         const redirectWarning = needsMessageUpdate ? ` [REDIRECT: ${redirectUrl}]` : ''
-                        await prisma.linkBuildingLog.update({
-                            where: { id: log.id },
-                            data: {
-                                message: needsMessageUpdate ? (currentMessage + redirectWarning) : undefined,
-                                redirectUrl: redirectUrl // Store natively
+
+                        try {
+                            // Try updating both (requires DB migration)
+                            await prisma.linkBuildingLog.update({
+                                where: { id: log.id },
+                                data: {
+                                    message: needsMessageUpdate ? (currentMessage + redirectWarning) : undefined,
+                                    redirectUrl: redirectUrl
+                                }
+                            })
+                            console.log(`[Scan] Forced redirect info update for log ${log.id}`)
+                        } catch (e) {
+                            console.warn(`[Scan] Failed to update redirectUrl for log ${log.id} (likely missing DB column). Fallback to message update.`)
+                            // Fallback: Update message ONLY (if needed)
+                            if (needsMessageUpdate) {
+                                await prisma.linkBuildingLog.update({
+                                    where: { id: log.id },
+                                    data: { message: currentMessage + redirectWarning }
+                                })
                             }
-                        })
-                        console.log(`[Scan] Forced redirect info update for log ${log.id}`)
+                        }
                     }
                 }
             }
@@ -261,38 +274,64 @@ export async function POST(request: NextRequest) {
                     const messageBase = `Found ${cand.count} occurrence(s)${cand.linked_count > 0 ? ` (+${cand.linked_count} existing)` : ''}`
 
                     if (!existingLog) {
-                        await prisma.linkBuildingLog.create({
-                            data: {
-                                projectId: parseInt(projectId),
-                                keywordId: kw.id,
-                                pageId: parseInt(pageId), // Store for reliable access
-                                pageUrl: pageUrl,
-                                pageTitle: pageTitle || `Page ${pageId}`,
-                                status: 'pending',
-                                message: messageBase + redirectWarning,
-                                redirectUrl: hasRedirect ? redirectUrl : null
-                            }
-                        })
-                        newCandidates++
-                    } else {
-                        // Always update message with redirect warning if applicable (for any status)
-                        // This ensures redirect badge shows for existing logs too
-                        const currentMessage = existingLog.message || ''
-                        const needsRedirectUpdate = hasRedirect && !currentMessage.includes('[REDIRECT:')
-                        // Also check if we need to sync redirectUrl to DB
-                        const needsUrlUpdate = hasRedirect && !existingLog.redirectUrl
-
-                        // We update if status is pending OR we have new redirect info to save
-                        if (existingLog.status === 'pending' || needsRedirectUpdate || needsUrlUpdate) {
-                            await prisma.linkBuildingLog.update({
-                                where: { id: existingLog.id },
+                        try {
+                            await prisma.linkBuildingLog.create({
                                 data: {
-                                    message: existingLog.status === 'pending'
-                                        ? messageBase + redirectWarning
-                                        : (needsRedirectUpdate ? currentMessage + redirectWarning : undefined),
-                                    redirectUrl: hasRedirect ? redirectUrl : undefined
+                                    projectId: parseInt(projectId),
+                                    keywordId: kw.id,
+                                    pageId: parseInt(pageId),
+                                    pageUrl: pageUrl,
+                                    pageTitle: pageTitle || `Page ${pageId}`,
+                                    status: 'pending',
+                                    message: messageBase + redirectWarning,
+                                    redirectUrl: hasRedirect ? redirectUrl : null
                                 }
                             })
+                        } catch (e) {
+                            console.warn('[Scan] Failed to create log with redirectUrl. Retrying without it.')
+                            await prisma.linkBuildingLog.create({
+                                data: {
+                                    projectId: parseInt(projectId),
+                                    keywordId: kw.id,
+                                    pageId: parseInt(pageId),
+                                    pageUrl: pageUrl,
+                                    pageTitle: pageTitle || `Page ${pageId}`,
+                                    status: 'pending',
+                                    message: messageBase + redirectWarning
+                                }
+                            })
+                        }
+                        newCandidates++
+                    } else {
+                        // Always update message with redirect warning if applicable
+                        const currentMessage = existingLog.message || ''
+                        const needsRedirectUpdate = hasRedirect && !currentMessage.includes('[REDIRECT:')
+                        const needsUrlUpdate = hasRedirect && !existingLog.redirectUrl
+
+                        if (existingLog.status === 'pending' || needsRedirectUpdate || needsUrlUpdate) {
+                            try {
+                                await prisma.linkBuildingLog.update({
+                                    where: { id: existingLog.id },
+                                    data: {
+                                        message: existingLog.status === 'pending'
+                                            ? messageBase + redirectWarning
+                                            : (needsRedirectUpdate ? currentMessage + redirectWarning : undefined),
+                                        redirectUrl: hasRedirect ? redirectUrl : undefined
+                                    }
+                                })
+                            } catch (e) {
+                                console.warn('[Scan] Failed to update log with redirectUrl. Fallback to message update.')
+                                if (existingLog.status === 'pending' || needsRedirectUpdate) {
+                                    await prisma.linkBuildingLog.update({
+                                        where: { id: existingLog.id },
+                                        data: {
+                                            message: existingLog.status === 'pending'
+                                                ? messageBase + redirectWarning
+                                                : (needsRedirectUpdate ? currentMessage + redirectWarning : undefined)
+                                        }
+                                    })
+                                }
+                            }
                         }
                     }
                 }

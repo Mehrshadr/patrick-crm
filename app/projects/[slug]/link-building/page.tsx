@@ -275,6 +275,14 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
 
             // Function to scan single page
             const scanPage = async (page: any) => {
+                // Skip redirected pages
+                if (page.has_redirect) {
+                    console.log(`[Scan] Skipping redirected page: ${page.url} → ${page.redirect_url}`)
+                    processed++
+                    setScanProgress(prev => ({ ...prev, current: processed }))
+                    return
+                }
+
                 try {
                     await fetch('/api/seo/link-building/scan', {
                         method: 'POST',
@@ -297,9 +305,17 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                 }
             }
 
+            // Filter redirected pages and log count
+            const activePages = pages.filter((p: any) => !p.has_redirect)
+            const redirectedCount = pages.length - activePages.length
+            if (redirectedCount > 0) {
+                console.log(`[Scan] Skipping ${redirectedCount} redirected pages`)
+                toast.info(`Skipping ${redirectedCount} redirected pages`)
+            }
+
             // Loop batches
-            for (let i = 0; i < pages.length; i += batchSize) {
-                const chunk = pages.slice(i, i + batchSize)
+            for (let i = 0; i < activePages.length; i += batchSize) {
+                const chunk = activePages.slice(i, i + batchSize)
                 await Promise.all(chunk.map(scanPage))
             }
 

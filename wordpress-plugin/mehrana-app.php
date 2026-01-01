@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Mehrana App Plugin
- * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization & More
- * Version: 1.7.5
+ * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
+ * Version: 2.1.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,15 +18,15 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '1.7.3';
+    private $version = '2.1.0';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
 
     // GitHub Updater Config
     private $github_username = 'Mehrshadr';
-    private $github_repo = 'patrick-crm';
-    private $github_plugin_path = 'wordpress-plugin/mehrana-app.php';
+    private $github_repo = 'mehrana-wordpress-plugin';
+    private $github_plugin_path = 'mehrana-app.php';
 
     public function __construct()
     {
@@ -38,6 +38,13 @@ class Mehrana_App_Plugin
         add_filter('pre_set_site_transient_update_plugins', [$this, 'check_for_github_update']);
         add_filter('plugins_api', [$this, 'github_plugin_info'], 20, 3);
         add_filter('upgrader_post_install', [$this, 'after_install'], 10, 3);
+
+        // Google Tag Manager Hooks
+        add_action('wp_head', [$this, 'inject_gtm_head'], 1);
+        add_action('wp_body_open', [$this, 'inject_gtm_body'], 1);
+
+        // Custom Head Code Hook (for Clarity, etc.)
+        add_action('wp_head', [$this, 'inject_custom_head_code'], 2);
     }
 
     /**
@@ -128,20 +135,69 @@ class Mehrana_App_Plugin
     public function debug_page($request)
     {
         $page_id = intval($request['id']);
-        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+        $post = get_post($page_id);
 
-        if (empty($elementor_data)) {
-            return rest_ensure_response(['error' => 'No Elementor data']);
+        if (!$post) {
+            return rest_ensure_response(['error' => 'Post not found']);
         }
 
-        $data = json_decode($elementor_data, true);
-        $widgets = $this->extract_widgets($data);
+        $elementor_data = get_post_meta($page_id, '_elementor_data', true);
+        $has_blocks = has_blocks($post->post_content);
+        $is_wpbakery = strpos($post->post_content, '[vc_') !== false;
 
-        return rest_ensure_response([
+        $result = [
             'page_id' => $page_id,
-            'widget_count' => count($widgets),
-            'widgets' => $widgets
-        ]);
+            'title' => $post->post_title,
+            'post_status' => $post->post_status,
+            'content_type' => 'unknown',
+            'post_content_length' => strlen($post->post_content),
+            'post_content_sample' => substr($post->post_content, 0, 1000),
+            'has_elementor' => !empty($elementor_data),
+            'has_gutenberg_blocks' => $has_blocks,
+            'has_wpbakery' => $is_wpbakery,
+        ];
+
+        // Determine content type
+        if (!empty($elementor_data)) {
+            $result['content_type'] = 'elementor';
+            $result['elementor_data_length'] = strlen($elementor_data);
+        } elseif ($is_wpbakery) {
+            $result['content_type'] = 'wpbakery';
+            // Extract WPBakery shortcode structure
+            preg_match_all('/\[vc_([a-z_]+)\]/', $post->post_content, $shortcodes);
+            $result['wpbakery_shortcodes'] = array_unique($shortcodes[1] ?? []);
+        } elseif ($has_blocks) {
+            $result['content_type'] = 'gutenberg';
+        } else {
+            $result['content_type'] = 'classic';
+        }
+
+        // Show all meta keys that might contain content
+        $all_meta = get_post_meta($page_id);
+        $text_meta_keys = [];
+        foreach ($all_meta as $key => $values) {
+            if (strpos($key, '_') === 0 && strpos($key, 'elementor') === false) {
+                continue; // Skip hidden metas except elementor
+            }
+            foreach ($values as $v) {
+                if (is_string($v) && strlen($v) > 50 && !preg_match('/^[a-z0-9]{32}$/', $v)) {
+                    $text_meta_keys[$key] = strlen($v);
+                }
+            }
+        }
+        $result['content_meta_keys'] = $text_meta_keys;
+
+        // Look for the keyword in content
+        if (isset($request['keyword'])) {
+            $keyword = $request['keyword'];
+            $result['keyword_search'] = [
+                'keyword' => $keyword,
+                'found_in_post_content' => stripos($post->post_content, $keyword) !== false,
+                'position_in_content' => stripos($post->post_content, $keyword)
+            ];
+        }
+
+        return rest_ensure_response($result);
     }
 
     /**
@@ -337,6 +393,87 @@ class Mehrana_App_Plugin
     }
 
     /**
+     * Check if a post has a redirect configured (Rank Math, Yoast, Redirection plugin, etc.)
+     */
+    private function check_redirect($post_id)
+    {
+        $result = [
+            'has_redirect' => false,
+            'redirect_url' => null,
+            'redirect_source' => null
+        ];
+
+        // 1. Check Rank Math Redirection
+        $rank_math_redirect = get_post_meta($post_id, 'rank_math_redirection', true);
+        if (!empty($rank_math_redirect)) {
+            // Rank Math stores as array: ['url_to' => 'target', 'header_code' => 301]
+            if (is_array($rank_math_redirect) && isset($rank_math_redirect['url_to'])) {
+                $result['has_redirect'] = true;
+                $result['redirect_url'] = $rank_math_redirect['url_to'];
+                $result['redirect_source'] = 'rank_math';
+                return $result;
+            } elseif (is_string($rank_math_redirect)) {
+                $result['has_redirect'] = true;
+                $result['redirect_url'] = $rank_math_redirect;
+                $result['redirect_source'] = 'rank_math';
+                return $result;
+            }
+        }
+
+        // 2. Check Rank Math canonical redirect (if different from post URL)
+        $rank_math_canonical = get_post_meta($post_id, 'rank_math_canonical_url', true);
+        if (!empty($rank_math_canonical)) {
+            $post_url = get_permalink($post_id);
+            if ($rank_math_canonical !== $post_url) {
+                // This might indicate a redirect
+                // Don't mark as redirect for now, just check actual redirect meta
+            }
+        }
+
+        // 3. Check Yoast SEO Redirect
+        $yoast_redirect = get_post_meta($post_id, '_yoast_wpseo_redirect', true);
+        if (!empty($yoast_redirect)) {
+            $result['has_redirect'] = true;
+            $result['redirect_url'] = $yoast_redirect;
+            $result['redirect_source'] = 'yoast';
+            return $result;
+        }
+
+        // 4. Check Redirection Plugin (if installed)
+        // Redirection plugin stores in its own table, but also may use post meta
+        $redirection_url = get_post_meta($post_id, '_redirection_url', true);
+        if (!empty($redirection_url)) {
+            $result['has_redirect'] = true;
+            $result['redirect_url'] = $redirection_url;
+            $result['redirect_source'] = 'redirection_plugin';
+            return $result;
+        }
+
+        // 5. Check Native WordPress Page Redirect
+        $wp_redirect = get_post_meta($post_id, '_wp_page_redirect', true);
+        if (!empty($wp_redirect)) {
+            $result['has_redirect'] = true;
+            $result['redirect_url'] = $wp_redirect;
+            $result['redirect_source'] = 'wp_native';
+            return $result;
+        }
+
+        // 6. Check SEO Press redirect
+        $seopress_redirect = get_post_meta($post_id, '_seopress_redirections_enabled', true);
+        if ($seopress_redirect === '1') {
+            $seopress_url = get_post_meta($post_id, '_seopress_redirections_value', true);
+            if (!empty($seopress_url)) {
+                $result['has_redirect'] = true;
+                $result['redirect_url'] = $seopress_url;
+                $result['redirect_source'] = 'seopress';
+                return $result;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Get all content (pages, posts, landing pages, products, etc)
      */
     public function get_pages($request)
@@ -371,12 +508,17 @@ class Mehrana_App_Plugin
                 $type = $page->post_type;
             }
 
+            // Check for redirects
+            $redirect_info = $this->check_redirect($page->ID);
+
             $result[] = [
                 'id' => $page->ID,
                 'title' => $page->post_title,
                 'url' => get_permalink($page->ID),
                 'type' => $type,
                 'has_elementor' => !empty($elementor_data),
+                'has_redirect' => $redirect_info['has_redirect'],
+                'redirect_url' => $redirect_info['redirect_url'],
                 'elementor_data' => $elementor_data,
                 'post_content' => $page->post_content
             ];
@@ -480,7 +622,12 @@ class Mehrana_App_Plugin
 
         } else {
             // Process Standard Content + ALL Meta Fields
+            // Check if using WPBakery (Visual Composer)
+            $is_wpbakery = strpos($page->post_content, '[vc_') !== false || strpos($page->post_content, '[/vc_') !== false;
             $this->log("Processing as STANDARD CONTENT (Elementor not detected or empty)");
+            if ($is_wpbakery) {
+                $this->log("WPBakery Page Builder detected in post_content");
+            }
             $content = $page->post_content;
             $all_skipped = [];
             $total_linked = 0;
@@ -555,6 +702,32 @@ class Mehrana_App_Plugin
                 $this->log("Post {$page_id} update returned 0 (no changes or invalid ID)");
             } else {
                 $this->log("Post {$page_id} updated successfully. Result ID: " . $update_result);
+
+                // Clear WPBakery/Visual Composer caches if detected
+                if ($is_wpbakery) {
+                    // Clear WPBakery page cache
+                    delete_post_meta($page_id, '_wpb_post_custom_css');
+                    delete_post_meta($page_id, '_wpb_shortcodes_custom_css');
+                    $this->log("Cleared WPBakery caches for post {$page_id}");
+                }
+
+                // Clear all page caches (WP Super Cache, W3TC, WP Fastest Cache, etc.)
+                if (function_exists('wp_cache_clear_cache')) {
+                    wp_cache_clear_cache();
+                }
+                if (function_exists('w3tc_flush_post')) {
+                    w3tc_flush_post($page_id);
+                }
+                if (function_exists('wpfc_clear_post_cache_by_id')) {
+                    wpfc_clear_post_cache_by_id($page_id);
+                }
+
+                // Touch post modification time
+                wp_update_post([
+                    'ID' => $page_id,
+                    'post_modified' => current_time('mysql'),
+                    'post_modified_gmt' => current_time('mysql', 1)
+                ]);
             }
         }
 
@@ -1525,6 +1698,61 @@ class Mehrana_App_Plugin
         register_setting('map_settings', 'map_allowed_origins');
         register_setting('map_settings', 'map_enable_logging');
         register_setting('map_settings', 'map_api_key');
+        register_setting('map_settings', 'map_gtm_id');
+        register_setting('map_settings', 'map_custom_head_code');
+    }
+
+    /**
+     * Inject GTM script into <head>
+     */
+    public function inject_gtm_head()
+    {
+        $gtm_id = get_option('map_gtm_id');
+        if (empty($gtm_id)) {
+            return;
+        }
+        ?>
+        <!-- Google Tag Manager -->
+        <script>(function (w, d, s, l, i) {
+                w[l] = w[l] || []; w[l].push({
+                    'gtm.start':
+                        new Date().getTime(), event: 'gtm.js'
+                }); var f = d.getElementsByTagName(s)[0],
+                    j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                        'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+            })(window, document, 'script', 'dataLayer', '<?php echo esc_attr($gtm_id); ?>');</script>
+        <!-- End Google Tag Manager -->
+        <?php
+    }
+
+    /**
+     * Inject GTM noscript into <body>
+     */
+    public function inject_gtm_body()
+    {
+        $gtm_id = get_option('map_gtm_id');
+        if (empty($gtm_id)) {
+            return;
+        }
+        ?>
+        <!-- Google Tag Manager (noscript) -->
+        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=<?php echo esc_attr($gtm_id); ?>" height="0"
+                width="0" style="display:none;visibility:hidden"></iframe></noscript>
+        <!-- End Google Tag Manager (noscript) -->
+        <?php
+    }
+
+    /**
+     * Inject custom head code (Microsoft Clarity, etc.)
+     */
+    public function inject_custom_head_code()
+    {
+        $custom_code = get_option('map_custom_head_code');
+        if (empty($custom_code)) {
+            return;
+        }
+        // Output the custom code as-is (already contains script tags)
+        echo "\n" . $custom_code . "\n";
     }
 
     /**
@@ -1533,103 +1761,313 @@ class Mehrana_App_Plugin
     public function settings_page()
     {
         ?>
-        <div class="wrap">
-            <h1>Mehrana App Settings</h1>
+        <style>
+            .map-settings-wrap {
+                max-width: 900px;
+            }
+
+            .map-settings-wrap .map-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .map-settings-wrap .map-header h1 {
+                margin: 0;
+                font-size: 23px;
+                font-weight: 400;
+            }
+
+            .map-settings-wrap .map-header .version-badge {
+                background: #0073aa;
+                color: #fff;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 11px;
+            }
+
+            .map-settings-wrap .map-card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            }
+
+            .map-settings-wrap .map-card h2 {
+                margin-top: 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eee;
+                color: #1e3a5f;
+            }
+
+            .map-settings-wrap .map-card h3 {
+                margin: 20px 0 10px;
+                color: #333;
+                font-size: 14px;
+            }
+
+            .map-settings-wrap .map-field-row {
+                margin-bottom: 20px;
+            }
+
+            .map-settings-wrap .map-field-row label {
+                display: block;
+                font-weight: 600;
+                margin-bottom: 5px;
+                color: #1e3a5f;
+            }
+
+            .map-settings-wrap .map-field-row .description {
+                color: #666;
+                font-size: 13px;
+                margin-top: 5px;
+            }
+
+            .map-settings-wrap .map-field-row input[type="text"],
+            .map-settings-wrap .map-field-row input[type="password"],
+            .map-settings-wrap .map-field-row textarea {
+                width: 100%;
+                max-width: 400px;
+            }
+
+            .map-settings-wrap .map-field-row textarea {
+                max-width: 100%;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+            }
+
+            .map-settings-wrap .map-api-key-wrapper {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .map-settings-wrap .map-api-key-wrapper input {
+                flex: 1;
+                min-width: 200px;
+                max-width: 350px;
+            }
+
+            .map-settings-wrap .map-toggle-btn {
+                padding: 6px 12px;
+                background: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+
+            .map-settings-wrap .map-toggle-btn:hover {
+                background: #e0e0e0;
+            }
+
+            .map-settings-wrap .map-info-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .map-settings-wrap .map-info-table td {
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+                vertical-align: top;
+            }
+
+            .map-settings-wrap .map-info-table td:first-child {
+                width: 150px;
+                font-weight: 600;
+                color: #1e3a5f;
+            }
+
+            .map-settings-wrap .map-info-table code {
+                background: #f5f5f5;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+
+            .map-settings-wrap .map-checkbox-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+            }
+
+            .map-settings-wrap .map-success-msg {
+                background: #d4edda;
+                color: #155724;
+                padding: 10px 15px;
+                border-radius: 4px;
+                margin-top: 10px;
+            }
+        </style>
+
+        <div class="wrap map-settings-wrap">
+            <h1 class="map-header">Mehrana App <span class="version-badge"><?php echo esc_html($this->version); ?></span></h1>
+
             <form method="post" action="options.php">
                 <?php settings_fields('map_settings'); ?>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row">API Key</th>
-                        <td>
-                            <input type="text" name="map_api_key" id="map_api_key"
-                                value="<?php echo esc_attr(get_option('map_api_key')); ?>" class="regular-text" />
+
+                <!-- Authentication Settings -->
+                <div class="map-card">
+                    <h2>🔐 Authentication</h2>
+
+                    <div class="map-field-row">
+                        <label for="map_api_key">API Key</label>
+                        <div class="map-api-key-wrapper">
+                            <input type="password" name="map_api_key" id="map_api_key"
+                                value="<?php echo esc_attr(get_option('map_api_key')); ?>"
+                                placeholder="Click 'Generate Key' to create" />
+                            <button type="button" class="map-toggle-btn" onclick="mapToggleApiKey()" id="map_toggle_btn"
+                                title="Show/Hide API Key">👁️</button>
                             <button type="button" class="button"
-                                onclick="document.getElementById('map_api_key').value = 'map_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);">Generate
-                                Key</button>
-                            <p class="description">
-                                <strong>Recommended:</strong> Use this API Key for authentication. Send it as
-                                <code>X-MAP-API-Key</code> header.<br>
-                                No Application Password needed when using API Key!
-                            </p>
+                                onclick="document.getElementById('map_api_key').value = 'map_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);">🔑
+                                Generate Key</button>
+                        </div>
+                        <p class="description">
+                            <strong>Recommended:</strong> Use this API Key for authentication. Send it as
+                            <code>X-MAP-API-Key</code> header.<br>
+                            No Application Password needed when using API Key!
+                        </p>
+                    </div>
+
+                    <div class="map-field-row">
+                        <label for="map_allowed_origins">Allowed Origins</label>
+                        <input type="text" name="map_allowed_origins" id="map_allowed_origins"
+                            value="<?php echo esc_attr(get_option('map_allowed_origins')); ?>"
+                            placeholder="https://app.example.com, https://crm.example.com" />
+                        <p class="description">Comma-separated list of allowed origins. Leave empty to allow all authenticated
+                            requests.</p>
+                    </div>
+                </div>
+
+                <!-- Tracking & Analytics -->
+                <div class="map-card">
+                    <h2>📊 Tracking & Analytics</h2>
+
+                    <div class="map-field-row">
+                        <label for="map_gtm_id">Google Tag Manager ID</label>
+                        <input type="text" name="map_gtm_id" id="map_gtm_id"
+                            value="<?php echo esc_attr(get_option('map_gtm_id')); ?>" placeholder="GTM-XXXXXXX"
+                            style="max-width: 200px;" />
+                        <p class="description">
+                            Enter your GTM Container ID (e.g., <code>GTM-XXXXXXX</code>).<br>
+                            The GTM code will be automatically injected into all pages.
+                        </p>
+                    </div>
+
+                    <div class="map-field-row">
+                        <label for="map_custom_head_code">Custom Head Code</label>
+                        <textarea name="map_custom_head_code" id="map_custom_head_code" rows="6"
+                            placeholder="<!-- Paste your tracking code here -->"><?php echo esc_textarea(get_option('map_custom_head_code')); ?></textarea>
+                        <p class="description">
+                            Paste any custom tracking code here (e.g., <strong>Microsoft Clarity</strong>, <strong>Facebook
+                                Pixel</strong>, <strong>Hotjar</strong>, etc.).<br>
+                            This code will be injected into the <code>&lt;head&gt;</code> of all pages.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings -->
+                <div class="map-card">
+                    <h2>⚙️ Advanced Settings</h2>
+
+                    <div class="map-field-row">
+                        <label class="map-checkbox-label">
+                            <input type="checkbox" name="map_enable_logging" value="1" <?php checked(get_option('map_enable_logging', '1'), '1'); ?> />
+                            Enable API Logging
+                        </label>
+                        <p class="description">Log all API activity to <code>wp-content/mehrana-app.log</code> for debugging
+                            purposes.</p>
+                    </div>
+                </div>
+
+                <?php submit_button('Save Changes', 'primary', 'submit', true); ?>
+            </form>
+
+            <!-- API Information -->
+            <div class="map-card">
+                <h2>📡 API Information</h2>
+                <table class="map-info-table">
+                    <tr>
+                        <td>Base URL</td>
+                        <td><code><?php echo esc_html(rest_url($this->namespace)); ?></code></td>
+                    </tr>
+                    <tr>
+                        <td>Authentication</td>
+                        <td>
+                            <strong>Option 1 (Recommended):</strong> API Key via <code>X-MAP-API-Key</code> header<br>
+                            <strong>Option 2:</strong> WordPress Application Passwords (Basic Auth)
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">Allowed Origins</th>
+                        <td>Endpoints</td>
                         <td>
-                            <input type="text" name="map_allowed_origins"
-                                value="<?php echo esc_attr(get_option('map_allowed_origins')); ?>" class="regular-text" />
-                            <p class="description">Comma-separated list of allowed origins (e.g., https://app.mehrana.agency).
-                                Leave empty to allow all authenticated requests.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Enable Logging</th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="map_enable_logging" value="1" <?php checked(get_option('map_enable_logging', '1'), '1'); ?> />
-                                Log all API activity to wp-content/mehrana-app.log
-                            </label>
+                            <code>GET /pages</code> — Get all content pages<br>
+                            <code>POST /pages/{id}/apply-links</code> — Apply links to a page<br>
+                            <code>POST /pages/{id}/scan</code> — Scan page for keywords<br>
+                            <code>GET /pages/{id}/links</code> — Get existing backlinks<br>
+                            <code>DELETE /pages/{id}/links/{link_id}</code> — Remove a backlink<br>
+                            <code>GET /health</code> — Health check
                         </td>
                     </tr>
                 </table>
-                <?php submit_button(); ?>
-            </form>
+            </div>
 
-            <h2>API Information</h2>
-            <table class="widefat">
-                <tr>
-                    <td><strong>Base URL:</strong></td>
-                    <td><code><?php echo rest_url($this->namespace); ?></code></td>
-                </tr>
-                <tr>
-                    <td><strong>Authentication:</strong></td>
-                    <td>
-                        <strong>Option 1 (Recommended):</strong> API Key via <code>X-MAP-API-Key</code> header<br>
-                        <strong>Option 2:</strong> WordPress Application Passwords (Basic Auth)
-                    </td>
-                </tr>
-                <tr>
-                    <td><strong>Endpoints:</strong></td>
-                    <td>
-                        <code>GET /pages</code> - Get all Elementor pages<br>
-                        <code>POST /pages/{id}/apply-links</code> - Apply links to a page<br>
-                        <code>GET /health</code> - Health check
-                    </td>
-                </tr>
-            </table>
+            <!-- Plugin Updates -->
+            <div class="map-card">
+                <h2>🔄 Plugin Updates</h2>
+                <table class="map-info-table">
+                    <tr>
+                        <td>Current Version</td>
+                        <td><strong><?php echo esc_html($this->version); ?></strong></td>
+                    </tr>
+                    <tr>
+                        <td>Check for Updates</td>
+                        <td>
+                            <form method="post" style="display:inline;">
+                                <?php wp_nonce_field('map_check_update', 'map_update_nonce'); ?>
+                                <button type="submit" name="map_check_update" class="button button-secondary">
+                                    🔄 Check for Updates Now
+                                </button>
+                            </form>
+                            <?php
+                            if (isset($_POST['map_check_update']) && wp_verify_nonce($_POST['map_update_nonce'], 'map_check_update')) {
+                                // Clear cache
+                                delete_transient('mehrana_app_github_release');
+                                delete_site_transient('update_plugins');
 
-            <h2>Plugin Updates</h2>
-            <table class="form-table">
-                <tr>
-                    <th scope="row">Current Version</th>
-                    <td><strong><?php echo $this->version; ?></strong></td>
-                </tr>
-                <tr>
-                    <th scope="row">Check for Updates</th>
-                    <td>
-                        <form method="post" style="display:inline;">
-                            <?php wp_nonce_field('map_check_update', 'map_update_nonce'); ?>
-                            <button type="submit" name="map_check_update" class="button button-secondary">
-                                🔄 Check for Updates Now
-                            </button>
-                        </form>
-                        <?php
-                        if (isset($_POST['map_check_update']) && wp_verify_nonce($_POST['map_update_nonce'], 'map_check_update')) {
-                            // Clear cache
-                            delete_transient('mehrana_app_github_release');
-                            delete_site_transient('update_plugins');
+                                // Force check
+                                wp_update_plugins();
 
-                            // Force check
-                            wp_update_plugins();
-
-                            echo '<p style="color: green; margin-top: 10px;">✅ Update check complete! If a new version is available, you\'ll see it on the <a href="' . admin_url('plugins.php') . '">Plugins page</a>.</p>';
-                        }
-                        ?>
-                        <p class="description">Click to force check GitHub for plugin updates (bypasses 12-hour cache)</p>
-                    </td>
-                </tr>
-            </table>
+                                echo '<div class="map-success-msg">✅ Update check complete! If a new version is available, you\'ll see it on the <a href="' . esc_url(admin_url('plugins.php')) . '">Plugins page</a>.</div>';
+                            }
+                            ?>
+                            <p class="description">Click to force check GitHub for plugin updates (bypasses 12-hour cache)</p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
         </div>
+
+        <script>
+            function mapToggleApiKey() {
+                var input = document.getElementById('map_api_key');
+                var btn = document.getElementById('map_toggle_btn');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    btn.textContent = '🙈';
+                    btn.title = 'Hide API Key';
+                } else {
+                    input.type = 'password';
+                    btn.textContent = '👁️';
+                    btn.title = 'Show API Key';
+                }
+            }
+        </script>
         <?php
     }
 

@@ -958,11 +958,17 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                         const isLinked = log.status === 'linked'
                                                                         // Check message for existing links indicator
                                                                         const hasExisting = log.message?.includes('existing') || log.message?.includes('Already linked')
+                                                                        // Check for redirect
+                                                                        const isRedirect = log.status === 'skipped' && log.message?.includes('redirect')
 
                                                                         return (
                                                                             <div key={log.id} className="border-b last:border-b-0">
-                                                                                <div className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded-t ${isLinked ? 'bg-green-50' : hasExisting ? 'bg-purple-50' : 'hover:bg-slate-100'}`}>
-                                                                                    {isLinked ? (
+                                                                                <div className={`flex items-center gap-2 text-sm py-1.5 px-2 rounded-t ${isRedirect ? 'bg-red-50' : isLinked ? 'bg-green-50' : hasExisting ? 'bg-purple-50' : 'hover:bg-slate-100'}`}>
+                                                                                    {isRedirect ? (
+                                                                                        <Badge variant="destructive" className="h-4 px-1 text-[10px] flex-shrink-0">
+                                                                                            ↪ redirect
+                                                                                        </Badge>
+                                                                                    ) : isLinked ? (
                                                                                         <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                                                                                     ) : hasExisting ? (
                                                                                         <Badge variant="secondary" className="h-4 px-1 text-[10px] bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200 flex-shrink-0">
@@ -985,7 +991,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                                                         href={`${log.pageUrl}${log.anchorId ? '#' + log.anchorId : ''}`}
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
-                                                                                        className={`hover:underline truncate flex-1 ${isLinked ? 'text-green-700 font-medium' : hasExisting ? 'text-purple-700 font-medium' : 'text-amber-600'}`}
+                                                                                        className={`hover:underline truncate flex-1 ${isRedirect ? 'text-red-600 line-through' : isLinked ? 'text-green-700 font-medium' : hasExisting ? 'text-purple-700 font-medium' : 'text-amber-600'}`}
+                                                                                        title={isRedirect ? log.message || 'Redirected page' : undefined}
                                                                                     >
                                                                                         {log.pageTitle || log.pageUrl}
                                                                                     </a>

@@ -982,7 +982,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                         <DialogHeader>
                             <DialogTitle>Add URLs</DialogTitle>
                             <DialogDescription>
-                                Enter URLs to add (one per line)
+                                Adding URLs to <span className="font-semibold text-foreground">{project.name}</span>
                             </DialogDescription>
                         </DialogHeader>
 
@@ -991,14 +991,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                 <Label htmlFor="urls">URLs</Label>
                                 <Textarea
                                     id="urls"
-                                    placeholder="https://example.com/page1&#10;https://example.com/page2"
-                                    rows={6}
+                                    placeholder="https://example.com/page1&#10;https://example.com/page2&#10;https://example.com/page3"
+                                    rows={8}
                                     value={urlInput}
                                     onChange={(e) => setUrlInput(e.target.value)}
                                 />
-                                <p className="text-xs text-muted-foreground">
-                                    {urlInput.split('\n').filter(u => u.trim()).length} URLs
-                                </p>
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                    <p className="font-medium">{urlInput.split('\n').filter(u => u.trim()).length} URLs entered</p>
+                                    <p>💡 Tip: Enter each URL on a new line. You can paste multiple URLs at once.</p>
+                                </div>
                             </div>
                         </div>
 

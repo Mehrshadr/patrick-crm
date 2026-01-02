@@ -5,6 +5,54 @@ import { prisma } from '@/lib/prisma'
 // Force dynamic because we fetch from external API
 export const dynamic = 'force-dynamic'
 
+// Helper function to extract text content from Elementor JSON data
+function extractElementorText(elementorData: string): string {
+    try {
+        const data = JSON.parse(elementorData)
+        const texts: string[] = []
+
+        function traverse(obj: any) {
+            if (!obj) return
+
+            // If it's an array, traverse each item
+            if (Array.isArray(obj)) {
+                obj.forEach(traverse)
+                return
+            }
+
+            // If it's an object, check for text content
+            if (typeof obj === 'object') {
+                // Common Elementor text fields
+                if (obj.editor) texts.push(obj.editor)
+                if (obj.title) texts.push(obj.title)
+                if (obj.description) texts.push(obj.description)
+                if (obj.text) texts.push(obj.text)
+                if (obj.heading_title) texts.push(obj.heading_title)
+                if (obj.tab_title) texts.push(obj.tab_title)
+                if (obj.alert_title) texts.push(obj.alert_title)
+                if (obj.alert_description) texts.push(obj.alert_description)
+                if (obj.caption) texts.push(obj.caption)
+                if (obj.testimonial_content) texts.push(obj.testimonial_content)
+                if (obj.testimonial_name) texts.push(obj.testimonial_name)
+                if (obj.html) texts.push(obj.html)
+
+                // Traverse nested objects
+                Object.values(obj).forEach(traverse)
+            }
+        }
+
+        traverse(data)
+
+        // Join all texts and strip HTML tags
+        return texts
+            .filter(t => typeof t === 'string' && t.trim())
+            .map(t => t.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+            .join(' ')
+    } catch (e) {
+        return ''
+    }
+}
+
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
@@ -73,10 +121,18 @@ export async function POST(req: NextRequest) {
                 const hasRedirect = page.has_redirect || false
                 const redirectUrl = page.redirect_url || null
 
-                // Get content - preference: post_content or elementor_data (stringified)
+                // Get content - parse post_content AND elementor_data
                 let content = page.post_content || ''
-                if (!content && page.elementor_data) {
-                    content = '[Elementor Content]'
+
+                // If there's elementor_data, extract text from it
+                if (page.elementor_data) {
+                    try {
+                        const elementorText = extractElementorText(page.elementor_data)
+                        // Combine both sources
+                        content = content + ' ' + elementorText
+                    } catch (e) {
+                        console.error(`[Sync] Failed to parse elementor data for page ${page.id}`)
+                    }
                 }
 
                 await prisma.projectPage.upsert({

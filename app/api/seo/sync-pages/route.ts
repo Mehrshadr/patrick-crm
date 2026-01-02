@@ -122,7 +122,18 @@ export async function POST(req: NextRequest) {
                 const redirectUrl = page.redirect_url || null
 
                 // Get content - parse post_content AND elementor_data
-                let content = page.post_content || ''
+                // Strip HTML to get only visible/linkable text (exclude alt tags, metadata, etc.)
+                let rawContent = page.post_content || ''
+
+                // Strip HTML tags but keep text content (this removes alt attributes too)
+                let content = rawContent
+                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')  // Remove scripts
+                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')    // Remove styles
+                    .replace(/<[^>]+>/g, ' ')                            // Remove HTML tags
+                    .replace(/&nbsp;/g, ' ')                             // Replace &nbsp;
+                    .replace(/&[a-z]+;/gi, ' ')                          // Remove HTML entities
+                    .replace(/\s+/g, ' ')                                // Collapse whitespace
+                    .trim()
 
                 // If there's elementor_data, extract text from it
                 if (page.elementor_data) {

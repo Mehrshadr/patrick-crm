@@ -1000,20 +1000,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                     {urlInput.split('\n').filter(u => u.trim()).length} URLs
                                 </p>
                             </div>
-
-                            <div className="space-y-2">
-                                <Label>Re-indexing Interval</Label>
-                                <Select value={intervalInput} onValueChange={setIntervalInput}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="One-time" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="NONE">One-time</SelectItem>
-                                        <SelectItem value="WEEKLY">Weekly</SelectItem>
-                                        <SelectItem value="MONTHLY">Monthly</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
                         </div>
 
                         <DialogFooter>

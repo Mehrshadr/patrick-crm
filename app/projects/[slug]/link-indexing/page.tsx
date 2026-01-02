@@ -431,7 +431,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     urls: urlLines,
-                    interval: intervalInput || null
+                    interval: intervalInput && intervalInput !== 'NONE' ? intervalInput : null
                 })
             })
 
@@ -1008,7 +1008,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                         <SelectValue placeholder="One-time" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">One-time</SelectItem>
+                                        <SelectItem value="NONE">One-time</SelectItem>
                                         <SelectItem value="WEEKLY">Weekly</SelectItem>
                                         <SelectItem value="MONTHLY">Monthly</SelectItem>
                                     </SelectContent>

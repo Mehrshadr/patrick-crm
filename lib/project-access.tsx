@@ -8,6 +8,7 @@ interface AccessCheckResult {
     hasAppAccess: boolean      // Does user have access to the specific app?
     accessLevel: string | null
     apps: string[]
+    isSuperAdmin: boolean      // Is user a super admin?
     loading: boolean
     error: string | null
 }
@@ -24,6 +25,7 @@ export function useProjectAccess(projectId: string | number | null, appType?: st
         hasAppAccess: false,
         accessLevel: null,
         apps: [],
+        isSuperAdmin: false,
         loading: true,
         error: null
     })
@@ -54,6 +56,7 @@ export function useProjectAccess(projectId: string | number | null, appType?: st
                     hasAppAccess: data.hasAppAccess ?? data.hasAccess ?? true, // backward compatibility
                     accessLevel: data.accessLevel || null,
                     apps: data.apps || [],
+                    isSuperAdmin: data.isSuperAdmin ?? false,
                     loading: false,
                     error: data.error || null
                 })
@@ -63,6 +66,7 @@ export function useProjectAccess(projectId: string | number | null, appType?: st
                     hasAppAccess: false,
                     accessLevel: null,
                     apps: [],
+                    isSuperAdmin: false,
                     loading: false,
                     error: e.message
                 })

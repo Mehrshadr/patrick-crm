@@ -1312,93 +1312,95 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                     </Table>
                 </div>
 
-                {/* Settings */}
-                <Collapsible open={showSettings} onOpenChange={setShowSettings} className="border rounded-lg">
-                    <CollapsibleTrigger asChild>
-                        <button className="w-full flex items-center justify-between p-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
-                            <span>⚙️ WordPress Settings</span>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
-                        </button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-3 pb-3">
-                        <div className="space-y-4 pt-2">
-                            {/* API Key - Recommended */}
-                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <Label className="text-xs font-medium text-green-800">🔑 API Key (Recommended)</Label>
-                                <p className="text-xs text-green-600 mb-2">Get this from WordPress → Settings → Mehrana App Plugin. No Application Password needed!</p>
-                                <Input
-                                    value={cmsApiKey}
-                                    onChange={e => setCmsApiKey(e.target.value)}
-                                    placeholder="plb_xxxxxxxxxx"
-                                    className="bg-white"
-                                />
-                            </div>
-
-                            {/* OR divider */}
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1 h-px bg-slate-200"></div>
-                                <span className="text-xs text-slate-400">OR use Application Password</span>
-                                <div className="flex-1 h-px bg-slate-200"></div>
-                            </div>
-
-                            {/* Application Password */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-xs">WordPress Username</Label>
+                {/* Settings - Only visible to Super Admins */}
+                {access.isSuperAdmin && (
+                    <Collapsible open={showSettings} onOpenChange={setShowSettings} className="border rounded-lg">
+                        <CollapsibleTrigger asChild>
+                            <button className="w-full flex items-center justify-between p-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                                <span>⚙️ WordPress Settings</span>
+                                <ChevronDown className={`h-4 w-4 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
+                            </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="px-3 pb-3">
+                            <div className="space-y-4 pt-2">
+                                {/* API Key - Recommended */}
+                                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <Label className="text-xs font-medium text-green-800">🔑 API Key (Recommended)</Label>
+                                    <p className="text-xs text-green-600 mb-2">Get this from WordPress → Settings → Mehrana App Plugin. No Application Password needed!</p>
                                     <Input
-                                        value={cmsUsername}
-                                        onChange={e => setCmsUsername(e.target.value)}
-                                        placeholder="admin"
-                                        className="mt-1"
-                                        disabled={!!cmsApiKey}
+                                        value={cmsApiKey}
+                                        onChange={e => setCmsApiKey(e.target.value)}
+                                        placeholder="plb_xxxxxxxxxx"
+                                        className="bg-white"
                                     />
                                 </div>
-                                <div>
-                                    <Label className="text-xs">Application Password</Label>
-                                    <Input
-                                        value={cmsAppPassword}
-                                        onChange={e => setCmsAppPassword(e.target.value)}
-                                        placeholder="xxxx xxxx xxxx xxxx"
-                                        type="password"
-                                        className="mt-1"
-                                        disabled={!!cmsApiKey}
-                                    />
+
+                                {/* OR divider */}
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-px bg-slate-200"></div>
+                                    <span className="text-xs text-slate-400">OR use Application Password</span>
+                                    <div className="flex-1 h-px bg-slate-200"></div>
+                                </div>
+
+                                {/* Application Password */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label className="text-xs">WordPress Username</Label>
+                                        <Input
+                                            value={cmsUsername}
+                                            onChange={e => setCmsUsername(e.target.value)}
+                                            placeholder="admin"
+                                            className="mt-1"
+                                            disabled={!!cmsApiKey}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs">Application Password</Label>
+                                        <Input
+                                            value={cmsAppPassword}
+                                            onChange={e => setCmsAppPassword(e.target.value)}
+                                            placeholder="xxxx xxxx xxxx xxxx"
+                                            type="password"
+                                            className="mt-1"
+                                            disabled={!!cmsApiKey}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <Button
-                            size="sm"
-                            className="mt-3"
-                            disabled={savingSettings}
-                            onClick={async () => {
-                                setSavingSettings(true)
-                                try {
-                                    const res = await fetch(`/api/seo/projects/${projectId}/settings`, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            cmsType: 'wordpress',
-                                            cmsUrl: project?.domain?.startsWith('http') ? project.domain : `https://${project?.domain}`,
-                                            cmsUsername: cmsApiKey ? '' : cmsUsername,
-                                            cmsAppPassword: cmsApiKey ? '' : cmsAppPassword,
-                                            cmsApiKey
+                            <Button
+                                size="sm"
+                                className="mt-3"
+                                disabled={savingSettings}
+                                onClick={async () => {
+                                    setSavingSettings(true)
+                                    try {
+                                        const res = await fetch(`/api/seo/projects/${projectId}/settings`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                cmsType: 'wordpress',
+                                                cmsUrl: project?.domain?.startsWith('http') ? project.domain : `https://${project?.domain}`,
+                                                cmsUsername: cmsApiKey ? '' : cmsUsername,
+                                                cmsAppPassword: cmsApiKey ? '' : cmsAppPassword,
+                                                cmsApiKey
+                                            })
                                         })
-                                    })
-                                    if (res.ok) {
-                                        toast.success('Settings saved')
-                                    } else {
+                                        if (res.ok) {
+                                            toast.success('Settings saved')
+                                        } else {
+                                            toast.error('Failed to save')
+                                        }
+                                    } catch (e) {
                                         toast.error('Failed to save')
                                     }
-                                } catch (e) {
-                                    toast.error('Failed to save')
-                                }
-                                setSavingSettings(false)
-                            }}
-                        >
-                            {savingSettings ? 'Saving...' : 'Save Settings'}
-                        </Button>
-                    </CollapsibleContent>
-                </Collapsible>
+                                    setSavingSettings(false)
+                                }}
+                            >
+                                {savingSettings ? 'Saving...' : 'Save Settings'}
+                            </Button>
+                        </CollapsibleContent>
+                    </Collapsible>
+                )}
             </div>
             {/* Logs Dialog */}
             <Dialog open={logsOpen} onOpenChange={setLogsOpen}>

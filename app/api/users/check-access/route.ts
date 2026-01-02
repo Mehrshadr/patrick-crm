@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
                 hasAppAccess: true,
                 hasAccess: true, // backward compatibility
                 accessLevel: 'SUPER_ADMIN',
+                isSuperAdmin: true,
                 apps: ['LINK_INDEXING', 'LINK_BUILDING', 'CONTENT_FACTORY', 'IMAGE_FACTORY', 'DASHBOARD']
             })
         }
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
                 hasAppAccess,
                 hasAccess: hasAppAccess, // backward compatibility
                 accessLevel: projectAccess.role,
+                isSuperAdmin: false,
                 apps,
                 requestedApp: appType
             })
@@ -101,6 +103,7 @@ export async function GET(request: NextRequest) {
             hasAppAccess: true,
             hasAccess: true,
             accessLevel: projectAccess.role,
+            isSuperAdmin: false,
             apps
         })
     } catch (error: any) {

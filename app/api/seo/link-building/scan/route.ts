@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+/**
+ * Extract only linkable text from HTML content.
+ * Excludes: headings (h1-h6), bold/strong, links, alt text, scripts, styles
+ * Keeps: paragraph text, spans, divs (plain text only)
+ */
+function extractLinkableText(html: string): string {
+    if (!html) return ''
+
+    return html
+        // Remove scripts and styles completely
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        // Remove headings (h1-h6) - these shouldn't be linked
+        .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
+        // Remove links (already linked text)
+        .replace(/<a[^>]*>[\s\S]*?<\/a>/gi, '')
+        // Remove bold/strong (often keywords, shouldn't be linked)
+        .replace(/<(strong|b)[^>]*>[\s\S]*?<\/(strong|b)>/gi, '')
+        // Remove images and their alt text
+        .replace(/<img[^>]*>/gi, '')
+        // Remove figure/figcaption (image captions)
+        .replace(/<figcaption[^>]*>[\s\S]*?<\/figcaption>/gi, '')
+        // Remove buttons
+        .replace(/<button[^>]*>[\s\S]*?<\/button>/gi, '')
+        // Remove all remaining HTML tags but keep text
+        .replace(/<[^>]+>/g, ' ')
+        // Clean up entities and whitespace
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&[a-z]+;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
 // POST - Scan content for link building candidates
 export async function POST(request: NextRequest) {
     try {
@@ -156,7 +189,9 @@ export async function POST(request: NextRequest) {
                 if (localPage && localPage.content) {
                     console.log(`[Scan] Scanning page ${pageId} using LOCAL CACHE`)
 
-                    const contentLower = localPage.content.toLowerCase()
+                    // Extract only linkable text (excludes headings, links, bold, alt, etc.)
+                    const linkableText = extractLinkableText(localPage.content)
+                    const contentLower = linkableText.toLowerCase()
                     let newCandidates = 0
                     const hasRedirect = localPage.hasRedirect
                     const redirectUrl = localPage.redirectUrl

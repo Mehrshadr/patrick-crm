@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+/**
+ * Extract only linkable text from HTML content.
+ * Excludes: headings (h1-h6), bold/strong, links, alt text, scripts, styles
+ * Keeps: paragraph text, spans, divs (plain text only)
+ */
+function extractLinkableText(html: string): string {
+    if (!html) return ''
+
+    return html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
+        .replace(/<a[^>]*>[\s\S]*?<\/a>/gi, '')
+        .replace(/<(strong|b)[^>]*>[\s\S]*?<\/(strong|b)>/gi, '')
+        .replace(/<img[^>]*>/gi, '')
+        .replace(/<figcaption[^>]*>[\s\S]*?<\/figcaption>/gi, '')
+        .replace(/<button[^>]*>[\s\S]*?<\/button>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&[a-z]+;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
 // GET - Debug cached page content
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
@@ -26,7 +50,9 @@ export async function GET(req: NextRequest) {
         }
 
         const content = page.content || ''
-        const contentLower = content.toLowerCase()
+        // Use linkable text for keyword checking (same logic as scan)
+        const linkableText = extractLinkableText(content)
+        const linkableLower = linkableText.toLowerCase()
         const keywordLower = keyword?.toLowerCase() || ''
 
         return NextResponse.json({
@@ -40,12 +66,14 @@ export async function GET(req: NextRequest) {
                 redirectUrl: page.redirectUrl,
                 lastSyncedAt: page.lastSyncedAt,
                 contentLength: content.length,
+                linkableTextLength: linkableText.length,
                 contentPreview: content.substring(0, 500) + (content.length > 500 ? '...' : ''),
+                linkableTextPreview: linkableText.substring(0, 500) + (linkableText.length > 500 ? '...' : ''),
             },
             keywordCheck: keyword ? {
                 keyword: keyword,
-                found: contentLower.includes(keywordLower),
-                occurrences: (contentLower.match(new RegExp(keywordLower, 'g')) || []).length
+                found: linkableLower.includes(keywordLower),
+                occurrences: (linkableLower.match(new RegExp(keywordLower, 'g')) || []).length
             } : null
         })
     }
@@ -59,13 +87,16 @@ export async function GET(req: NextRequest) {
 
         const keywordLower = keyword.toLowerCase()
         const matchingPages = allPages
-            .filter(p => p.content?.toLowerCase().includes(keywordLower))
+            .filter(p => {
+                const linkableText = extractLinkableText(p.content || '')
+                return linkableText.toLowerCase().includes(keywordLower)
+            })
             .map(p => ({
                 id: p.id,
                 cmsId: p.cmsId,
                 url: p.url,
                 title: p.title,
-                contentPreview: p.content?.substring(0, 200) || ''
+                linkablePreview: extractLinkableText(p.content || '').substring(0, 200)
             }))
 
         return NextResponse.json({

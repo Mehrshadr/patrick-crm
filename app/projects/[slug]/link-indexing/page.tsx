@@ -991,7 +991,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ slug: 
                                 <Label htmlFor="urls">URLs</Label>
                                 <Textarea
                                     id="urls"
-                                    placeholder="https://example.com/page1&#10;https://example.com/page2&#10;https://example.com/page3"
+                                    placeholder={`https://example.com/page1\nhttps://example.com/page2\nhttps://example.com/page3`}
                                     rows={8}
                                     value={urlInput}
                                     onChange={(e) => setUrlInput(e.target.value)}

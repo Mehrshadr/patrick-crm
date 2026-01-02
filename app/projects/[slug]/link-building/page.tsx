@@ -715,6 +715,28 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
         }
     }
 
+    // Clear all logs for this project
+    async function handleClearLogs() {
+        if (!confirm('This will delete ALL link building logs for this project. Are you sure?')) return
+
+        try {
+            const res = await fetch(`/api/seo/link-building/clear?projectId=${projectId}`, {
+                method: 'DELETE'
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                toast.success(`Cleared ${data.deleted} logs`)
+                fetchData()
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Failed to clear logs')
+            }
+        } catch (e) {
+            toast.error('Failed to clear logs')
+        }
+    }
+
     if (loading || access.loading) {
         return <div className="p-6 text-center text-slate-500">Loading...</div>
     }
@@ -891,6 +913,15 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                             title="View Plugin Logs"
                         >
                             <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClearLogs}
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50"
+                            title="Clear ALL logs for this project"
+                        >
+                            <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>

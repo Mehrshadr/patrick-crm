@@ -6,6 +6,7 @@ import Link from "next/link"
 import { checkProjectAppAccess } from "@/lib/project-access-server"
 import { Button } from "@/components/ui/button"
 import { MediaScanner } from "@/components/images/media-scanner"
+import { ImageCompressor } from "@/components/images/image-compressor"
 
 // Force dynamic since we use headers/cookies
 export const dynamic = 'force-dynamic'

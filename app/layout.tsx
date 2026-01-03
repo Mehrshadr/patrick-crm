@@ -40,7 +40,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${dmSans.className} ${vazirmatn.className} ${dmSans.variable} ${dmMono.variable} ${vazirmatn.variable} font-sans antialiased`}
+        className={`${dmSans.variable} ${dmMono.variable} ${vazirmatn.variable} antialiased`}
+        style={{ fontFamily: 'var(--font-dm-sans), var(--font-vazirmatn), system-ui, sans-serif' }}
       >
         <Providers>
           {children}

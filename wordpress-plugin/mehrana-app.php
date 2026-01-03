@@ -2244,7 +2244,7 @@ class Mehrana_App_Plugin
         }
 
         // Get plugin data
-        $plugin_slug = plugin_basename(__FILE__);
+        $plugin_slug = 'mehrana-app/mehrana-app.php';
 
         // Check GitHub API for latest release
         $github_response = $this->get_github_release_info();

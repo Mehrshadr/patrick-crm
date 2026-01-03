@@ -1,11 +1,14 @@
 import { notFound, redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { ImageCompressor } from "@/components/images/image-compressor"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageIcon, ScanSearch, Lock } from "lucide-react"
 import Link from "next/link"
 import { checkProjectAppAccess } from "@/lib/project-access-server"
 import { Button } from "@/components/ui/button"
+import { MediaScanner } from "@/components/images/media-scanner"
+
+// Force dynamic since we use headers/cookies
+export const dynamic = 'force-dynamic'
 
 interface PageProps {
     params: Promise<{ slug: string }>
@@ -68,27 +71,25 @@ export default async function ImageFactoryPage({ params }: PageProps) {
             </div>
 
             <div className="flex-1 overflow-auto p-4">
-                <Tabs defaultValue="compress" className="space-y-6">
+                <Tabs defaultValue="scan" className="space-y-6">
                     <TabsList>
+                        <TabsTrigger value="scan" className="gap-2">
+                            <ScanSearch className="h-4 w-4" />
+                            Scan Website
+                        </TabsTrigger>
                         <TabsTrigger value="compress" className="gap-2">
                             <ImageIcon className="h-4 w-4" />
                             Manual Compress
                         </TabsTrigger>
-                        <TabsTrigger value="scan" className="gap-2" disabled>
-                            <ScanSearch className="h-4 w-4" />
-                            Scan Project
-                            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">Soon</span>
-                        </TabsTrigger>
                     </TabsList>
+
 
                     <TabsContent value="compress">
                         <ImageCompressor />
                     </TabsContent>
 
                     <TabsContent value="scan">
-                        <div className="text-center py-12 text-slate-500">
-                            This feature will be added in the next phase
-                        </div>
+                        <MediaScanner projectId={project.id} />
                     </TabsContent>
                 </Tabs>
             </div>

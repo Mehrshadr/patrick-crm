@@ -59,6 +59,13 @@ class Mehrana_App_Plugin
             'permission_callback' => [$this, 'check_permission'],
         ]);
 
+        // Get media library items
+        register_rest_route($this->namespace, '/media', [
+            'methods' => 'GET',
+            'callback' => [$this, 'get_media'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
+
         // Update page with links
         register_rest_route($this->namespace, '/pages/(?P<id>\d+)/apply-links', [
             'methods' => 'POST',
@@ -530,6 +537,133 @@ class Mehrana_App_Plugin
         }
 
         return $result;
+    }
+
+    /**
+     * Get media library items
+     */
+    public function get_media($request)
+    {
+        $page = isset($request['page']) ? intval($request['page']) : 1;
+        $per_page = isset($request['per_page']) ? intval($request['per_page']) : 100;
+        $search = isset($request['search']) ? sanitize_text_field($request['search']) : '';
+
+        $args = [
+            'post_type' => 'attachment',
+            'post_mime_type' => 'image',
+            'post_status' => 'inherit',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        ];
+
+        if (!empty($search)) {
+            $args['s'] = $search;
+        }
+
+        $query = new WP_Query($args);
+        $result = [];
+
+        foreach ($query->posts as $post) {
+            $meta = wp_get_attachment_metadata($post->ID);
+            $url = wp_get_attachment_url($post->ID);
+            $file = get_attached_file($post->ID);
+            $alt = get_post_meta($post->ID, '_wp_attachment_image_alt', true);
+            
+            // Get parent info
+            $parent_id = $post->post_parent;
+            $parent_title = '';
+            $parent_type = '';
+            $parent_url = '';
+            
+            if ($parent_id > 0) {
+                $parent = get_post($parent_id);
+                if ($parent) {
+                    $parent_title = $parent->post_title;
+                    $parent_type = $parent->post_type;
+                    $parent_url = get_permalink($parent_id);
+                }
+            }
+
+            $result[] = [
+                'id' => $post->ID,
+                'title' => $post->post_title,
+                'filename' => basename($file),
+                'alt' => $alt,
+                'url' => $url,
+                'width' => isset($meta['width']) ? $meta['width'] : 0,
+                'height' => isset($meta['height']) ? $meta['height'] : 0,
+                'filesize' => file_exists($file) ? filesize($file) : 0,
+                'mime_type' => $post->post_mime_type,
+                'date' => $post->post_date,
+                'sizes' => isset($meta['sizes']) ? $meta['sizes'] : [],
+                'parent_id' => $parent_id,
+                'parent_title' => $parent_title,
+                'parent_type' => $parent_type,
+                'parent_url' => $parent_url
+            ];
+        }
+
+        return rest_ensure_response([
+            'media' => $result,
+            'total' => $query->found_posts,
+            'pages' => $query->max_num_pages
+        ]);
+    }
+
+    /**
+     * Get media library items
+     */
+    public function get_media($request)
+    {
+        $page = isset($request['page']) ? intval($request['page']) : 1;
+        $per_page = isset($request['per_page']) ? intval($request['per_page']) : 100;
+        $search = isset($request['search']) ? sanitize_text_field($request['search']) : '';
+
+        $args = [
+            'post_type' => 'attachment',
+            'post_mime_type' => 'image',
+            'post_status' => 'inherit',
+            'posts_per_page' => $per_page,
+            'paged' => $page,
+            'orderby' => 'date',
+            'order' => 'DESC',
+        ];
+
+        if (!empty($search)) {
+            $args['s'] = $search;
+        }
+
+        $query = new WP_Query($args);
+        $result = [];
+
+        foreach ($query->posts as $post) {
+            $meta = wp_get_attachment_metadata($post->ID);
+            $url = wp_get_attachment_url($post->ID);
+            $file = get_attached_file($post->ID);
+            $alt = get_post_meta($post->ID, '_wp_attachment_image_alt', true);
+
+            $result[] = [
+                'id' => $post->ID,
+                'title' => $post->post_title,
+                'filename' => basename($file),
+                'alt' => $alt,
+                'url' => $url,
+                'width' => isset($meta['width']) ? $meta['width'] : 0,
+                'height' => isset($meta['height']) ? $meta['height'] : 0,
+                'filesize' => file_exists($file) ? filesize($file) : 0,
+                'mime_type' => $post->post_mime_type,
+                'date' => $post->post_date,
+                'sizes' => isset($meta['sizes']) ? $meta['sizes'] : []
+            ];
+        }
+
+        return rest_ensure_response([
+            'media' => $result,
+            'total' => $query->found_posts,
+            'pages' => $query->max_num_pages
+        ]);
     }
 
     /**

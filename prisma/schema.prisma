@@ -210,6 +210,7 @@ model IndexingProject {
   urls                 IndexingUrl[]
   jarvisConnections    JarvisConnection[]
   jarvisFlows          JarvisFlow[]
+  media                ProjectMedia[]
   linkBuildingKeywords LinkBuildingKeyword[]
   linkBuildingLogs     LinkBuildingLog[]
   assignedUsers        ProjectAccess[]
@@ -483,4 +484,39 @@ model ProjectPage {
 
   @@unique([projectId, cmsId]) // Prevent duplicate pages per project (by CMS ID)
   @@index([projectId, url])
+}
+
+model ProjectMedia {
+  id             Int             @id @default(autoincrement())
+  projectId      Int
+  wpId           Int             // WordPress Attachment ID
+  url            String
+  filename       String
+  alt            String?
+  width          Int
+  height         Int
+  filesize       Int
+  mimeType       String
+  parentPostId   Int?            // For categorization (e.g., attached to Product)
+  parentPostTitle String?
+  parentPostUrl  String?
+  parentPostType String?         // product, post, page
+  lastSyncedAt   DateTime        @default(now())
+  
+  project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changeLogs     MediaChangeLog[]
+
+  @@unique([projectId, wpId])
+  @@index([projectId, parentPostType])
+}
+
+model MediaChangeLog {
+  id          Int          @id @default(autoincrement())
+  mediaId     Int
+  fieldName   String       // e.g., "alt", "filesize"
+  oldValue    String?
+  newValue    String?
+  changedAt   DateTime     @default(now())
+  
+  media       ProjectMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 }

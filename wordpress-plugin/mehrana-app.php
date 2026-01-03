@@ -2182,9 +2182,30 @@ class Mehrana_App_Plugin
                                 delete_site_transient('update_plugins');
 
                                 // Force check
+                                $debug_info = $this->get_github_release_info(true); // Call with debug flag
                                 wp_update_plugins();
 
-                                echo '<div class="map-success-msg">✅ Update check complete! If a new version is available, you\'ll see it on the <a href="' . esc_url(admin_url('plugins.php')) . '">Plugins page</a>.</div>';
+                                echo '<div class="map-success-msg" style="margin-top:10px; border-left:4px solid #46b450; padding:10px; background:#fff;">';
+                                echo '<strong>✅ Diagnostics Run:</strong><br>';
+                                if (isset($debug_info['error'])) {
+                                    echo '<span style="color:#d63638">❌ API Error: ' . esc_html($debug_info['error']) . '</span><br>';
+                                    if (isset($debug_info['response_code']))
+                                        echo 'Response Code: ' . $debug_info['response_code'] . '<br>';
+                                    if (isset($debug_info['body']))
+                                        echo 'Response Body (excerpt): ' . esc_html(substr($debug_info['body'], 0, 200)) . '...<br>';
+                                } elseif (isset($debug_info['tag_name'])) {
+                                    echo '<span style="color:#46b450">✅ Found Tag: ' . esc_html($debug_info['tag_name']) . '</span><br>';
+                                    echo 'Latest Version: ' . ltrim($debug_info['tag_name'], 'v') . '<br>';
+                                    echo 'Your Version: ' . $this->version . '<br>';
+                                    if (version_compare($this->version, ltrim($debug_info['tag_name'], 'v'), '<')) {
+                                        echo '<strong>🟢 Update Available!</strong> Refresh this page to see it.';
+                                    } else {
+                                        echo '<strong>⚪ You are on the latest version.</strong>';
+                                    }
+                                } else {
+                                    echo '❓ Unknown Response format.';
+                                }
+                                echo '</div>';
                             }
                             ?>
                             <p class="description">Click to force check GitHub for plugin updates (bypasses 12-hour cache)</p>
@@ -2310,12 +2331,15 @@ class Mehrana_App_Plugin
     /**
      * Get latest release info from GitHub API
      */
-    private function get_github_release_info()
+    /**
+     * Get latest release info from GitHub API
+     */
+    private function get_github_release_info($debug = false)
     {
         $transient_key = 'mehrana_app_github_release';
         $cached = get_transient($transient_key);
 
-        if ($cached !== false) {
+        if ($cached !== false && !$debug) {
             return $cached;
         }
 
@@ -2329,8 +2353,17 @@ class Mehrana_App_Plugin
             'timeout' => 10
         ]);
 
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-            return false;
+        if (is_wp_error($response)) {
+            return $debug ? ['error' => $response->get_error_message()] : false;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        if ($code !== 200) {
+            return $debug ? [
+                'error' => "HTTP $code",
+                'response_code' => $code,
+                'body' => wp_remote_retrieve_body($response)
+            ] : false;
         }
 
         $data = json_decode(wp_remote_retrieve_body($response), true);

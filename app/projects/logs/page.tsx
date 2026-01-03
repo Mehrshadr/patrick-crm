@@ -4,23 +4,25 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useUserAccess } from '@/lib/user-access'
+import { format } from 'date-fns'
 import {
     Activity,
     Send,
-    Search,
     Trash2,
-    Upload,
-    Plus,
     User,
-    Calendar,
+    Calendar as CalendarIcon,
     Filter,
     FileText,
     Link as LinkIcon,
     Image as ImageIcon,
-    LayoutGrid
+    ChevronLeft,
+    ChevronRight,
+    X
 } from 'lucide-react'
 
 interface LogEntry {
@@ -57,16 +59,38 @@ export default function ProjectLogsPage() {
     const isSuperAdmin = role === 'SUPER_ADMIN'
     const [logs, setLogs] = useState<LogEntry[]>([])
     const [projects, setProjects] = useState<any[]>([])
+    const [users, setUsers] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
+
+    // Filters
     const [selectedProject, setSelectedProject] = useState<string>('all')
     const [selectedCategory, setSelectedCategory] = useState<string>('all')
+    const [selectedUser, setSelectedUser] = useState<string>('all')
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+
+    // Pagination
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [total, setTotal] = useState(0)
 
     useEffect(() => {
         if (!accessLoading && isSuperAdmin) {
             fetchProjects()
+        }
+    }, [accessLoading, isSuperAdmin])
+
+    useEffect(() => {
+        if (!accessLoading && isSuperAdmin) {
+            setPage(1) // Reset to page 1 when filters change
             fetchLogs()
         }
-    }, [accessLoading, isSuperAdmin, selectedProject, selectedCategory])
+    }, [accessLoading, isSuperAdmin, selectedProject, selectedCategory, selectedUser, selectedDate])
+
+    useEffect(() => {
+        if (!accessLoading && isSuperAdmin) {
+            fetchLogs()
+        }
+    }, [page])
 
     async function fetchProjects() {
         try {
@@ -86,6 +110,10 @@ export default function ProjectLogsPage() {
             const params = new URLSearchParams()
             if (selectedProject !== 'all') params.append('projectId', selectedProject)
             if (selectedCategory !== 'all') params.append('category', selectedCategory)
+            if (selectedUser !== 'all') params.append('userName', selectedUser)
+            if (selectedDate) params.append('date', format(selectedDate, 'yyyy-MM-dd'))
+            params.append('page', page.toString())
+            params.append('limit', '100')
             // Exclude Patrick CRM categories from SEO Activity Logs
             params.append('exclude', 'AUTOMATION,LEAD,EMAIL,SMS,SYSTEM,COMMUNICATION,MEETING,CALENDAR')
 
@@ -93,6 +121,9 @@ export default function ProjectLogsPage() {
             if (res.ok) {
                 const data = await res.json()
                 setLogs(data.logs || [])
+                setTotal(data.total || 0)
+                setTotalPages(data.totalPages || 1)
+                setUsers(data.users || [])
             }
         } catch (error) {
             console.error('Failed to fetch logs:', error)
@@ -121,6 +152,15 @@ export default function ProjectLogsPage() {
         })
     }
 
+    function clearFilters() {
+        setSelectedProject('all')
+        setSelectedCategory('all')
+        setSelectedUser('all')
+        setSelectedDate(undefined)
+    }
+
+    const hasActiveFilters = selectedProject !== 'all' || selectedCategory !== 'all' || selectedUser !== 'all' || selectedDate
+
     if (accessLoading) return <div className="p-6">Loading access...</div>
 
     if (!isSuperAdmin) {
@@ -148,10 +188,12 @@ export default function ProjectLogsPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <Filter className="h-4 w-4 text-muted-foreground" />
+
+                    {/* Project Filter */}
                     <Select value={selectedProject} onValueChange={setSelectedProject}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[160px]">
                             <SelectValue placeholder="All Projects" />
                         </SelectTrigger>
                         <SelectContent>
@@ -162,25 +204,68 @@ export default function ProjectLogsPage() {
                         </SelectContent>
                     </Select>
 
+                    {/* Category/App Filter */}
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-[160px]">
-                            <SelectValue placeholder="All Categories" />
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="All Apps" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Categories</SelectItem>
+                            <SelectItem value="all">All Apps</SelectItem>
                             <SelectItem value="CONTENT_FACTORY">Content Factory</SelectItem>
                             <SelectItem value="LINK_INDEXING">Link Indexing</SelectItem>
                             <SelectItem value="LINK_BUILDING">Link Building</SelectItem>
                             <SelectItem value="IMAGE_FACTORY">Image Factory</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    {/* User Filter */}
+                    <Select value={selectedUser} onValueChange={setSelectedUser}>
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue placeholder="All Users" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            {users.map(user => (
+                                <SelectItem key={user} value={user}>{user}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    {/* Date Filter */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-[140px] justify-start text-left font-normal">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDate ? format(selectedDate, 'MMM d') : 'Pick date'}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={setSelectedDate}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+
+                    {/* Clear Filters */}
+                    {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters}>
+                            <X className="h-4 w-4 mr-1" />
+                            Clear
+                        </Button>
+                    )}
                 </div>
             </div>
 
             {/* Logs List */}
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-lg">Recent Activity</CardTitle>
+                    <span className="text-sm text-muted-foreground">
+                        {total} total logs
+                    </span>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
@@ -194,54 +279,79 @@ export default function ProjectLogsPage() {
                             <p>No activity logs found</p>
                         </div>
                     ) : (
-                        <ScrollArea className="h-[600px]">
-                            <div className="space-y-3">
-                                {logs.map((log) => {
-                                    const Icon = categoryIcons[log.category] || Activity
-                                    const colorClass = categoryColors[log.category] || 'bg-gray-100 text-gray-800'
+                        <div className="space-y-3">
+                            {logs.map((log) => {
+                                const Icon = categoryIcons[log.category] || Activity
+                                const colorClass = categoryColors[log.category] || 'bg-gray-100 text-gray-800'
 
-                                    return (
-                                        <div
-                                            key={log.id}
-                                            className="flex items-start gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                                        >
-                                            <div className={`p-2 rounded ${colorClass}`}>
-                                                <Icon className="h-4 w-4" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    {log.project ? (
-                                                        <Badge variant="outline" className="text-xs">
-                                                            {log.project.name}
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge variant="secondary" className="text-xs">Global</Badge>
-                                                    )}
-                                                    <Badge variant="secondary" className="text-[10px] font-normal">
-                                                        {log.category.replace('_', ' ')}
+                                return (
+                                    <div
+                                        key={log.id}
+                                        className="flex items-start gap-4 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                                    >
+                                        <div className={`p-2 rounded ${colorClass}`}>
+                                            <Icon className="h-4 w-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                {log.project ? (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {log.project.name}
                                                     </Badge>
-                                                    <span className="text-xs text-muted-foreground ml-auto">
-                                                        {log.action}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm font-medium">{log.description}</p>
+                                                ) : (
+                                                    <Badge variant="secondary" className="text-xs">Global</Badge>
+                                                )}
+                                                <Badge variant="secondary" className="text-[10px] font-normal">
+                                                    {log.category.replace('_', ' ')}
+                                                </Badge>
+                                                <span className="text-xs text-muted-foreground ml-auto">
+                                                    {log.action}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-medium">{log.description}</p>
 
-                                                <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                                    <span className="flex items-center gap-1">
-                                                        <User className="h-3 w-3" />
-                                                        {log.userName || log.userId || 'System'}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Calendar className="h-3 w-3" />
-                                                        {formatDate(log.createdAt)}
-                                                    </span>
-                                                </div>
+                                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                                                <span className="flex items-center gap-1">
+                                                    <User className="h-3 w-3" />
+                                                    {log.userName || log.userId || 'System'}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <CalendarIcon className="h-3 w-3" />
+                                                    {formatDate(log.createdAt)}
+                                                </span>
                                             </div>
                                         </div>
-                                    )
-                                })}
-                            </div>
-                        </ScrollArea>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                            >
+                                <ChevronLeft className="h-4 w-4 mr-1" />
+                                Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground px-4">
+                                Page {page} of {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                        </div>
                     )}
                 </CardContent>
             </Card>

@@ -40,7 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${dmSans.variable} ${dmMono.variable} ${vazirmatn.variable} font-sans antialiased`}
+        className={`${dmSans.className} ${vazirmatn.className} ${dmSans.variable} ${dmMono.variable} ${vazirmatn.variable} font-sans antialiased`}
       >
         <Providers>
           {children}

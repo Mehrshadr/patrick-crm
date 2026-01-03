@@ -3,13 +3,15 @@ import { prisma } from "@/lib/prisma"
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_ID
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET
-const REDIRECT_URI = process.env.NEXTAUTH_URL + "/api/auth/google-search-console/callback"
 
 // GET /api/auth/google-search-console/callback - Handle OAuth callback
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const error = searchParams.get("error")
+
+    // Build redirect URI dynamically from request origin
+    const redirectUri = `${request.nextUrl.origin}/api/auth/google-search-console/callback`
 
     if (error) {
         console.error("OAuth error:", error)
@@ -33,10 +35,11 @@ export async function GET(request: NextRequest) {
                 code,
                 client_id: GOOGLE_CLIENT_ID!,
                 client_secret: GOOGLE_CLIENT_SECRET!,
-                redirect_uri: REDIRECT_URI,
+                redirect_uri: redirectUri,
                 grant_type: "authorization_code"
             })
         })
+
 
         const tokens = await tokenResponse.json()
 

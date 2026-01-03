@@ -17,8 +17,9 @@ export async function GET(request: NextRequest) {
         )
     }
 
-    // Build redirect URI dynamically from request origin
-    const redirectUri = `${request.nextUrl.origin}/api/auth/google-search-console/callback`
+    // Use NEXTAUTH_URL if set, otherwise fallback to request origin
+    const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin
+    const redirectUri = `${baseUrl}/api/auth/google-search-console/callback`
 
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth")
     authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID)

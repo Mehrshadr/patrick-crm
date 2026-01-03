@@ -10,8 +10,9 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get("code")
     const error = searchParams.get("error")
 
-    // Build redirect URI dynamically from request origin
-    const redirectUri = `${request.nextUrl.origin}/api/auth/google-search-console/callback`
+    // Use NEXTAUTH_URL if set, otherwise fallback to request origin
+    const baseUrl = process.env.NEXTAUTH_URL || request.nextUrl.origin
+    const redirectUri = `${baseUrl}/api/auth/google-search-console/callback`
 
     if (error) {
         console.error("OAuth error:", error)

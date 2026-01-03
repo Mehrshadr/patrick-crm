@@ -84,14 +84,18 @@ export async function POST(req: NextRequest) {
                     if (existing.filesize !== item.filesize) changes.push({ field: 'filesize', old: String(existing.filesize), new: String(item.filesize) })
 
                     if (changes.length > 0) {
-                        await prisma.mediaChangeLog.createMany({
-                            data: changes.map(c => ({
-                                mediaId: existing.id,
-                                fieldName: c.field,
-                                oldValue: c.old || '',
-                                newValue: c.new || ''
-                            }))
-                        })
+                        if (changes.length > 0) {
+                            await Promise.all(changes.map(c =>
+                                prisma.mediaChangeLog.create({
+                                    data: {
+                                        mediaId: existing.id,
+                                        fieldName: c.field,
+                                        oldValue: c.old || '',
+                                        newValue: c.new || ''
+                                    }
+                                })
+                            ))
+                        }
                     }
                 } else {
                     added++

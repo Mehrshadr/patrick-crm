@@ -36,7 +36,7 @@ export function SettingsTab() {
     async function checkAdminStatus() {
         try {
             const res = await fetch('/api/users/me').then(r => r.json())
-            setIsAdmin(res.user?.role === 'ADMIN')
+            setIsAdmin(res.user?.role === 'SUPER_ADMIN')
         } catch (e) {
             setIsAdmin(false)
         }

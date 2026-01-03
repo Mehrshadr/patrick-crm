@@ -20,9 +20,9 @@ const ENCRYPTED_KEYS: IntegrationKey[] = [
 ]
 
 /**
- * Check if user is admin
+ * Check if user is super admin
  */
-async function isAdmin(session: any): Promise<boolean> {
+async function isSuperAdmin(session: any): Promise<boolean> {
     if (!session?.user?.email) return false
 
     const user = await prisma.user.findUnique({
@@ -30,7 +30,7 @@ async function isAdmin(session: any): Promise<boolean> {
         select: { role: true }
     })
 
-    return user?.role === 'ADMIN'
+    return user?.role === 'SUPER_ADMIN'
 }
 
 /**
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const admin = await isAdmin(session)
+        const admin = await isSuperAdmin(session)
 
         if (!admin) {
             return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
@@ -114,7 +114,7 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const admin = await isAdmin(session)
+        const admin = await isSuperAdmin(session)
 
         if (!admin) {
             return NextResponse.json({ error: 'Admin access required' }, { status: 403 })

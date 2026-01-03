@@ -2,11 +2,11 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 2.2.0
+ * Version: 3.0.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
- * GitHub Plugin URI: Mehrshadr/patrick-crm
+ * GitHub Plugin URI: Mehrshadr/mehrana-wordpress-plugin
  * GitHub Branch: main
  */
 
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '2.2.0';
+    private $version = '3.0.0';
     private $namespace = 'mehrana-app/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;

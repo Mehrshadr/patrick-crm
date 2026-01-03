@@ -8,9 +8,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { toast } from 'sonner'
-import { Save, Mail, Eye, EyeOff, Users, Search, Brain, FileText, Sparkles, ChevronDown, Settings } from 'lucide-react'
+import { Save, Mail, Eye, EyeOff, Users, Search, Brain, FileText, Sparkles, ChevronDown, Settings, Plug } from 'lucide-react'
 import { UsersTab } from './users-tab'
 import { GoogleConnectionCard } from '@/components/seo/google-connection-card'
+import { IntegrationsSettings } from './integrations-settings'
 
 export function SettingsTab() {
     const [loading, setLoading] = useState(false)
@@ -24,11 +25,22 @@ export function SettingsTab() {
     const [aiRules, setAiRules] = useState('')
     const [contentGenLoading, setContentGenLoading] = useState(false)
     const [contentGenOpen, setContentGenOpen] = useState(true)
+    const [isAdmin, setIsAdmin] = useState(false)
 
     useEffect(() => {
         loadSettings()
         loadContentGenSettings()
+        checkAdminStatus()
     }, [])
+
+    async function checkAdminStatus() {
+        try {
+            const res = await fetch('/api/users/me').then(r => r.json())
+            setIsAdmin(res.user?.role === 'ADMIN')
+        } catch (e) {
+            setIsAdmin(false)
+        }
+    }
 
     async function loadSettings() {
         try {
@@ -118,6 +130,12 @@ export function SettingsTab() {
                             <Users className="h-4 w-4" />
                             Users
                         </TabsTrigger>
+                        {isAdmin && (
+                            <TabsTrigger value="integrations" className="flex items-center gap-1.5 text-sm px-3 py-2">
+                                <Plug className="h-4 w-4" />
+                                Integrations
+                            </TabsTrigger>
+                        )}
                     </TabsList>
 
                     {/* Patrick CRM Settings */}
@@ -280,6 +298,15 @@ Your Title | <a href="https://mehrana.agency">Mehrana Agency</a></p>`}
                             <UsersTab />
                         </div>
                     </TabsContent>
+
+                    {/* Integrations Tab - Admin Only */}
+                    {isAdmin && (
+                        <TabsContent value="integrations" className="mt-4">
+                            <div className="max-w-2xl">
+                                <IntegrationsSettings />
+                            </div>
+                        </TabsContent>
+                    )}
                 </Tabs>
             </div>
         </div>

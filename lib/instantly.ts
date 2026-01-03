@@ -4,7 +4,14 @@
  * Used to add leads to Instantly campaigns via External Action workflow steps.
  */
 
+import { prisma } from '@/lib/prisma'
+import { decrypt, isEncryptionConfigured } from '@/lib/encryption'
+
 const INSTANTLY_API_BASE = 'https://api.instantly.ai/api/v2'
+
+// Cache for API key
+let cachedApiKey: { value: string | null; cacheTime: number } | null = null
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 interface InstantlyLead {
     email: string
@@ -31,10 +38,47 @@ interface ListCampaignsResponse {
 }
 
 /**
- * Get API key from environment or AppSettings
+ * Get API key from database or environment variable
  */
-function getApiKey(): string | null {
-    return process.env.INSTANTLY_API_KEY || null
+async function getApiKey(): Promise<string | null> {
+    // Check cache
+    if (cachedApiKey && Date.now() - cachedApiKey.cacheTime < CACHE_TTL) {
+        return cachedApiKey.value
+    }
+
+    try {
+        const setting = await prisma.appSettings.findUnique({
+            where: { key: 'instantly_api_key' }
+        })
+
+        if (setting?.value) {
+            let value = setting.value
+            // Decrypt if encrypted
+            if ((setting as any).isEncrypted && isEncryptionConfigured()) {
+                try {
+                    value = decrypt(setting.value)
+                } catch (e) {
+                    console.error('Failed to decrypt Instantly API key:', e)
+                }
+            }
+            cachedApiKey = { value, cacheTime: Date.now() }
+            return value
+        }
+    } catch (e) {
+        // Database error - fall back to env
+    }
+
+    // Fallback to environment variable
+    const envKey = process.env.INSTANTLY_API_KEY || null
+    cachedApiKey = { value: envKey, cacheTime: Date.now() }
+    return envKey
+}
+
+/**
+ * Clear API key cache (call after updating settings)
+ */
+export function clearInstantlyCache() {
+    cachedApiKey = null
 }
 
 /**
@@ -44,7 +88,7 @@ export async function addLeadToCampaign(
     campaignId: string,
     lead: InstantlyLead
 ): Promise<AddLeadResponse> {
-    const apiKey = getApiKey()
+    const apiKey = await getApiKey()
 
     if (!apiKey) {
         return { success: false, error: 'Instantly API key not configured' }
@@ -91,7 +135,7 @@ export async function addLeadToCampaign(
  * List all campaigns from Instantly
  */
 export async function listCampaigns(): Promise<ListCampaignsResponse> {
-    const apiKey = getApiKey()
+    const apiKey = await getApiKey()
 
     if (!apiKey) {
         return { success: false, error: 'Instantly API key not configured' }

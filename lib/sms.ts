@@ -1,16 +1,75 @@
 import twilio from 'twilio'
+import { prisma } from '@/lib/prisma'
+import { decrypt, isEncryptionConfigured } from '@/lib/encryption'
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID
-const authToken = process.env.TWILIO_AUTH_TOKEN
-const fromNumber = process.env.TWILIO_PHONE_NUMBER
+// Cache for credentials
+let cachedCredentials: {
+    accountSid: string | null
+    authToken: string | null
+    phoneNumber: string | null
+    cacheTime: number
+} | null = null
 
-let client: twilio.Twilio | null = null
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-function getClient() {
-    if (!client && accountSid && authToken) {
-        client = twilio(accountSid, authToken)
+/**
+ * Get a credential value from database or env var
+ */
+async function getCredential(dbKey: string, envKey: string): Promise<string | null> {
+    try {
+        const setting = await prisma.appSettings.findUnique({
+            where: { key: dbKey }
+        })
+
+        if (setting?.value) {
+            // Decrypt if encrypted
+            if ((setting as any).isEncrypted && isEncryptionConfigured()) {
+                try {
+                    return decrypt(setting.value)
+                } catch (e) {
+                    console.error(`Failed to decrypt ${dbKey}:`, e)
+                }
+            }
+            return setting.value
+        }
+    } catch (e) {
+        // Database error - fall back to env
     }
-    return client
+
+    // Fallback to environment variable
+    return process.env[envKey] || null
+}
+
+/**
+ * Get all Twilio credentials (with caching)
+ */
+async function getTwilioCredentials() {
+    // Check cache
+    if (cachedCredentials && Date.now() - cachedCredentials.cacheTime < CACHE_TTL) {
+        return cachedCredentials
+    }
+
+    const [accountSid, authToken, phoneNumber] = await Promise.all([
+        getCredential('twilio_account_sid', 'TWILIO_ACCOUNT_SID'),
+        getCredential('twilio_auth_token', 'TWILIO_AUTH_TOKEN'),
+        getCredential('twilio_phone_number', 'TWILIO_PHONE_NUMBER')
+    ])
+
+    cachedCredentials = {
+        accountSid,
+        authToken,
+        phoneNumber,
+        cacheTime: Date.now()
+    }
+
+    return cachedCredentials
+}
+
+/**
+ * Clear credentials cache (call after updating settings)
+ */
+export function clearTwilioCache() {
+    cachedCredentials = null
 }
 
 interface SendSmsResult {
@@ -20,27 +79,29 @@ interface SendSmsResult {
 }
 
 export async function sendSms(to: string, body: string): Promise<SendSmsResult> {
-    const twilioClient = getClient()
+    const creds = await getTwilioCredentials()
 
-    if (!twilioClient) {
-        console.error('Twilio client not configured - check TWILIO_* env vars')
+    if (!creds.accountSid || !creds.authToken) {
+        console.error('Twilio client not configured - check settings or TWILIO_* env vars')
         return { success: false, error: 'Twilio not configured' }
     }
 
-    if (!fromNumber) {
-        return { success: false, error: 'TWILIO_PHONE_NUMBER not set' }
+    if (!creds.phoneNumber) {
+        return { success: false, error: 'Twilio phone number not set' }
     }
 
     try {
+        const client = twilio(creds.accountSid, creds.authToken)
+
         // Format phone number if needed
         let formattedTo = to.replace(/[^\d+]/g, '')
         if (!formattedTo.startsWith('+')) {
             formattedTo = '+1' + formattedTo // Default to US/Canada
         }
 
-        const message = await twilioClient.messages.create({
+        const message = await client.messages.create({
             body,
-            from: fromNumber,
+            from: creds.phoneNumber,
             to: formattedTo
         })
 
@@ -54,14 +115,16 @@ export async function sendSms(to: string, body: string): Promise<SendSmsResult> 
 
 // Test function
 export async function testSmsConnection(): Promise<boolean> {
-    const client = getClient()
-    if (!client) return false
+    const creds = await getTwilioCredentials()
+
+    if (!creds.accountSid || !creds.authToken) return false
 
     try {
-        // Just verify account is valid
-        await client.api.accounts(accountSid!).fetch()
+        const client = twilio(creds.accountSid, creds.authToken)
+        await client.api.accounts(creds.accountSid).fetch()
         return true
     } catch {
         return false
     }
 }
+

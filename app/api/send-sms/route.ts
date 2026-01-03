@@ -22,11 +22,13 @@ export async function POST(request: NextRequest) {
         await db.activityLog.create({
             data: {
                 category: 'SMS',
-                action: 'SMS_SENT',
+                action: result.success ? 'SMS_SENT' : 'SMS_FAILED',
                 entityType: leadId ? 'LEAD' : undefined,
                 entityId: leadId || undefined,
                 entityName: leadName || undefined,
-                description: `SMS sent to ${to}`,
+                description: result.success
+                    ? `SMS sent to ${to}`
+                    : `SMS failed to ${to}: ${result.error}`,
                 details: body.substring(0, 200),
                 userId: session?.user?.id || undefined,
                 userName: session?.user?.name || undefined,
@@ -39,8 +41,10 @@ export async function POST(request: NextRequest) {
                 data: {
                     leadId,
                     type: 'SMS',
-                    status: 'SENT',
-                    title: `Manual SMS to ${to}`,
+                    status: result.success ? 'SENT' : 'FAILED',
+                    title: result.success
+                        ? `Manual SMS to ${to}`
+                        : `SMS Failed: ${result.error}`,
                     content: body,
                     userEmail: session?.user?.email || null,
                     userName: session?.user?.name || null,

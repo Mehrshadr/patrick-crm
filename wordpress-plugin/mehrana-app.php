@@ -547,13 +547,14 @@ class Mehrana_App_Plugin
         $page = isset($request['page']) ? intval($request['page']) : 1;
         $per_page = isset($request['per_page']) ? intval($request['per_page']) : 100;
         $search = isset($request['search']) ? sanitize_text_field($request['search']) : '';
+        $all = isset($request['all']) && ($request['all'] === 'true' || $request['all'] === '1');
 
         $args = [
             'post_type' => 'attachment',
             'post_mime_type' => 'image',
             'post_status' => 'inherit',
-            'posts_per_page' => $per_page,
-            'paged' => $page,
+            'posts_per_page' => $all ? -1 : $per_page,  // -1 for all items
+            'paged' => $all ? 1 : $page,
             'orderby' => 'date',
             'order' => 'DESC',
         ];

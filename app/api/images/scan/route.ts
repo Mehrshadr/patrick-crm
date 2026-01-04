@@ -85,6 +85,17 @@ export async function POST(req: NextRequest) {
                 prisma.projectMedia.count({ where })
             ])
 
+            // Get global stats (not affected by filters)
+            const [globalTotal, globalHeavy, globalMissingAlt] = await Promise.all([
+                prisma.projectMedia.count({ where: { projectId: project.id } }),
+                prisma.projectMedia.count({
+                    where: { projectId: project.id, filesize: { gt: 150 * 1024 } }
+                }),
+                prisma.projectMedia.count({
+                    where: { projectId: project.id, OR: [{ alt: null }, { alt: '' }] }
+                })
+            ])
+
             // Transform to match frontend format
             const media = mediaItems.map(item => ({
                 id: item.wpId,
@@ -109,7 +120,12 @@ export async function POST(req: NextRequest) {
                 total,
                 pages: Math.ceil(total / per_page),
                 page,
-                fromDb: true
+                fromDb: true,
+                globalStats: {
+                    total: globalTotal,
+                    heavy: globalHeavy,
+                    missingAlt: globalMissingAlt
+                }
             })
         }
 

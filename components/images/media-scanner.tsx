@@ -59,6 +59,9 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
     const [filterType, setFilterType] = useState("") // product, post, page
     const [filterMissingAlt, setFilterMissingAlt] = useState(false) // Only missing alt
 
+    // Global stats from DB
+    const [globalStats, setGlobalStats] = useState({ total: 0, heavy: 0, missingAlt: 0 })
+
     // Load from database on mount
     useEffect(() => {
         fetchMediaFromDb(1)
@@ -144,6 +147,11 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
             setTotalItems(data.total)
             setTotalPages(data.pages)
             setPage(pageNum)
+
+            // Update global stats if available
+            if (data.globalStats) {
+                setGlobalStats(data.globalStats)
+            }
         } catch (err: any) {
             setError(err.message)
         } finally {
@@ -273,145 +281,173 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
             )}
 
             {/* Stats Summary */}
-            {media.length > 0 && (
+            {globalStats.total > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-xl border">
+                    <div
+                        className="bg-white p-4 rounded-xl border cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => {
+                            setFilterHeavy(false)
+                            setFilterMissingAlt(false)
+                            setFilterUrl("")
+                            setFilterFormat("")
+                            setFilterType("")
+                            fetchMediaFromDb(1)
+                        }}
+                    >
                         <p className="text-slate-500 text-xs uppercase font-medium">Total Images</p>
-                        <p className="text-2xl font-bold mt-1">{totalItems}</p>
+                        <p className="text-2xl font-bold mt-1">{globalStats.total.toLocaleString()}</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl border">
                         <p className="text-slate-500 text-xs uppercase font-medium">On This Page</p>
                         <p className="text-2xl font-bold mt-1">{media.length}</p>
                     </div>
-                    <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                    <div
+                        className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => {
+                            setFilterHeavy(true)
+                            setFilterMissingAlt(false)
+                            fetchMediaFromDb(1)
+                        }}
+                    >
                         <p className="text-yellow-700 text-xs uppercase font-medium flex items-center gap-1">
                             <FileWarning className="h-3 w-3" /> Heavy Files ({">"}150KB)
                         </p>
-                        <p className="text-2xl font-bold text-yellow-800 mt-1">{largeFilesCount}</p>
+                        <p className="text-2xl font-bold text-yellow-800 mt-1">{globalStats.heavy.toLocaleString()}</p>
                     </div>
-                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                    <div
+                        className="bg-orange-50 p-4 rounded-xl border border-orange-100 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => {
+                            setFilterMissingAlt(true)
+                            setFilterHeavy(false)
+                            fetchMediaFromDb(1)
+                        }}
+                    >
                         <p className="text-orange-700 text-xs uppercase font-medium flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" /> Missing Alt Text
                         </p>
-                        <p className="text-2xl font-bold text-orange-800 mt-1">{missingAltCount}</p>
+                        <p className="text-2xl font-bold text-orange-800 mt-1">{globalStats.missingAlt.toLocaleString()}</p>
                     </div>
                 </div>
             )}
 
             {/* Grid */}
-            {media.length === 0 && !loading && !error ? (
-                <div className="text-center py-20 bg-slate-50 rounded-xl border border-dashed">
-                    <ImageIcon className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">No images found</p>
-                    <p className="text-sm text-slate-400 mt-1">Click "Scan Library" to fetch images from WordPress</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                    {media.map((item) => (
-                        <div key={item.id} className="group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all relative">
-                            <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                                {item.mime_type.includes('image') ? (
-                                    <img
-                                        src={item.url}
-                                        alt={item.alt}
-                                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <div className="flex items-center justify-center h-full">
-                                        <ImageIcon className="h-10 w-10 text-slate-300" />
+            {
+                media.length === 0 && !loading && !error ? (
+                    <div className="text-center py-20 bg-slate-50 rounded-xl border border-dashed">
+                        <ImageIcon className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                        <p className="text-slate-500 font-medium">No images found</p>
+                        <p className="text-sm text-slate-400 mt-1">Click "Scan Library" to fetch images from WordPress</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                        {media.map((item) => (
+                            <div key={item.id} className="group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all relative">
+                                <div className="aspect-square bg-slate-100 relative overflow-hidden">
+                                    {item.mime_type.includes('image') ? (
+                                        <img
+                                            src={item.url}
+                                            alt={item.alt}
+                                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                            loading="lazy"
+                                        />
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full">
+                                            <ImageIcon className="h-10 w-10 text-slate-300" />
+                                        </div>
+                                    )}
+
+                                    <div className="absolute top-2 right-2 flex gap-1 flex-wrap">
+                                        {item.filesize > 150 * 1024 && (
+                                            <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
+                                                HEAVY
+                                            </Badge>
+                                        )}
+                                        {item.parent_type && (
+                                            <Badge
+                                                variant="secondary"
+                                                className={`h-5 px-1.5 text-[9px] ${item.parent_type === 'product' ? 'bg-blue-100 text-blue-700' :
+                                                    item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
+                                                        item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
+                                                            'bg-slate-100 text-slate-700'
+                                                    }`}
+                                            >
+                                                {item.parent_type === 'product' ? 'PRODUCT' :
+                                                    item.parent_type === 'post' ? 'BLOG' :
+                                                        item.parent_type === 'page' ? 'PAGE' :
+                                                            item.parent_type.toUpperCase()}
+                                            </Badge>
+                                        )}
                                     </div>
-                                )}
 
-                                <div className="absolute top-2 right-2 flex gap-1 flex-wrap">
-                                    {item.filesize > 150 * 1024 && (
-                                        <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
-                                            HEAVY
-                                        </Badge>
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                        <Button size="sm" variant="secondary" className="h-8 text-xs w-24">
+                                            Optimize
+                                        </Button>
+                                        <Button size="sm" variant="outline" className="h-8 text-xs w-24 bg-transparent text-white border-white hover:bg-white hover:text-black">
+                                            Fix Alt
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="p-3">
+                                    <p className="text-xs font-medium truncate mb-1" title={item.filename}>{item.filename}</p>
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                        <span>{formatBytes(item.filesize)}</span>
+                                        <span className="font-mono bg-slate-100 px-1 rounded">
+                                            {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
+                                        </span>
+                                        <span>{item.width}x{item.height}</span>
+                                    </div>
+                                    {!item.alt && (
+                                        <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
+                                            <AlertTriangle className="h-3 w-3" /> Missing Alt
+                                        </p>
                                     )}
-                                    {item.parent_type && (
-                                        <Badge
-                                            variant="secondary"
-                                            className={`h-5 px-1.5 text-[9px] ${item.parent_type === 'product' ? 'bg-blue-100 text-blue-700' :
-                                                item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
-                                                    item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
-                                                        'bg-slate-100 text-slate-700'
-                                                }`}
+                                    {item.parent_url && (
+                                        <a
+                                            href={item.parent_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mt-2 flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
                                         >
-                                            {item.parent_type === 'product' ? 'PRODUCT' :
-                                                item.parent_type === 'post' ? 'BLOG' :
-                                                    item.parent_type === 'page' ? 'PAGE' :
-                                                        item.parent_type.toUpperCase()}
-                                        </Badge>
+                                            <ExternalLink className="h-3 w-3" />
+                                            View Page
+                                        </a>
                                     )}
                                 </div>
-
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                                    <Button size="sm" variant="secondary" className="h-8 text-xs w-24">
-                                        Optimize
-                                    </Button>
-                                    <Button size="sm" variant="outline" className="h-8 text-xs w-24 bg-transparent text-white border-white hover:bg-white hover:text-black">
-                                        Fix Alt
-                                    </Button>
-                                </div>
                             </div>
-                            <div className="p-3">
-                                <p className="text-xs font-medium truncate mb-1" title={item.filename}>{item.filename}</p>
-                                <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                    <span>{formatBytes(item.filesize)}</span>
-                                    <span className="font-mono bg-slate-100 px-1 rounded">
-                                        {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
-                                    </span>
-                                    <span>{item.width}x{item.height}</span>
-                                </div>
-                                {!item.alt && (
-                                    <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
-                                        <AlertTriangle className="h-3 w-3" /> Missing Alt
-                                    </p>
-                                )}
-                                {item.parent_url && (
-                                    <a
-                                        href={item.parent_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="mt-2 flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
-                                    >
-                                        <ExternalLink className="h-3 w-3" />
-                                        View Page
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )
+            }
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-8">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fetchMedia(page - 1)}
-                        disabled={page === 1 || loading}
-                    >
-                        <ChevronLeft className="h-4 w-4 mr-1" />
-                        Previous
-                    </Button>
-                    <span className="text-sm text-muted-foreground px-4">
-                        Page {page} of {totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fetchMedia(page + 1)}
-                        disabled={page === totalPages || loading}
-                    >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                </div>
-            )}
+            {
+                totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-8">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fetchMediaFromDb(page - 1)}
+                            disabled={page === 1 || loading}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground px-4">
+                            Page {page} of {totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fetchMediaFromDb(page + 1)}
+                            disabled={page === totalPages || loading}
+                        >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                    </div>
+                )
+            }
         </div>
     )
 }

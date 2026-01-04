@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Loader2, Globe, Link2, FileText, ExternalLink, ChevronRight, ChevronDown, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
@@ -49,13 +50,21 @@ interface LinksResult {
     }
 }
 
-export function DeepcrawlDashboard({ siteUrl, projectName }: DeepcrawlDashboardProps) {
+export function DeepcrawlDashboard({ siteUrl: initialSiteUrl, projectName }: DeepcrawlDashboardProps) {
     const [loading, setLoading] = useState(false)
     const [readResult, setReadResult] = useState<ReadResult | null>(null)
     const [linksResult, setLinksResult] = useState<LinksResult | null>(null)
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+    const [customUrl, setCustomUrl] = useState(initialSiteUrl)
+
+    // Use customUrl for scanning
+    const siteUrl = customUrl || initialSiteUrl
 
     const scanSite = async () => {
+        if (!siteUrl) {
+            toast.error("Please enter a site URL")
+            return
+        }
         setLoading(true)
         try {
             // First, read the homepage
@@ -166,29 +175,37 @@ export function DeepcrawlDashboard({ siteUrl, projectName }: DeepcrawlDashboardP
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <Globe className="h-6 w-6" />
                         Deepcrawl Dashboard
                     </h2>
                     <p className="text-muted-foreground">
-                        Site analysis for <strong>{projectName}</strong> ({siteUrl})
+                        Site analysis for <strong>{projectName}</strong>
                     </p>
                 </div>
-                <Button onClick={scanSite} disabled={loading}>
-                    {loading ? (
-                        <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Scanning...
-                        </>
-                    ) : (
-                        <>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Scan Site
-                        </>
-                    )}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Input
+                        value={customUrl}
+                        onChange={(e) => setCustomUrl(e.target.value)}
+                        placeholder="https://example.com"
+                        className="w-64"
+                    />
+                    <Button onClick={scanSite} disabled={loading || !siteUrl}>
+                        {loading ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Scanning...
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Scan Site
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* Stats Cards */}

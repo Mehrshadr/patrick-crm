@@ -38,8 +38,8 @@ export default async function DeepcrawlPage({ params }: PageProps) {
         notFound()
     }
 
-    // Get site URL from project settings (use cmsUrl or domain fallback)
-    const siteUrl = project.settings?.cmsUrl || `https://${project.domain}`
+    // Get site URL from project settings (use cmsUrl, then domain, then empty string for manual input)
+    const siteUrl = project.settings?.cmsUrl || (project.domain ? `https://${project.domain}` : '')
 
     return (
         <div className="h-full flex flex-col overflow-hidden">

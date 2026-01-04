@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         }
 
         const siteUrl = project.domain.startsWith('http') ? project.domain : `https://${project.domain}`
-        const pluginBase = `${siteUrl}/wp-json/mehrana-app/v1`
+        const pluginBase = `${siteUrl}/wp-json/mehrana/v1`
 
         // Build auth headers
         const authHeaders: Record<string, string> = {}

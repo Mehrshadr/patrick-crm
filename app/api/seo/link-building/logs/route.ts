@@ -79,7 +79,7 @@ async function fetchWordPressLogs(projectId: number) {
             authHeaders['Authorization'] = `Basic ${auth}`
         }
 
-        const res = await fetch(`${siteUrl}/wp-json/mehrana-app/v1/logs`, {
+        const res = await fetch(`${siteUrl}/wp-json/mehrana/v1/logs`, {
             headers: authHeaders,
             cache: 'no-store'
         })

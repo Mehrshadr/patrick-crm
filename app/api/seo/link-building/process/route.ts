@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         if (!project?.domain) return NextResponse.json({ error: 'Domain missing' }, { status: 400 })
 
         const siteUrl = project.domain.startsWith('http') ? project.domain : `https://${project.domain}`
-        const pluginBase = `${siteUrl}/wp-json/mehrana-app/v1`
+        const pluginBase = `${siteUrl}/wp-json/mehrana/v1`
 
         const authHeaders: Record<string, string> = {}
         if (settings.cmsApiKey) {

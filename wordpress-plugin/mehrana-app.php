@@ -18,8 +18,8 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.0.0';
-    private $namespace = 'mehrana-app/v1';
+    private $version = '3.1.0';
+    private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
 

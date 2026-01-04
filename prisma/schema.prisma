@@ -216,6 +216,8 @@ model IndexingProject {
   assignedUsers        ProjectAccess[]
   settings             ProjectSettings?
   cachedPages          ProjectPage[]
+  imageFactoryLogs     ImageFactoryLog[]
+  imageFactorySnapshots ImageFactorySnapshot[]
 }
 
 model ProjectAccess {
@@ -519,4 +521,35 @@ model MediaChangeLog {
   changedAt   DateTime     @default(now())
   
   media       ProjectMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+}
+
+// Image Factory Logging
+model ImageFactoryLog {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  userId      String
+  userName    String
+  action      String    // DATABASE_CREATE, DATABASE_UPDATE, COMPRESS, ALT_EDIT
+  details     String?   // JSON-encoded details
+  createdAt   DateTime  @default(now())
+
+  project     IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Image Factory Stats Snapshots (for charts)
+model ImageFactorySnapshot {
+  id              Int       @id @default(autoincrement())
+  projectId       Int
+  totalCount      Int
+  heavyCount      Int
+  missingAltCount Int
+  recordedAt      DateTime  @default(now())
+
+  project         IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, recordedAt])
 }

@@ -14,7 +14,8 @@ import {
     RefreshCw,
     ChevronLeft,
     ChevronRight,
-    ArrowUpRight
+    ArrowUpRight,
+    ExternalLink
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 
@@ -31,6 +32,7 @@ interface MediaItem {
     date: string
     parent_type?: string
     parent_title?: string
+    parent_url?: string
 }
 
 interface MediaScannerProps {
@@ -49,6 +51,13 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
     const [totalPages, setTotalPages] = useState(1)
     const [totalItems, setTotalItems] = useState(0)
     const [search, setSearch] = useState("")
+
+    // Filters
+    const [filterUrl, setFilterUrl] = useState("") // Filter by parent URL
+    const [filterHeavy, setFilterHeavy] = useState(false) // Only heavy files
+    const [filterFormat, setFilterFormat] = useState("") // jpg, png, webp, etc.
+    const [filterType, setFilterType] = useState("") // product, post, page
+    const [filterMissingAlt, setFilterMissingAlt] = useState(false) // Only missing alt
 
     const fetchMedia = async (pageNum = 1, shouldSync = false) => {
         if (shouldSync) setSyncing(true)
@@ -111,7 +120,12 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                     page: pageNum,
                     per_page: 24,
                     search,
-                    fromDb: true
+                    fromDb: true,
+                    filterUrl,
+                    filterHeavy,
+                    filterFormat,
+                    filterType,
+                    filterMissingAlt
                 })
             })
 
@@ -144,23 +158,97 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
     return (
         <div className="space-y-6">
             {/* Controls */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white p-4 rounded-xl border shadow-sm">
-                <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                        <Input
-                            placeholder="Search media..."
-                            className="pl-9"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
-                </form>
+            <div className="bg-white p-4 rounded-xl border shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                placeholder="Search media..."
+                                className="pl-9"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                    </form>
 
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <Button onClick={() => fetchMedia(page, true)} disabled={loading || syncing} variant="default">
-                        {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                        {syncing ? "Syncing Logic..." : "Sync & Save to DB"}
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button onClick={() => fetchMedia(page, true)} disabled={loading || syncing} variant="default">
+                            {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                            {syncing ? "Syncing..." : "Sync & Save to DB"}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-3 items-center border-t pt-4">
+                    <span className="text-xs font-medium text-slate-500 uppercase">Filters:</span>
+
+                    {/* URL Filter */}
+                    <Input
+                        placeholder="Filter by URL..."
+                        className="w-48 h-8 text-xs"
+                        value={filterUrl}
+                        onChange={(e) => setFilterUrl(e.target.value)}
+                    />
+
+                    {/* Format Filter */}
+                    <select
+                        value={filterFormat}
+                        onChange={(e) => setFilterFormat(e.target.value)}
+                        className="h-8 px-2 text-xs border rounded-md bg-white"
+                    >
+                        <option value="">All Formats</option>
+                        <option value="jpeg">JPG</option>
+                        <option value="png">PNG</option>
+                        <option value="webp">WebP</option>
+                        <option value="gif">GIF</option>
+                        <option value="svg">SVG</option>
+                    </select>
+
+                    {/* Type Filter */}
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="h-8 px-2 text-xs border rounded-md bg-white"
+                    >
+                        <option value="">All Types</option>
+                        <option value="product">Product</option>
+                        <option value="post">Blog</option>
+                        <option value="page">Page</option>
+                    </select>
+
+                    {/* Heavy Files Checkbox */}
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filterHeavy}
+                            onChange={(e) => setFilterHeavy(e.target.checked)}
+                            className="w-3.5 h-3.5"
+                        />
+                        <span>Heavy Only</span>
+                    </label>
+
+                    {/* Missing Alt Checkbox */}
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filterMissingAlt}
+                            onChange={(e) => setFilterMissingAlt(e.target.checked)}
+                            className="w-3.5 h-3.5"
+                        />
+                        <span>Missing Alt</span>
+                    </label>
+
+                    {/* Apply Filters Button */}
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fetchMediaFromDb(1)}
+                        disabled={loading}
+                        className="h-8 text-xs"
+                    >
+                        Apply Filters
                     </Button>
                 </div>
             </div>
@@ -240,9 +328,9 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                         <Badge
                                             variant="secondary"
                                             className={`h-5 px-1.5 text-[9px] ${item.parent_type === 'product' ? 'bg-blue-100 text-blue-700' :
-                                                    item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
-                                                        item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
-                                                            'bg-slate-100 text-slate-700'
+                                                item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
+                                                    item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
+                                                        'bg-slate-100 text-slate-700'
                                                 }`}
                                         >
                                             {item.parent_type === 'product' ? 'PRODUCT' :
@@ -275,6 +363,17 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                     <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
                                         <AlertTriangle className="h-3 w-3" /> Missing Alt
                                     </p>
+                                )}
+                                {item.parent_url && (
+                                    <a
+                                        href={item.parent_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mt-2 flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                                    >
+                                        <ExternalLink className="h-3 w-3" />
+                                        View Page
+                                    </a>
                                 )}
                             </div>
                         </div>

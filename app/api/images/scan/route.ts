@@ -24,12 +24,44 @@ export async function POST(req: NextRequest) {
 
         // If loading from database (after sync)
         if (fromDb) {
+            const { filterUrl, filterHeavy, filterFormat, filterType, filterMissingAlt } = body
+
             const skip = (page - 1) * per_page
             const where: any = { projectId: project.id }
+
+            // Search filter
             if (search) {
                 where.OR = [
                     { filename: { contains: search } },
                     { alt: { contains: search } }
+                ]
+            }
+
+            // Filter by parent URL
+            if (filterUrl) {
+                where.parentPostUrl = { contains: filterUrl }
+            }
+
+            // Filter by heavy files (>150KB)
+            if (filterHeavy) {
+                where.filesize = { gt: 150 * 1024 }
+            }
+
+            // Filter by format (mime type)
+            if (filterFormat) {
+                where.mimeType = { contains: filterFormat }
+            }
+
+            // Filter by type (product, post, page)
+            if (filterType) {
+                where.parentPostType = filterType
+            }
+
+            // Filter by missing alt
+            if (filterMissingAlt) {
+                where.OR = [
+                    { alt: null },
+                    { alt: '' }
                 ]
             }
 

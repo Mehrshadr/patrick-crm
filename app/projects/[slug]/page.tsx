@@ -130,10 +130,24 @@ export default function ProjectDashboardPage({ params }: { params: Promise<{ slu
             countLabel: null,
             comingSoon: true
         },
+        {
+            name: 'Deepcrawl',
+            description: 'Site analysis & structure mapping',
+            icon: Globe,
+            href: `/projects/${slug}/deepcrawl`,
+            color: 'bg-teal-100 text-teal-700',
+            count: null,
+            countLabel: null,
+            superAdminOnly: true
+        },
     ]
 
     // Filter tools based on user's app access
     const accessibleTools = tools.filter(tool => {
+        // superAdminOnly tools are only visible to SUPER_ADMIN
+        if ('superAdminOnly' in tool && tool.superAdminOnly) {
+            return access.accessLevel === 'SUPER_ADMIN'
+        }
         const appType = APP_TYPE_MAP[tool.name]
         // If no appType mapping (like Jarvis), show as coming soon
         if (!appType) return true

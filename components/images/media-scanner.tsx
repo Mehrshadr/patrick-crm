@@ -29,6 +29,8 @@ interface MediaItem {
     filesize: number
     mime_type: string
     date: string
+    parent_type?: string
+    parent_title?: string
 }
 
 interface MediaScannerProps {
@@ -79,8 +81,8 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                     message: `Sync Complete: Added ${data.added}, Updated ${data.updated} images.`,
                     type: 'success'
                 })
-                // Refresh list without sync to just get data
-                fetchMedia(1, false)
+                // Refresh list from database (not WordPress)
+                fetchMediaFromDb(1)
             } else {
                 setMedia(data.media)
                 setTotalItems(data.total)
@@ -92,6 +94,41 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
         } finally {
             setLoading(false)
             setSyncing(false)
+        }
+    }
+
+    // Fetch media from database (after sync)
+    const fetchMediaFromDb = async (pageNum = 1) => {
+        setLoading(true)
+        setError("")
+
+        try {
+            const res = await fetch("/api/images/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    projectId,
+                    page: pageNum,
+                    per_page: 24,
+                    search,
+                    fromDb: true
+                })
+            })
+
+            const data = await res.json()
+
+            if (!data.success) {
+                throw new Error(data.error || "Failed to load media")
+            }
+
+            setMedia(data.media)
+            setTotalItems(data.total)
+            setTotalPages(data.pages)
+            setPage(pageNum)
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -193,10 +230,25 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                     </div>
                                 )}
 
-                                <div className="absolute top-2 right-2 flex gap-1">
+                                <div className="absolute top-2 right-2 flex gap-1 flex-wrap">
                                     {item.filesize > 150 * 1024 && (
-                                        <Badge variant="destructive" className="h-6 px-1.5 text-[10px]">
+                                        <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
                                             HEAVY
+                                        </Badge>
+                                    )}
+                                    {item.parent_type && (
+                                        <Badge
+                                            variant="secondary"
+                                            className={`h-5 px-1.5 text-[9px] ${item.parent_type === 'product' ? 'bg-blue-100 text-blue-700' :
+                                                    item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
+                                                        item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
+                                                            'bg-slate-100 text-slate-700'
+                                                }`}
+                                        >
+                                            {item.parent_type === 'product' ? 'PRODUCT' :
+                                                item.parent_type === 'post' ? 'BLOG' :
+                                                    item.parent_type === 'page' ? 'PAGE' :
+                                                        item.parent_type.toUpperCase()}
                                         </Badge>
                                     )}
                                 </div>
@@ -214,6 +266,9 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                 <p className="text-xs font-medium truncate mb-1" title={item.filename}>{item.filename}</p>
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                                     <span>{formatBytes(item.filesize)}</span>
+                                    <span className="font-mono bg-slate-100 px-1 rounded">
+                                        {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
+                                    </span>
                                     <span>{item.width}x{item.height}</span>
                                 </div>
                                 {!item.alt && (

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { projectId, page = 1, per_page = 50, search = '', sync = false } = body
+        const { projectId, page = 1, per_page = 50, search = '', sync = false, fromDb = false } = body
 
         if (!projectId) {
             return NextResponse.json({ error: "Project ID required" }, { status: 400 })
@@ -18,8 +18,62 @@ export async function POST(req: NextRequest) {
             include: { settings: true }
         })
 
-        if (!project || !project.domain) {
+        if (!project) {
             return NextResponse.json({ error: "Project not found" }, { status: 404 })
+        }
+
+        // If loading from database (after sync)
+        if (fromDb) {
+            const skip = (page - 1) * per_page
+            const where: any = { projectId: project.id }
+            if (search) {
+                where.OR = [
+                    { filename: { contains: search } },
+                    { alt: { contains: search } }
+                ]
+            }
+
+            const [mediaItems, total] = await Promise.all([
+                prisma.projectMedia.findMany({
+                    where,
+                    skip,
+                    take: per_page,
+                    orderBy: { lastSyncedAt: 'desc' }
+                }),
+                prisma.projectMedia.count({ where })
+            ])
+
+            // Transform to match frontend format
+            const media = mediaItems.map(item => ({
+                id: item.wpId,
+                title: item.filename,
+                filename: item.filename,
+                alt: item.alt || '',
+                url: item.url,
+                width: item.width,
+                height: item.height,
+                filesize: item.filesize,
+                mime_type: item.mimeType,
+                date: item.lastSyncedAt.toISOString(),
+                parent_id: item.parentPostId,
+                parent_title: item.parentPostTitle,
+                parent_type: item.parentPostType,
+                parent_url: item.parentPostUrl
+            }))
+
+            return NextResponse.json({
+                success: true,
+                media,
+                total,
+                pages: Math.ceil(total / per_page),
+                page,
+                fromDb: true
+            })
+        }
+
+        // For WordPress fetch, we need domain and credentials
+        if (!project.domain) {
+            return NextResponse.json({ error: "Project domain not configured" }, { status: 400 })
         }
 
         const settings = project.settings

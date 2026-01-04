@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -58,6 +58,11 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
     const [filterFormat, setFilterFormat] = useState("") // jpg, png, webp, etc.
     const [filterType, setFilterType] = useState("") // product, post, page
     const [filterMissingAlt, setFilterMissingAlt] = useState(false) // Only missing alt
+
+    // Load from database on mount
+    useEffect(() => {
+        fetchMediaFromDb(1)
+    }, [projectId])
 
     const fetchMedia = async (pageNum = 1, shouldSync = false) => {
         if (shouldSync) setSyncing(true)

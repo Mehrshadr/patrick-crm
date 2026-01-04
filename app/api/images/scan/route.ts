@@ -28,41 +28,51 @@ export async function POST(req: NextRequest) {
 
             const skip = (page - 1) * per_page
             const where: any = { projectId: project.id }
+            const andConditions: any[] = []
 
             // Search filter
             if (search) {
-                where.OR = [
-                    { filename: { contains: search } },
-                    { alt: { contains: search } }
-                ]
+                andConditions.push({
+                    OR: [
+                        { filename: { contains: search } },
+                        { alt: { contains: search } }
+                    ]
+                })
             }
 
             // Filter by parent URL
             if (filterUrl) {
-                where.parentPostUrl = { contains: filterUrl }
+                andConditions.push({ parentPostUrl: { contains: filterUrl } })
             }
 
             // Filter by heavy files (>150KB)
             if (filterHeavy) {
-                where.filesize = { gt: 150 * 1024 }
+                andConditions.push({ filesize: { gt: 150 * 1024 } })
             }
 
             // Filter by format (mime type)
             if (filterFormat) {
-                where.mimeType = { contains: filterFormat }
+                andConditions.push({ mimeType: { contains: filterFormat } })
             }
 
             // Filter by type (product, post, page)
             if (filterType) {
-                where.parentPostType = filterType
+                andConditions.push({ parentPostType: filterType })
             }
 
             // Filter by missing alt
             if (filterMissingAlt) {
-                where.OR = [
-                    { alt: null },
-                    { alt: '' }
-                ]
+                andConditions.push({
+                    OR: [
+                        { alt: null },
+                        { alt: '' }
+                    ]
+                })
+            }
+
+            // Combine all AND conditions
+            if (andConditions.length > 0) {
+                where.AND = andConditions
             }
 
             const [mediaItems, total] = await Promise.all([

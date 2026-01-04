@@ -15,9 +15,13 @@ import {
     ChevronLeft,
     ChevronRight,
     ArrowUpRight,
-    ExternalLink
+    ExternalLink,
+    Database,
+    History,
+    TrendingDown
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
+import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface MediaItem {
     id: number
@@ -62,9 +66,22 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
     // Global stats from DB
     const [globalStats, setGlobalStats] = useState({ total: 0, heavy: 0, missingAlt: 0 })
 
+    // Chart data
+    const [snapshots, setSnapshots] = useState<{ date: string, heavy: number, missingAlt: number }[]>([])
+
+    // Format/Type breakdown for pie chart
+    const [formatBreakdown, setFormatBreakdown] = useState<{ name: string, value: number, color: string }[]>([])
+    const [typeBreakdown, setTypeBreakdown] = useState<{ name: string, value: number, color: string }[]>([])
+    const [showTypeChart, setShowTypeChart] = useState(false) // Toggle between format and type pie
+
+    // Database status
+    const [databaseCreatedAt, setDatabaseCreatedAt] = useState<string | null>(null)
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+
     // Load from database on mount
     useEffect(() => {
         fetchMediaFromDb(1)
+        fetchSnapshots()
     }, [projectId])
 
     const fetchMedia = async (pageNum = 1, shouldSync = false) => {
@@ -152,10 +169,29 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
             if (data.globalStats) {
                 setGlobalStats(data.globalStats)
             }
+
+            // Update format/type breakdown and last updated
+            if (data.formatBreakdown) setFormatBreakdown(data.formatBreakdown)
+            if (data.typeBreakdown) setTypeBreakdown(data.typeBreakdown)
+            if (data.lastUpdatedAt) setLastUpdatedAt(data.lastUpdatedAt)
+            if (data.databaseCreatedAt) setDatabaseCreatedAt(data.databaseCreatedAt)
         } catch (err: any) {
             setError(err.message)
         } finally {
             setLoading(false)
+        }
+    }
+
+    // Fetch snapshots for charts
+    const fetchSnapshots = async () => {
+        try {
+            const res = await fetch(`/api/images/snapshots?projectId=${projectId}`)
+            const data = await res.json()
+            if (data.success && data.snapshots) {
+                setSnapshots(data.snapshots)
+            }
+        } catch (err) {
+            console.error("Failed to fetch snapshots:", err)
         }
     }
 
@@ -280,11 +316,12 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                 </div>
             )}
 
-            {/* Stats Summary */}
+            {/* Stats Dashboard - 3 Boxes */}
             {globalStats.total > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Box 1: Total Images with Pie Chart */}
                     <div
-                        className="bg-white p-4 rounded-xl border cursor-pointer hover:shadow-md transition-shadow"
+                        className="bg-white p-5 rounded-xl border hover:shadow-md transition-shadow cursor-pointer"
                         onClick={() => {
                             setFilterHeavy(false)
                             setFilterMissingAlt(false)
@@ -294,38 +331,114 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                             fetchMediaFromDb(1)
                         }}
                     >
-                        <p className="text-slate-500 text-xs uppercase font-medium">Total Images</p>
-                        <p className="text-2xl font-bold mt-1">{globalStats.total.toLocaleString()}</p>
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-medium flex items-center gap-1">
+                                    <Database className="h-3 w-3" /> Total Images
+                                </p>
+                                <p className="text-3xl font-bold mt-1">{globalStats.total.toLocaleString()}</p>
+                            </div>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowTypeChart(!showTypeChart) }}
+                                className="text-xs text-blue-600 hover:underline"
+                            >
+                                {showTypeChart ? 'By Format' : 'By Type'}
+                            </button>
+                        </div>
+                        {(showTypeChart ? typeBreakdown : formatBreakdown).length > 0 && (
+                            <div className="h-24">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={showTypeChart ? typeBreakdown : formatBreakdown}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={25}
+                                            outerRadius={40}
+                                        >
+                                            {(showTypeChart ? typeBreakdown : formatBreakdown).map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                        {lastUpdatedAt && (
+                            <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1">
+                                <History className="h-3 w-3" />
+                                Updated {new Date(lastUpdatedAt).toLocaleDateString()}
+                            </p>
+                        )}
                     </div>
-                    <div className="bg-white p-4 rounded-xl border">
-                        <p className="text-slate-500 text-xs uppercase font-medium">On This Page</p>
-                        <p className="text-2xl font-bold mt-1">{media.length}</p>
-                    </div>
+
+                    {/* Box 2: Heavy Files with Line Chart */}
                     <div
-                        className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 cursor-pointer hover:shadow-md transition-shadow"
+                        className={`p-5 rounded-xl border cursor-pointer hover:shadow-md transition-shadow ${filterHeavy ? 'bg-yellow-100 border-yellow-300' : 'bg-yellow-50 border-yellow-100'}`}
                         onClick={() => {
-                            setFilterHeavy(true)
-                            setFilterMissingAlt(false)
+                            setFilterHeavy(!filterHeavy)
                             fetchMediaFromDb(1)
                         }}
                     >
                         <p className="text-yellow-700 text-xs uppercase font-medium flex items-center gap-1">
                             <FileWarning className="h-3 w-3" /> Heavy Files ({">"}150KB)
                         </p>
-                        <p className="text-2xl font-bold text-yellow-800 mt-1">{globalStats.heavy.toLocaleString()}</p>
+                        <p className="text-3xl font-bold text-yellow-800 mt-1">{globalStats.heavy.toLocaleString()}</p>
+                        {snapshots.length > 1 && (
+                            <div className="h-16 mt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={snapshots}>
+                                        <Line type="monotone" dataKey="heavy" stroke="#EAB308" strokeWidth={2} dot={false} />
+                                        <Tooltip
+                                            formatter={(value: number) => [value.toLocaleString(), 'Heavy']}
+                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                        {snapshots.length > 1 && snapshots[snapshots.length - 1].heavy < snapshots[0].heavy && (
+                            <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1">
+                                <TrendingDown className="h-3 w-3" />
+                                {(snapshots[0].heavy - snapshots[snapshots.length - 1].heavy).toLocaleString()} fixed
+                            </p>
+                        )}
                     </div>
+
+                    {/* Box 3: Missing Alt with Line Chart */}
                     <div
-                        className="bg-orange-50 p-4 rounded-xl border border-orange-100 cursor-pointer hover:shadow-md transition-shadow"
+                        className={`p-5 rounded-xl border cursor-pointer hover:shadow-md transition-shadow ${filterMissingAlt ? 'bg-orange-100 border-orange-300' : 'bg-orange-50 border-orange-100'}`}
                         onClick={() => {
-                            setFilterMissingAlt(true)
-                            setFilterHeavy(false)
+                            setFilterMissingAlt(!filterMissingAlt)
                             fetchMediaFromDb(1)
                         }}
                     >
                         <p className="text-orange-700 text-xs uppercase font-medium flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" /> Missing Alt Text
                         </p>
-                        <p className="text-2xl font-bold text-orange-800 mt-1">{globalStats.missingAlt.toLocaleString()}</p>
+                        <p className="text-3xl font-bold text-orange-800 mt-1">{globalStats.missingAlt.toLocaleString()}</p>
+                        {snapshots.length > 1 && (
+                            <div className="h-16 mt-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={snapshots}>
+                                        <Line type="monotone" dataKey="missingAlt" stroke="#F97316" strokeWidth={2} dot={false} />
+                                        <Tooltip
+                                            formatter={(value: number) => [value.toLocaleString(), 'Missing Alt']}
+                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                        {snapshots.length > 1 && snapshots[snapshots.length - 1].missingAlt < snapshots[0].missingAlt && (
+                            <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1">
+                                <TrendingDown className="h-3 w-3" />
+                                {(snapshots[0].missingAlt - snapshots[snapshots.length - 1].missingAlt).toLocaleString()} fixed
+                            </p>
+                        )}
                     </div>
                 </div>
             )}

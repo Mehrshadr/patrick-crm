@@ -114,6 +114,47 @@ export async function POST(req: NextRequest) {
                 parent_url: item.parentPostUrl
             }))
 
+            // Get format breakdown (JPEG, PNG, WEBP, etc.)
+            const formatCounts = await prisma.projectMedia.groupBy({
+                by: ['mimeType'],
+                where: { projectId: project.id },
+                _count: true
+            })
+            const formatBreakdown = formatCounts.map(f => ({
+                name: f.mimeType?.split('/')[1]?.toUpperCase() || 'Other',
+                value: f._count,
+                color: f.mimeType?.includes('jpeg') ? '#3B82F6' :
+                    f.mimeType?.includes('png') ? '#10B981' :
+                        f.mimeType?.includes('webp') ? '#8B5CF6' :
+                            f.mimeType?.includes('gif') ? '#F59E0B' : '#6B7280'
+            }))
+
+            // Get type breakdown (product, post, page)
+            const typeCounts = await prisma.projectMedia.groupBy({
+                by: ['parentPostType'],
+                where: { projectId: project.id },
+                _count: true
+            })
+            const typeBreakdown = typeCounts.map(t => ({
+                name: t.parentPostType === 'product' ? 'Product' :
+                    t.parentPostType === 'post' ? 'Blog' :
+                        t.parentPostType === 'page' ? 'Page' : 'Other',
+                value: t._count,
+                color: t.parentPostType === 'product' ? '#3B82F6' :
+                    t.parentPostType === 'post' ? '#10B981' :
+                        t.parentPostType === 'page' ? '#F59E0B' : '#6B7280'
+            }))
+
+            // Get database timestamps from logs
+            const firstLog = await prisma.imageFactoryLog.findFirst({
+                where: { projectId: project.id, action: 'DATABASE_CREATE' },
+                orderBy: { createdAt: 'asc' }
+            })
+            const lastLog = await prisma.imageFactoryLog.findFirst({
+                where: { projectId: project.id },
+                orderBy: { createdAt: 'desc' }
+            })
+
             return NextResponse.json({
                 success: true,
                 media,
@@ -125,7 +166,11 @@ export async function POST(req: NextRequest) {
                     total: globalTotal,
                     heavy: globalHeavy,
                     missingAlt: globalMissingAlt
-                }
+                },
+                formatBreakdown,
+                typeBreakdown,
+                databaseCreatedAt: firstLog?.createdAt || null,
+                lastUpdatedAt: lastLog?.createdAt || null
             })
         }
 

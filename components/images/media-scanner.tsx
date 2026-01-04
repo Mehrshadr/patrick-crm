@@ -20,7 +20,8 @@ import {
     History,
     TrendingDown,
     ClipboardList,
-    X
+    X,
+    Trash2
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -43,9 +44,10 @@ interface MediaItem {
 
 interface MediaScannerProps {
     projectId: number
+    isAdmin?: boolean
 }
 
-export function MediaScanner({ projectId }: MediaScannerProps) {
+export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) {
     const [media, setMedia] = useState<MediaItem[]>([])
     const [loading, setLoading] = useState(false)
     const [syncing, setSyncing] = useState(false)
@@ -265,6 +267,36 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                         >
                             <ClipboardList className="h-4 w-4" />
                         </Button>
+                        {isAdmin && databaseCreatedAt && (
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={async () => {
+                                    if (!confirm('Are you sure you want to delete all media data for this project? This cannot be undone.')) return
+                                    try {
+                                        const res = await fetch('/api/images/delete', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ projectId })
+                                        })
+                                        if (res.ok) {
+                                            setMedia([])
+                                            setGlobalStats({ total: 0, heavy: 0, missingAlt: 0 })
+                                            setDatabaseCreatedAt(null)
+                                            setToast({ message: 'Database deleted successfully', type: 'success' })
+                                        } else {
+                                            setToast({ message: 'Failed to delete database', type: 'error' })
+                                        }
+                                    } catch (e) {
+                                        setToast({ message: 'Error deleting database', type: 'error' })
+                                    }
+                                }}
+                                title="Delete Database (Admin Only)"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -274,7 +306,7 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
 
                     {/* URL Filter */}
                     <Input
-                        placeholder="Filter by URL..."
+                        placeholder="Filter by page URL..."
                         className="w-48 h-8 text-xs"
                         value={filterUrl}
                         onChange={(e) => setFilterUrl(e.target.value)}
@@ -430,6 +462,11 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                             <div className="h-16 mt-2">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={snapshots}>
+                                        <XAxis
+                                            dataKey="date"
+                                            tick={{ fontSize: 10 }}
+                                            tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                                        />
                                         <Line type="monotone" dataKey="heavy" stroke="#EAB308" strokeWidth={2} dot={false} />
                                         <Tooltip
                                             formatter={(value) => [value?.toLocaleString() || '', 'Heavy']}
@@ -463,6 +500,11 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                             <div className="h-16 mt-2">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={snapshots}>
+                                        <XAxis
+                                            dataKey="date"
+                                            tick={{ fontSize: 10 }}
+                                            tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                                        />
                                         <Line type="monotone" dataKey="missingAlt" stroke="#F97316" strokeWidth={2} dot={false} />
                                         <Tooltip
                                             formatter={(value) => [value?.toLocaleString() || '', 'Missing Alt']}

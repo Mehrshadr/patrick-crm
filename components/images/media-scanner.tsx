@@ -362,7 +362,7 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                                        <Tooltip formatter={(value) => value?.toLocaleString() || ''} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -393,8 +393,8 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                     <LineChart data={snapshots}>
                                         <Line type="monotone" dataKey="heavy" stroke="#EAB308" strokeWidth={2} dot={false} />
                                         <Tooltip
-                                            formatter={(value: number) => [value.toLocaleString(), 'Heavy']}
-                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                            formatter={(value) => [value?.toLocaleString() || '', 'Heavy']}
+                                            labelFormatter={(label) => new Date(String(label)).toLocaleDateString()}
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -426,8 +426,8 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                                     <LineChart data={snapshots}>
                                         <Line type="monotone" dataKey="missingAlt" stroke="#F97316" strokeWidth={2} dot={false} />
                                         <Tooltip
-                                            formatter={(value: number) => [value.toLocaleString(), 'Missing Alt']}
-                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                            formatter={(value) => [value?.toLocaleString() || '', 'Missing Alt']}
+                                            labelFormatter={(label) => new Date(String(label)).toLocaleDateString()}
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>

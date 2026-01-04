@@ -18,7 +18,9 @@ import {
     ExternalLink,
     Database,
     History,
-    TrendingDown
+    TrendingDown,
+    ClipboardList,
+    X
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -77,6 +79,14 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
     // Database status
     const [databaseCreatedAt, setDatabaseCreatedAt] = useState<string | null>(null)
     const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+
+    // Log dialog
+    const [showLogDialog, setShowLogDialog] = useState(false)
+    const [logs, setLogs] = useState<any[]>([])
+    const [logsLoading, setLogsLoading] = useState(false)
+    const [logFilterAction, setLogFilterAction] = useState('')
+    const [logFilterUser, setLogFilterUser] = useState('')
+    const [availableUsers, setAvailableUsers] = useState<{ userId: string, userName: string }[]>([])
 
     // Load from database on mount
     useEffect(() => {
@@ -195,6 +205,27 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
         }
     }
 
+    // Fetch logs for dialog
+    const fetchLogs = async () => {
+        setLogsLoading(true)
+        try {
+            const params = new URLSearchParams({ projectId: projectId.toString() })
+            if (logFilterAction) params.append('action', logFilterAction)
+            if (logFilterUser) params.append('userId', logFilterUser)
+
+            const res = await fetch(`/api/images/logs?${params}`)
+            const data = await res.json()
+            if (data.success) {
+                setLogs(data.logs)
+                setAvailableUsers(data.users || [])
+            }
+        } catch (err) {
+            console.error("Failed to fetch logs:", err)
+        } finally {
+            setLogsLoading(false)
+        }
+    }
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
         fetchMedia(1)
@@ -224,7 +255,15 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                     <div className="flex gap-2 w-full sm:w-auto">
                         <Button onClick={() => fetchMedia(page, true)} disabled={loading || syncing} variant="default">
                             {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                            {syncing ? "Syncing..." : "Sync & Save to DB"}
+                            {syncing ? "Syncing..." : databaseCreatedAt ? "Update Database" : "Create Database"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => { fetchLogs(); setShowLogDialog(true) }}
+                            title="View Logs"
+                        >
+                            <ClipboardList className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
@@ -561,6 +600,105 @@ export function MediaScanner({ projectId }: MediaScannerProps) {
                     </div>
                 )
             }
+
+            {/* Log Dialog */}
+            {showLogDialog && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                                <ClipboardList className="h-5 w-5" />
+                                Image Factory Logs
+                            </h3>
+                            <Button variant="ghost" size="icon" onClick={() => setShowLogDialog(false)}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        <div className="flex gap-3 p-4 border-b bg-slate-50">
+                            <select
+                                value={logFilterAction}
+                                onChange={(e) => { setLogFilterAction(e.target.value); fetchLogs() }}
+                                className="h-8 px-3 text-sm border rounded-md bg-white"
+                            >
+                                <option value="">All Actions</option>
+                                <option value="DATABASE_CREATE">Database Create</option>
+                                <option value="DATABASE_UPDATE">Database Update</option>
+                                <option value="COMPRESS">Compression</option>
+                                <option value="ALT_EDIT">Alt Edit</option>
+                            </select>
+                            <select
+                                value={logFilterUser}
+                                onChange={(e) => { setLogFilterUser(e.target.value); fetchLogs() }}
+                                className="h-8 px-3 text-sm border rounded-md bg-white"
+                            >
+                                <option value="">All Users</option>
+                                {availableUsers.map(u => (
+                                    <option key={u.userId} value={u.userId}>{u.userName}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-4">
+                            {logsLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                                </div>
+                            ) : logs.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500">No logs found</div>
+                            ) : (
+                                <table className="w-full text-sm">
+                                    <thead className="text-left border-b">
+                                        <tr>
+                                            <th className="pb-2 font-medium">Date</th>
+                                            <th className="pb-2 font-medium">User</th>
+                                            <th className="pb-2 font-medium">Action</th>
+                                            <th className="pb-2 font-medium">Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {logs.map((log: any) => (
+                                            <tr key={log.id} className="border-b last:border-0">
+                                                <td className="py-2 text-slate-600">
+                                                    {new Date(log.createdAt).toLocaleDateString()}{' '}
+                                                    <span className="text-xs text-slate-400">
+                                                        {new Date(log.createdAt).toLocaleTimeString()}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2">{log.userName}</td>
+                                                <td className="py-2">
+                                                    <Badge variant={
+                                                        log.action === 'DATABASE_CREATE' ? 'default' :
+                                                            log.action === 'DATABASE_UPDATE' ? 'secondary' :
+                                                                log.action === 'COMPRESS' ? 'outline' : 'destructive'
+                                                    }>
+                                                        {log.action.replace('DATABASE_', '').replace('_', ' ')}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-2 text-xs text-slate-500">
+                                                    {log.details ? (() => {
+                                                        try {
+                                                            const d = JSON.parse(log.details)
+                                                            return `+${d.added || 0} added, ${d.updated || 0} updated`
+                                                        } catch { return '' }
+                                                    })() : ''}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {databaseCreatedAt && (
+                            <div className="p-3 border-t bg-slate-50 text-xs text-slate-500 flex items-center gap-1">
+                                <Database className="h-3 w-3" />
+                                Database created: {new Date(databaseCreatedAt).toLocaleString()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

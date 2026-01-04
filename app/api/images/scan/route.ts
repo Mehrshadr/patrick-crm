@@ -247,6 +247,43 @@ export async function POST(req: NextRequest) {
                 })
             }
 
+            // Check if this is first sync (DATABASE_CREATE) or update (DATABASE_UPDATE)
+            const existingLog = await prisma.imageFactoryLog.findFirst({
+                where: { projectId: project.id, action: 'DATABASE_CREATE' }
+            })
+            const actionType = existingLog ? 'DATABASE_UPDATE' : 'DATABASE_CREATE'
+
+            // Get user info from request body (sent from frontend)
+            const { userId = 'system', userName = 'System' } = body
+
+            // Create log entry
+            await prisma.imageFactoryLog.create({
+                data: {
+                    projectId: project.id,
+                    userId,
+                    userName,
+                    action: actionType,
+                    details: JSON.stringify({ added, updated, total: mediaItems.length })
+                }
+            })
+
+            // Get current counts for snapshot
+            const [totalCount, heavyCount, missingAltCount] = await Promise.all([
+                prisma.projectMedia.count({ where: { projectId: project.id } }),
+                prisma.projectMedia.count({ where: { projectId: project.id, filesize: { gt: 150 * 1024 } } }),
+                prisma.projectMedia.count({ where: { projectId: project.id, OR: [{ alt: null }, { alt: '' }] } })
+            ])
+
+            // Create snapshot for charts
+            await prisma.imageFactorySnapshot.create({
+                data: {
+                    projectId: project.id,
+                    totalCount,
+                    heavyCount,
+                    missingAltCount
+                }
+            })
+
             return NextResponse.json({
                 success: true,
                 synced: true,
@@ -254,7 +291,8 @@ export async function POST(req: NextRequest) {
                 updated,
                 totalScan: mediaItems.length,
                 page: page,
-                totalPages: data.pages
+                totalPages: data.pages,
+                actionType
             })
         }
 

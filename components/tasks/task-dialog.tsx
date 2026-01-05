@@ -102,11 +102,12 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
                 description: values.description,
                 dueDate: date.toISOString(),
                 priority: values.priority,
-                leadId: values.leadId ? parseInt(values.leadId) : null
+                leadId: values.leadId ? parseInt(String(values.leadId)) : null
             }
-
-            const url = initialData ? `/api/tasks/${initialData.id}` : "/api/tasks"
-            const method = initialData ? "PATCH" : "POST"
+            // Only use PATCH if we have an actual task with an ID (not just lead info passed through)
+            const isEditing = initialData?.id != null
+            const url = isEditing ? `/api/tasks/${initialData.id}` : "/api/tasks"
+            const method = isEditing ? "PATCH" : "POST"
 
             const res = await fetch(url, {
                 method,

@@ -188,6 +188,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
     const [replaceSuccessCount, setReplaceSuccessCount] = useState(0)
     const [replaceFailCount, setReplaceFailCount] = useState(0)
     const [replacedSavings, setReplacedSavings] = useState(0)
+    const [replaceErrors, setReplaceErrors] = useState<{ filename: string, error: string }[]>([])
 
     const handleStartOptimization = async () => {
         setStep('processing')
@@ -277,10 +278,12 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
         setReplaceSuccessCount(0)
         setReplaceFailCount(0)
         setReplacedSavings(0)
+        setReplaceErrors([])
 
         let successCount = 0
         let failCount = 0
         let savedBytes = 0
+        const errors: { filename: string, error: string }[] = []
 
         for (let i = 0; i < toReplace.length; i++) {
             const item = toReplace[i]
@@ -308,11 +311,20 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                     successCount++
                     savedBytes += (item.originalSize - item.compressedSize)
                 } else {
+                    const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
                     failCount++
+                    errors.push({
+                        filename: item.filename || `Media #${item.mediaId}`,
+                        error: errorData.error || `HTTP ${res.status}`
+                    })
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Replace failed:', e)
                 failCount++
+                errors.push({
+                    filename: item.filename || `Media #${item.mediaId}`,
+                    error: e.message || 'Network error'
+                })
             }
 
             setReplaceProgress(((i + 1) / toReplace.length) * 100)
@@ -321,6 +333,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
         setReplaceSuccessCount(successCount)
         setReplaceFailCount(failCount)
         setReplacedSavings(savedBytes)
+        setReplaceErrors(errors)
         setStep('complete')
         onOptimizeComplete()
     }
@@ -573,7 +586,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                             </div>
 
                             {/* Stats */}
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className={`grid gap-4 ${replaceFailCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                                 <div className="text-center p-4 bg-green-50 rounded-lg">
                                     <p className="text-2xl font-bold text-green-600">{replaceSuccessCount}</p>
                                     <p className="text-xs text-muted-foreground">Replaced</p>
@@ -589,6 +602,20 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                                     <p className="text-xs text-muted-foreground">Saved</p>
                                 </div>
                             </div>
+
+                            {/* Error details */}
+                            {replaceErrors.length > 0 && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                                    <p className="text-sm font-medium text-red-700">Error Details:</p>
+                                    <div className="max-h-32 overflow-y-auto space-y-1">
+                                        {replaceErrors.map((err, i) => (
+                                            <div key={i} className="text-xs text-red-600">
+                                                <span className="font-medium">{err.filename}:</span> {err.error}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <p className="text-sm text-center text-muted-foreground">
                                 Images have been updated in WordPress. Backups are stored for undo.

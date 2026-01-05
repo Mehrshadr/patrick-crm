@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, Check, AlertCircle, ArrowRight, ZoomIn } from "lucide-react"
+import { Loader2, Check, AlertCircle, ArrowRight, ZoomIn, CheckCircle2, XCircle } from "lucide-react"
 
 interface MediaItem {
     id: number
@@ -161,8 +161,8 @@ function ImageComparisonSlider({
 }
 
 export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOptimizeComplete }: OptimizeDialogProps) {
-    // Step: 'settings' | 'processing' | 'results' | 'replacing'
-    const [step, setStep] = useState<'settings' | 'processing' | 'results' | 'replacing'>('settings')
+    // Step: 'settings' | 'processing' | 'results' | 'replacing' | 'complete'
+    const [step, setStep] = useState<'settings' | 'processing' | 'results' | 'replacing' | 'complete'>('settings')
 
     // Settings - use strings to allow empty input
     const [maxSizeKB, setMaxSizeKB] = useState("150")
@@ -180,6 +180,11 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
 
     // Comparison modal
     const [comparisonItem, setComparisonItem] = useState<OptimizeResult | null>(null)
+
+    // Replace results
+    const [replaceSuccessCount, setReplaceSuccessCount] = useState(0)
+    const [replaceFailCount, setReplaceFailCount] = useState(0)
+    const [replacedSavings, setReplacedSavings] = useState(0)
 
     const handleStartOptimization = async () => {
         setStep('processing')
@@ -266,6 +271,13 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
 
         setStep('replacing')
         setReplaceProgress(0)
+        setReplaceSuccessCount(0)
+        setReplaceFailCount(0)
+        setReplacedSavings(0)
+
+        let successCount = 0
+        let failCount = 0
+        let savedBytes = 0
 
         for (let i = 0; i < toReplace.length; i++) {
             const item = toReplace[i]
@@ -276,7 +288,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                 const mimeType = format === 'webp' ? 'image/webp' :
                     format === 'jpeg' || format === 'jpg' ? 'image/jpeg' : 'image/png'
 
-                await fetch('/api/images/replace', {
+                const res = await fetch('/api/images/replace', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -286,15 +298,26 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                         mimeType
                     })
                 })
+
+                if (res.ok) {
+                    successCount++
+                    savedBytes += (item.originalSize - item.compressedSize)
+                } else {
+                    failCount++
+                }
             } catch (e) {
                 console.error('Replace failed:', e)
+                failCount++
             }
 
             setReplaceProgress(((i + 1) / toReplace.length) * 100)
         }
 
+        setReplaceSuccessCount(successCount)
+        setReplaceFailCount(failCount)
+        setReplacedSavings(savedBytes)
+        setStep('complete')
         onOptimizeComplete()
-        handleClose()
     }
 
     const toggleResultSelection = (mediaId: number) => {
@@ -330,6 +353,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                             {step === 'processing' && 'Optimizing...'}
                             {step === 'results' && 'Optimization Results'}
                             {step === 'replacing' && 'Replacing in WordPress...'}
+                            {step === 'complete' && 'Replacement Complete'}
                         </DialogTitle>
                     </DialogHeader>
 
@@ -424,7 +448,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                                     <div
                                         key={result.mediaId}
                                         className={`rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md ${result.status === 'error' ? 'bg-red-50 border-red-200' :
-                                                result.selected ? 'ring-2 ring-primary bg-green-50' : 'bg-muted/30'
+                                            result.selected ? 'ring-2 ring-primary bg-green-50' : 'bg-muted/30'
                                             }`}
                                         onClick={() => result.status === 'done' && setComparisonItem(result)}
                                     >
@@ -516,6 +540,58 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                             <p className="text-center text-sm text-muted-foreground">
                                 {Math.round(replaceProgress)}% complete
                             </p>
+                        </div>
+                    )}
+
+                    {/* Step 5: Complete */}
+                    {step === 'complete' && (
+                        <div className="space-y-6 py-4">
+                            {/* Success icon */}
+                            <div className="flex flex-col items-center gap-3">
+                                {replaceFailCount === 0 ? (
+                                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                                        <CheckCircle2 className="h-10 w-10 text-green-600" />
+                                    </div>
+                                ) : replaceSuccessCount > 0 ? (
+                                    <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+                                        <AlertCircle className="h-10 w-10 text-amber-600" />
+                                    </div>
+                                ) : (
+                                    <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                                        <XCircle className="h-10 w-10 text-red-600" />
+                                    </div>
+                                )}
+                                <h3 className="text-lg font-semibold">
+                                    {replaceFailCount === 0 ? 'All images replaced successfully!' :
+                                        replaceSuccessCount > 0 ? 'Partially completed' : 'Replacement failed'}
+                                </h3>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="text-center p-4 bg-green-50 rounded-lg">
+                                    <p className="text-2xl font-bold text-green-600">{replaceSuccessCount}</p>
+                                    <p className="text-xs text-muted-foreground">Replaced</p>
+                                </div>
+                                {replaceFailCount > 0 && (
+                                    <div className="text-center p-4 bg-red-50 rounded-lg">
+                                        <p className="text-2xl font-bold text-red-600">{replaceFailCount}</p>
+                                        <p className="text-xs text-muted-foreground">Failed</p>
+                                    </div>
+                                )}
+                                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                                    <p className="text-2xl font-bold text-blue-600">{formatBytes(replacedSavings)}</p>
+                                    <p className="text-xs text-muted-foreground">Saved</p>
+                                </div>
+                            </div>
+
+                            <p className="text-sm text-center text-muted-foreground">
+                                Images have been updated in WordPress. Backups are stored for undo.
+                            </p>
+
+                            <Button onClick={handleClose} className="w-full">
+                                Done
+                            </Button>
                         </div>
                     )}
                 </DialogContent>

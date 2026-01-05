@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
-import { Loader2, Check, AlertCircle, ArrowRight } from "lucide-react"
+import { Loader2, Check, AlertCircle, ArrowRight, ZoomIn } from "lucide-react"
 
 interface MediaItem {
     id: number
@@ -44,6 +44,122 @@ interface OptimizeDialogProps {
     onOptimizeComplete: () => void
 }
 
+// Lightroom-style comparison slider component
+function ImageComparisonSlider({
+    originalSrc,
+    compressedSrc,
+    originalSize,
+    compressedSize,
+    onClose
+}: {
+    originalSrc: string
+    compressedSrc: string
+    originalSize: number
+    compressedSize: number
+    onClose: () => void
+}) {
+    const [sliderPosition, setSliderPosition] = useState(50)
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        const x = e.clientX - rect.left
+        const percentage = Math.min(Math.max((x / rect.width) * 100, 0), 100)
+        setSliderPosition(percentage)
+    }, [])
+
+    const formatBytes = (bytes: number) => {
+        if (bytes < 1024) return `${bytes}B`
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+        return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+    }
+
+    return (
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent className="max-w-5xl max-h-[95vh] p-0 overflow-hidden">
+                <div className="p-4 border-b bg-muted/50">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                            <div className="text-sm">
+                                <span className="text-muted-foreground">Original:</span>{' '}
+                                <span className="font-mono font-medium">{formatBytes(originalSize)}</span>
+                            </div>
+                            <div className="text-sm">
+                                <span className="text-muted-foreground">Optimized:</span>{' '}
+                                <span className="font-mono font-medium text-green-600">{formatBytes(compressedSize)}</span>
+                            </div>
+                            <div className="text-sm">
+                                <span className="text-muted-foreground">Saved:</span>{' '}
+                                <span className="font-mono font-medium text-green-600">
+                                    {Math.round((1 - compressedSize / originalSize) * 100)}%
+                                </span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Move mouse left/right to compare
+                        </p>
+                    </div>
+                </div>
+
+                {/* Comparison container */}
+                <div
+                    ref={containerRef}
+                    className="relative cursor-ew-resize select-none"
+                    onMouseMove={handleMouseMove}
+                    style={{ height: 'calc(95vh - 80px)' }}
+                >
+                    {/* Optimized (After) - Full background */}
+                    <div className="absolute inset-0">
+                        <img
+                            src={compressedSrc}
+                            alt="Optimized"
+                            className="w-full h-full object-contain bg-slate-100"
+                            draggable={false}
+                        />
+                        <div className="absolute top-4 right-4 bg-green-600 text-white text-xs font-medium px-2 py-1 rounded">
+                            OPTIMIZED
+                        </div>
+                    </div>
+
+                    {/* Original (Before) - Clipped by slider */}
+                    <div
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ width: `${sliderPosition}%` }}
+                    >
+                        <img
+                            src={originalSrc}
+                            alt="Original"
+                            className="h-full object-contain bg-slate-100"
+                            style={{
+                                width: containerRef.current?.offsetWidth || '100%',
+                                maxWidth: 'none'
+                            }}
+                            draggable={false}
+                        />
+                        <div className="absolute top-4 left-4 bg-slate-700 text-white text-xs font-medium px-2 py-1 rounded">
+                            ORIGINAL
+                        </div>
+                    </div>
+
+                    {/* Slider line */}
+                    <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg"
+                        style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
+                    >
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
+                            <div className="flex items-center gap-0.5">
+                                <ArrowRight className="h-3 w-3 rotate-180 text-slate-600" />
+                                <ArrowRight className="h-3 w-3 text-slate-600" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOptimizeComplete }: OptimizeDialogProps) {
     // Step: 'settings' | 'processing' | 'results' | 'replacing'
     const [step, setStep] = useState<'settings' | 'processing' | 'results' | 'replacing'>('settings')
@@ -61,6 +177,9 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
 
     // Replace progress
     const [replaceProgress, setReplaceProgress] = useState(0)
+
+    // Comparison modal
+    const [comparisonItem, setComparisonItem] = useState<OptimizeResult | null>(null)
 
     const handleStartOptimization = async () => {
         setStep('processing')
@@ -202,211 +321,216 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
     }
 
     return (
-        <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>
-                        {step === 'settings' && `Optimize ${selectedImages.length} Images`}
-                        {step === 'processing' && 'Optimizing...'}
-                        {step === 'results' && 'Optimization Results'}
-                        {step === 'replacing' && 'Replacing in WordPress...'}
-                    </DialogTitle>
-                </DialogHeader>
+        <>
+            <Dialog open={open} onOpenChange={handleClose}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {step === 'settings' && `Optimize ${selectedImages.length} Images`}
+                            {step === 'processing' && 'Optimizing...'}
+                            {step === 'results' && 'Optimization Results'}
+                            {step === 'replacing' && 'Replacing in WordPress...'}
+                        </DialogTitle>
+                    </DialogHeader>
 
-                {/* Step 1: Settings */}
-                {step === 'settings' && (
-                    <div className="space-y-6">
-                        {/* Thumbnail preview */}
-                        <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 bg-muted rounded-lg">
-                            {selectedImages.map(img => (
-                                <div key={img.id} className="w-12 h-12 relative rounded overflow-hidden border">
-                                    <img
-                                        src={img.url}
-                                        alt={img.alt || img.filename}
-                                        className="w-full h-full object-cover"
+                    {/* Step 1: Settings */}
+                    {step === 'settings' && (
+                        <div className="space-y-6">
+                            {/* Thumbnail preview */}
+                            <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 bg-muted rounded-lg">
+                                {selectedImages.map(img => (
+                                    <div key={img.id} className="w-12 h-12 relative rounded overflow-hidden border">
+                                        <img
+                                            src={img.url}
+                                            alt={img.alt || img.filename}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Settings form */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Max Size (KB)</Label>
+                                    <Input
+                                        type="text"
+                                        value={maxSizeKB}
+                                        onChange={e => setMaxSizeKB(e.target.value)}
+                                        placeholder="150"
                                     />
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Settings form */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Max Size (KB)</Label>
-                                <Input
-                                    type="text"
-                                    value={maxSizeKB}
-                                    onChange={e => setMaxSizeKB(e.target.value)}
-                                    placeholder="150"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Max Width (px)</Label>
-                                <Input
-                                    type="text"
-                                    value={maxWidth}
-                                    onChange={e => setMaxWidth(e.target.value)}
-                                    placeholder="1200"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Quality Threshold (%)</Label>
-                                <Input
-                                    type="text"
-                                    value={qualityThreshold}
-                                    onChange={e => setQualityThreshold(e.target.value)}
-                                    placeholder="90"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Output Format</Label>
-                                <Select value={format} onValueChange={setFormat}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="webp">WebP (Best)</SelectItem>
-                                        <SelectItem value="jpeg">JPEG</SelectItem>
-                                        <SelectItem value="png">PNG</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <Button onClick={handleStartOptimization} className="w-full">
-                            Start Optimization
-                        </Button>
-                    </div>
-                )}
-
-                {/* Step 2: Processing */}
-                {step === 'processing' && (
-                    <div className="space-y-4 py-8">
-                        <div className="flex items-center justify-center gap-3">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            <span>Processing {currentProcessing}...</span>
-                        </div>
-                        <Progress value={progress} className="w-full" />
-                        <p className="text-center text-sm text-muted-foreground">
-                            {Math.round(progress)}% complete
-                        </p>
-                    </div>
-                )}
-
-                {/* Step 3: Results - Larger images with sizes */}
-                {step === 'results' && (
-                    <div className="space-y-4">
-                        <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
-                            {results.map(result => (
-                                <div
-                                    key={result.mediaId}
-                                    className={`p-4 rounded-lg border ${result.status === 'error' ? 'bg-red-50 border-red-200' :
-                                        result.selected ? 'bg-green-50 border-green-300' : 'bg-muted/50'
-                                        }`}
-                                >
-                                    {/* Header with checkbox and filename */}
-                                    <div className="flex items-center gap-3 mb-3">
-                                        {result.status === 'done' && (
-                                            <Checkbox
-                                                checked={result.selected}
-                                                onCheckedChange={() => toggleResultSelection(result.mediaId)}
-                                            />
-                                        )}
-                                        <span className="font-medium text-sm truncate flex-1">{result.filename}</span>
-                                        {result.status === 'done' && (
-                                            <span className={`text-sm font-semibold ${result.savings > 50 ? 'text-green-600' : result.savings > 20 ? 'text-amber-600' : 'text-slate-500'}`}>
-                                                -{result.savings}%
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {result.status === 'done' ? (
-                                        <>
-                                            {/* Before/After images - LARGER */}
-                                            <div className="flex items-center gap-4">
-                                                {/* Original */}
-                                                <div className="flex-1">
-                                                    <p className="text-xs text-muted-foreground mb-1">Original</p>
-                                                    <div className="aspect-video bg-white rounded border overflow-hidden">
-                                                        <img
-                                                            src={result.originalUrl}
-                                                            alt="Original"
-                                                            className="w-full h-full object-contain"
-                                                        />
-                                                    </div>
-                                                    <p className="text-xs text-center mt-1 font-mono text-muted-foreground">
-                                                        {formatBytes(result.originalSize)}
-                                                    </p>
-                                                </div>
-
-                                                <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
-
-                                                {/* Compressed */}
-                                                <div className="flex-1">
-                                                    <p className="text-xs text-muted-foreground mb-1">Optimized</p>
-                                                    <div className="aspect-video bg-white rounded border overflow-hidden">
-                                                        <img
-                                                            src={result.compressedImage}
-                                                            alt="Compressed"
-                                                            className="w-full h-full object-contain"
-                                                        />
-                                                    </div>
-                                                    <p className="text-xs text-center mt-1 font-mono text-green-600 font-medium">
-                                                        {formatBytes(result.compressedSize)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex items-center gap-2 py-4">
-                                            <AlertCircle className="h-5 w-5 text-red-500" />
-                                            <span className="text-sm text-red-600">{result.error}</span>
-                                        </div>
-                                    )}
+                                <div className="space-y-2">
+                                    <Label>Max Width (px)</Label>
+                                    <Input
+                                        type="text"
+                                        value={maxWidth}
+                                        onChange={e => setMaxWidth(e.target.value)}
+                                        placeholder="1200"
+                                    />
                                 </div>
-                            ))}
-                        </div>
+                                <div className="space-y-2">
+                                    <Label>Quality Threshold (%)</Label>
+                                    <Input
+                                        type="text"
+                                        value={qualityThreshold}
+                                        onChange={e => setQualityThreshold(e.target.value)}
+                                        placeholder="90"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Output Format</Label>
+                                    <Select value={format} onValueChange={setFormat}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="webp">WebP (Best)</SelectItem>
+                                            <SelectItem value="jpeg">JPEG</SelectItem>
+                                            <SelectItem value="png">PNG</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                        {/* Summary */}
-                        <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                            <span className="text-sm">
-                                {results.filter(r => r.selected && r.status === 'done').length} selected
-                            </span>
-                            <span className="font-medium text-green-600">
-                                Total Savings: {formatBytes(totalSavings)}
-                            </span>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={handleClose} className="flex-1">
-                                Cancel
+                            <Button onClick={handleStartOptimization} className="w-full">
+                                Start Optimization
                             </Button>
-                            <Button
-                                onClick={handleReplaceSelected}
-                                className="flex-1"
-                                disabled={results.filter(r => r.selected && r.status === 'done').length === 0}
-                            >
-                                <Check className="h-4 w-4 mr-2" />
-                                Replace {results.filter(r => r.selected && r.status === 'done').length} in WordPress
-                            </Button>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Step 4: Replacing */}
-                {step === 'replacing' && (
-                    <div className="space-y-4 py-8">
-                        <div className="flex items-center justify-center gap-3">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            <span>Replacing images in WordPress...</span>
+                    {/* Step 2: Processing */}
+                    {step === 'processing' && (
+                        <div className="space-y-4 py-8">
+                            <div className="flex items-center justify-center gap-3">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                <span>Processing {currentProcessing}...</span>
+                            </div>
+                            <Progress value={progress} className="w-full" />
+                            <p className="text-center text-sm text-muted-foreground">
+                                {Math.round(progress)}% complete
+                            </p>
                         </div>
-                        <Progress value={replaceProgress} className="w-full" />
-                        <p className="text-center text-sm text-muted-foreground">
-                            {Math.round(replaceProgress)}% complete
-                        </p>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
+                    )}
+
+                    {/* Step 3: Results - Compact grid with click to compare */}
+                    {step === 'results' && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                                Click on any image to see full comparison
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto pr-2">
+                                {results.map(result => (
+                                    <div
+                                        key={result.mediaId}
+                                        className={`rounded-lg border overflow-hidden cursor-pointer transition-all hover:shadow-md ${result.status === 'error' ? 'bg-red-50 border-red-200' :
+                                                result.selected ? 'ring-2 ring-primary bg-green-50' : 'bg-muted/30'
+                                            }`}
+                                        onClick={() => result.status === 'done' && setComparisonItem(result)}
+                                    >
+                                        {/* Thumbnail */}
+                                        <div className="aspect-square relative group">
+                                            {result.status === 'done' ? (
+                                                <>
+                                                    <img
+                                                        src={result.compressedImage}
+                                                        alt={result.filename}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <ZoomIn className="h-8 w-8 text-white" />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-red-100">
+                                                    <AlertCircle className="h-8 w-8 text-red-500" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Info row */}
+                                        <div className="p-2 flex items-center gap-2">
+                                            {result.status === 'done' && (
+                                                <Checkbox
+                                                    checked={result.selected}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onCheckedChange={() => toggleResultSelection(result.mediaId)}
+                                                />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium truncate">{result.filename}</p>
+                                                {result.status === 'done' ? (
+                                                    <div className="flex items-center gap-2 text-[10px]">
+                                                        <span className="text-muted-foreground">{formatBytes(result.originalSize)}</span>
+                                                        <ArrowRight className="h-2.5 w-2.5 text-muted-foreground" />
+                                                        <span className="text-green-600 font-medium">{formatBytes(result.compressedSize)}</span>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[10px] text-red-600 truncate">{result.error}</p>
+                                                )}
+                                            </div>
+                                            {result.status === 'done' && (
+                                                <span className={`text-xs font-bold ${result.savings > 50 ? 'text-green-600' : result.savings > 20 ? 'text-amber-600' : 'text-slate-500'}`}>
+                                                    -{result.savings}%
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Summary */}
+                            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                                <span className="text-sm">
+                                    {results.filter(r => r.selected && r.status === 'done').length} selected
+                                </span>
+                                <span className="font-medium text-green-600">
+                                    Total Savings: {formatBytes(totalSavings)}
+                                </span>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={handleClose} className="flex-1">
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleReplaceSelected}
+                                    className="flex-1"
+                                    disabled={results.filter(r => r.selected && r.status === 'done').length === 0}
+                                >
+                                    <Check className="h-4 w-4 mr-2" />
+                                    Replace {results.filter(r => r.selected && r.status === 'done').length} in WordPress
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 4: Replacing */}
+                    {step === 'replacing' && (
+                        <div className="space-y-4 py-8">
+                            <div className="flex items-center justify-center gap-3">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                <span>Replacing images in WordPress...</span>
+                            </div>
+                            <Progress value={replaceProgress} className="w-full" />
+                            <p className="text-center text-sm text-muted-foreground">
+                                {Math.round(replaceProgress)}% complete
+                            </p>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Comparison slider modal */}
+            {comparisonItem && (
+                <ImageComparisonSlider
+                    originalSrc={comparisonItem.originalUrl}
+                    compressedSrc={comparisonItem.compressedImage}
+                    originalSize={comparisonItem.originalSize}
+                    compressedSize={comparisonItem.compressedSize}
+                    onClose={() => setComparisonItem(null)}
+                />
+            )}
+        </>
     )
 }

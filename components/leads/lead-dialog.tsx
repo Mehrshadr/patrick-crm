@@ -990,7 +990,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                             ) : (
                                 <div className="space-y-2">
                                     {tasks.map(task => (
-                                        <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+                                        <div key={task.id} className="group flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
                                             <div className="flex items-center gap-3">
                                                 <button
                                                     className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${task.status === 'COMPLETED' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-emerald-500'}`}
@@ -1015,6 +1015,24 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                                                     </div>
                                                 </div>
                                             </div>
+                                            {!readOnly && (
+                                                <button
+                                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 rounded text-red-500 transition-opacity"
+                                                    onClick={async () => {
+                                                        if (!confirm('Delete this task?')) return;
+                                                        setTasks(tasks.filter(t => t.id !== task.id));
+                                                        const res = await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' }).then(r => r.json());
+                                                        if (res.success) {
+                                                            toast.success('Task deleted');
+                                                        } else {
+                                                            toast.error('Failed to delete task');
+                                                            if (lead) fetch(`/api/tasks?leadId=${lead.id}`).then(r => r.json()).then(d => setTasks(d || []));
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

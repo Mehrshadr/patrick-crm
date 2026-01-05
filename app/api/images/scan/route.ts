@@ -40,9 +40,15 @@ export async function POST(req: NextRequest) {
                 })
             }
 
-            // Filter by parent URL
+            // Filter by parent URL (normalize: remove protocol, www, trailing slash)
             if (filterUrl) {
-                andConditions.push({ parentPostUrl: { contains: filterUrl } })
+                // Normalize input URL for better matching
+                let normalizedUrl = filterUrl
+                    .replace(/^https?:\/\//, '')  // Remove http:// or https://
+                    .replace(/^www\./, '')        // Remove www.
+                    .replace(/\/$/, '')           // Remove trailing slash
+
+                andConditions.push({ parentPostUrl: { contains: normalizedUrl } })
             }
 
             // Filter by heavy files (>150KB)

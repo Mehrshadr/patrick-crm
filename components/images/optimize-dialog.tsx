@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -161,6 +162,8 @@ function ImageComparisonSlider({
 }
 
 export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOptimizeComplete }: OptimizeDialogProps) {
+    const { data: session } = useSession()
+
     // Step: 'settings' | 'processing' | 'results' | 'replacing' | 'complete'
     const [step, setStep] = useState<'settings' | 'processing' | 'results' | 'replacing' | 'complete'>('settings')
 
@@ -295,7 +298,9 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                         projectId,
                         mediaId: item.mediaId,
                         imageData: base64Data,
-                        mimeType
+                        mimeType,
+                        userId: session?.user?.id || 'unknown',
+                        userName: session?.user?.name || 'Unknown User'
                     })
                 })
 

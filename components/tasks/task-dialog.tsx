@@ -52,10 +52,10 @@ export function TaskDialog({ initialData, onSuccess }: TaskDialogProps) {
         defaultValues: {
             title: initialData?.title || "",
             description: initialData?.description || "",
-            dueDate: initialData ? new Date(initialData.dueDate) : new Date(),
-            time: initialData ? format(new Date(initialData.dueDate), 'HH:mm') : getDefaultTime(),
+            dueDate: initialData?.dueDate ? new Date(initialData.dueDate) : new Date(),
+            time: initialData?.dueDate ? format(new Date(initialData.dueDate), 'HH:mm') : getDefaultTime(),
             priority: initialData?.priority || "NORMAL",
-            leadId: initialData?.lead?.id.toString() || undefined
+            leadId: initialData?.lead?.id?.toString() || undefined
         }
     })
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -54,6 +55,7 @@ interface MediaScannerProps {
 }
 
 export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) {
+    const { data: session } = useSession()
     const [media, setMedia] = useState<MediaItem[]>([])
     const [loading, setLoading] = useState(false)
     const [syncing, setSyncing] = useState(false)
@@ -607,7 +609,12 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                                     await fetch('/api/images/undo', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ projectId, mediaId: item.wpId })
+                                                        body: JSON.stringify({
+                                                            projectId,
+                                                            mediaId: item.wpId,
+                                                            userId: session?.user?.id || 'unknown',
+                                                            userName: session?.user?.name || 'Unknown User'
+                                                        })
                                                     })
                                                     fetchMediaFromDb(page)
                                                     setToast({ message: 'Image restored', type: 'success' })

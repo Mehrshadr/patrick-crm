@@ -6,21 +6,35 @@ import { auth } from "@/lib/auth"
 // POST - Compress image with smart algorithm
 // Target: Get as close to maxSize as possible without going over
 // User can set quality threshold (default 90%)
+// Supports: file upload OR imageUrl for remote images
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData()
-        const file = formData.get("file") as File
+        const file = formData.get("file") as File | null
+        const imageUrl = formData.get("imageUrl") as string | null
         const maxSizeKB = parseInt(formData.get("maxSizeKB") as string) || 100
         const maxWidth = parseInt(formData.get("maxWidth") as string) || 1200
         const outputFormat = (formData.get("format") as string) || "webp"
         const qualityThreshold = parseInt(formData.get("qualityThreshold") as string) || 90
 
-        if (!file) {
-            return NextResponse.json({ error: "No file provided" }, { status: 400 })
+        let originalBuffer: Buffer
+
+        // Support both file upload and URL fetch
+        if (file) {
+            originalBuffer = Buffer.from(await file.arrayBuffer())
+        } else if (imageUrl) {
+            // Fetch image from URL
+            const response = await fetch(imageUrl)
+            if (!response.ok) {
+                return NextResponse.json({ error: "Failed to fetch image from URL" }, { status: 400 })
+            }
+            const arrayBuffer = await response.arrayBuffer()
+            originalBuffer = Buffer.from(arrayBuffer)
+        } else {
+            return NextResponse.json({ error: "No file or imageUrl provided" }, { status: 400 })
         }
 
         // Get original file info
-        const originalBuffer = Buffer.from(await file.arrayBuffer())
         const originalSizeKB = originalBuffer.length / 1024
         const originalMetadata = await sharp(originalBuffer).metadata()
 

@@ -504,6 +504,7 @@ model ProjectMedia {
   parentPostUrl  String?
   parentPostType String?         // product, post, page
   lastSyncedAt   DateTime        @default(now())
+  originalUrl    String?         // Backup URL for undo (set when image is replaced)
   
   project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   changeLogs     MediaChangeLog[]

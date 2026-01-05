@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     Loader2,
     Search,
@@ -21,13 +22,17 @@ import {
     TrendingDown,
     ClipboardList,
     X,
-    Trash2
+    Trash2,
+    Zap,
+    Undo2
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { OptimizeDialog } from "./optimize-dialog"
 
 interface MediaItem {
     id: number
+    wpId: number
     title: string
     filename: string
     alt: string
@@ -40,6 +45,7 @@ interface MediaItem {
     parent_type?: string
     parent_title?: string
     parent_url?: string
+    originalUrl?: string | null
 }
 
 interface MediaScannerProps {
@@ -89,6 +95,10 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
     const [logFilterAction, setLogFilterAction] = useState('')
     const [logFilterUser, setLogFilterUser] = useState('')
     const [availableUsers, setAvailableUsers] = useState<{ userId: string, userName: string }[]>([])
+
+    // Selection & Optimize
+    const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set())
+    const [showOptimizeDialog, setShowOptimizeDialog] = useState(false)
 
     // Load from database on mount
     useEffect(() => {
@@ -298,6 +308,27 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                             </Button>
                         )}
                     </div>
+
+                    {/* Selection controls */}
+                    {selectedImages.size > 0 && (
+                        <div className="flex items-center gap-2">
+                            <Button
+                                onClick={() => setShowOptimizeDialog(true)}
+                                size="sm"
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+                            >
+                                <Zap className="h-4 w-4 mr-1" />
+                                Optimize {selectedImages.size} Selected
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedImages(new Set())}
+                            >
+                                Clear
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Filters */}
@@ -534,82 +565,139 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                        {media.map((item) => (
-                            <div key={item.id} className="group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all relative">
-                                <div className="aspect-square bg-slate-100 relative overflow-hidden">
-                                    {item.mime_type.includes('image') ? (
-                                        <img
-                                            src={item.url}
-                                            alt={item.alt}
-                                            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                                            loading="lazy"
+                        {media.map((item) => {
+                            const isSelected = selectedImages.has(item.id)
+                            return (
+                                <div
+                                    key={item.id}
+                                    className={`group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all relative ${isSelected ? 'ring-2 ring-orange-500' : ''}`}
+                                    onClick={() => {
+                                        setSelectedImages(prev => {
+                                            const next = new Set(prev)
+                                            if (next.has(item.id)) {
+                                                next.delete(item.id)
+                                            } else {
+                                                next.add(item.id)
+                                            }
+                                            return next
+                                        })
+                                    }}
+                                >
+                                    {/* Selection checkbox */}
+                                    <div className="absolute top-2 left-2 z-10">
+                                        <Checkbox
+                                            checked={isSelected}
+                                            className="bg-white/90 border-2"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedImages(prev => {
+                                                    const next = new Set(prev)
+                                                    if (checked) {
+                                                        next.add(item.id)
+                                                    } else {
+                                                        next.delete(item.id)
+                                                    }
+                                                    return next
+                                                })
+                                            }}
                                         />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full">
-                                            <ImageIcon className="h-10 w-10 text-slate-300" />
-                                        </div>
-                                    )}
-
-                                    <div className="absolute top-2 right-2 flex gap-1 flex-wrap">
-                                        {item.filesize > 150 * 1024 && (
-                                            <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
-                                                HEAVY
-                                            </Badge>
-                                        )}
-                                        {item.parent_type && (
-                                            <Badge
-                                                variant="secondary"
-                                                className={`h-5 px-1.5 text-[9px] ${item.parent_type === 'product' ? 'bg-blue-100 text-blue-700' :
-                                                    item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
-                                                        item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
-                                                            'bg-slate-100 text-slate-700'
-                                                    }`}
-                                            >
-                                                {item.parent_type === 'product' ? 'PRODUCT' :
-                                                    item.parent_type === 'post' ? 'BLOG' :
-                                                        item.parent_type === 'page' ? 'PAGE' :
-                                                            item.parent_type.toUpperCase()}
-                                            </Badge>
-                                        )}
                                     </div>
-
-                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                                        <Button size="sm" variant="secondary" className="h-8 text-xs w-24">
-                                            Optimize
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="h-8 text-xs w-24 bg-transparent text-white border-white hover:bg-white hover:text-black">
-                                            Fix Alt
-                                        </Button>
-                                    </div>
-                                </div>
-                                <div className="p-3">
-                                    <p className="text-xs font-medium truncate mb-1" title={item.filename}>{item.filename}</p>
-                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                        <span>{formatBytes(item.filesize)}</span>
-                                        <span className="font-mono bg-slate-100 px-1 rounded">
-                                            {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
-                                        </span>
-                                        <span>{item.width}x{item.height}</span>
-                                    </div>
-                                    {!item.alt && (
-                                        <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
-                                            <AlertTriangle className="h-3 w-3" /> Missing Alt
-                                        </p>
-                                    )}
-                                    {item.parent_url && (
-                                        <a
-                                            href={item.parent_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="mt-2 flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                                    {/* Undo button if has backup */}
+                                    {item.originalUrl && (
+                                        <Button
+                                            size="icon"
+                                            variant="secondary"
+                                            className="absolute bottom-2 right-2 z-10 h-6 w-6 opacity-0 group-hover:opacity-100"
+                                            onClick={async (e) => {
+                                                e.stopPropagation()
+                                                await fetch('/api/images/undo', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ projectId, mediaId: item.wpId })
+                                                })
+                                                fetchMediaFromDb(page)
+                                                setToast({ message: 'Image restored', type: 'success' })
+                                            }}
+                                            title="Undo Optimization"
                                         >
-                                            <ExternalLink className="h-3 w-3" />
-                                            View Page
-                                        </a>
+                                            <Undo2 className="h-3 w-3" />
+                                        </Button>
                                     )}
+                                    <div className="aspect-square bg-slate-100 relative overflow-hidden">
+                                        {item.mime_type.includes('image') ? (
+                                            <img
+                                                src={item.url}
+                                                alt={item.alt}
+                                                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                                loading="lazy"
+                                            />
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full">
+                                                <ImageIcon className="h-10 w-10 text-slate-300" />
+                                            </div>
+                                        )}
+
+                                        <div className="absolute top-2 right-2 flex gap-1 flex-wrap">
+                                            {item.filesize > 150 * 1024 && (
+                                                <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
+                                                    HEAVY
+                                                </Badge>
+                                            )}
+                                            {item.parent_type && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={`h-5 px-1.5 text-[9px] ${item.parent_type === 'product' ? 'bg-blue-100 text-blue-700' :
+                                                        item.parent_type === 'post' ? 'bg-green-100 text-green-700' :
+                                                            item.parent_type === 'page' ? 'bg-purple-100 text-purple-700' :
+                                                                'bg-slate-100 text-slate-700'
+                                                        }`}
+                                                >
+                                                    {item.parent_type === 'product' ? 'PRODUCT' :
+                                                        item.parent_type === 'post' ? 'BLOG' :
+                                                            item.parent_type === 'page' ? 'PAGE' :
+                                                                item.parent_type.toUpperCase()}
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                            <Button size="sm" variant="secondary" className="h-8 text-xs w-24">
+                                                Optimize
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-8 text-xs w-24 bg-transparent text-white border-white hover:bg-white hover:text-black">
+                                                Fix Alt
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="p-3">
+                                        <p className="text-xs font-medium truncate mb-1" title={item.filename}>{item.filename}</p>
+                                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                            <span>{formatBytes(item.filesize)}</span>
+                                            <span className="font-mono bg-slate-100 px-1 rounded">
+                                                {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
+                                            </span>
+                                            <span>{item.width}x{item.height}</span>
+                                        </div>
+                                        {!item.alt && (
+                                            <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
+                                                <AlertTriangle className="h-3 w-3" /> Missing Alt
+                                            </p>
+                                        )}
+                                        {item.parent_url && (
+                                            <a
+                                                href={item.parent_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="mt-2 flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                                            >
+                                                <ExternalLink className="h-3 w-3" />
+                                                View Page
+                                            </a>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )
             }
@@ -741,6 +829,21 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                     </div>
                 </div>
             )}
+
+            {/* Optimize Dialog */}
+            <OptimizeDialog
+                open={showOptimizeDialog}
+                onClose={() => setShowOptimizeDialog(false)}
+                selectedImages={media.filter(m => selectedImages.has(m.id)).map(m => ({
+                    ...m,
+                    mimeType: m.mime_type
+                }))}
+                projectId={projectId}
+                onOptimizeComplete={() => {
+                    setSelectedImages(new Set())
+                    fetchMediaFromDb(page)
+                }}
+            />
         </div>
     )
 }

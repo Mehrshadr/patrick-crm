@@ -19,12 +19,13 @@ export async function POST(req: NextRequest) {
             include: { settings: true }
         })
 
-        if (!project || !project.settings?.pluginBase || !project.settings?.pluginApiKey) {
+        if (!project || !project.domain || !project.settings?.cmsApiKey) {
             return NextResponse.json({ error: "Project settings not configured" }, { status: 400 })
         }
 
-        const pluginBase = project.settings.pluginBase
-        const headers = { 'X-MAP-API-Key': project.settings.pluginApiKey }
+        const siteUrl = project.domain.startsWith('http') ? project.domain : `https://${project.domain}`
+        const pluginBase = `${siteUrl.replace(/\/$/, '')}/wp-json/mehrana/v1`
+        const headers = { 'X-MAP-API-Key': project.settings.cmsApiKey }
 
         // Call WordPress plugin to replace media
         const wpRes = await fetch(`${pluginBase}/media/${mediaId}/replace`, {

@@ -7,8 +7,7 @@ import { checkProjectAppAccess } from "@/lib/project-access-server"
 import { Button } from "@/components/ui/button"
 import { MediaScanner } from "@/components/images/media-scanner"
 import { ImageCompressor } from "@/components/images/image-compressor"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { auth } from "@/lib/auth"
 import { isAdmin as checkIsAdmin } from "@/lib/permissions"
 
 // Force dynamic since we use headers/cookies
@@ -39,7 +38,7 @@ export default async function ImageFactoryPage({ params }: PageProps) {
     }
 
     // Check if user is admin
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     const userIsAdmin = session?.user?.email ? checkIsAdmin(session.user.email) : false
 
     // Has project access but no app access

@@ -289,8 +289,22 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
             const item = toReplace[i]
 
             try {
-                // Extract base64 data (remove data:image/...;base64, prefix)
-                const base64Data = item.compressedImage.split(',')[1]
+                // Extract base64 data (remove data:image/...;base64, prefix if present)
+                let base64Data = item.compressedImage
+                if (base64Data.includes(',')) {
+                    base64Data = base64Data.split(',')[1]
+                }
+
+                // Validate we have data
+                if (!base64Data || !item.mediaId) {
+                    errors.push({
+                        filename: item.filename || `Media #${item.mediaId}`,
+                        error: `Invalid data: mediaId=${item.mediaId}, hasImageData=${!!base64Data}`
+                    })
+                    failCount++
+                    continue
+                }
+
                 const mimeType = format === 'webp' ? 'image/webp' :
                     format === 'jpeg' || format === 'jpg' ? 'image/jpeg' : 'image/png'
 

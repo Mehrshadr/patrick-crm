@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
 
             // Transform to match frontend format
             const media = mediaItems.map(item => ({
-                id: item.wpId,
+                id: item.id,      // CRM database ID
+                wpId: item.wpId,  // WordPress media ID
                 title: item.filename,
                 filename: item.filename,
                 alt: item.alt || '',
@@ -117,7 +118,8 @@ export async function POST(req: NextRequest) {
                 parent_id: item.parentPostId,
                 parent_title: item.parentPostTitle,
                 parent_type: item.parentPostType,
-                parent_url: item.parentPostUrl
+                parent_url: item.parentPostUrl,
+                originalUrl: item.originalUrl
             }))
 
             // Get format breakdown (JPEG, PNG, WEBP, etc.)

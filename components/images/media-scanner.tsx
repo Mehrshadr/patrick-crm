@@ -315,7 +315,6 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                             <Button
                                 onClick={() => setShowOptimizeDialog(true)}
                                 size="sm"
-                                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
                             >
                                 <Zap className="h-4 w-4 mr-1" />
                                 Optimize {selectedImages.size} Selected
@@ -570,7 +569,7 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                             return (
                                 <div
                                     key={item.id}
-                                    className={`group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all relative ${isSelected ? 'ring-2 ring-orange-500' : ''}`}
+                                    className={`group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all cursor-pointer ${isSelected ? 'ring-2 ring-primary' : ''}`}
                                     onClick={() => {
                                         setSelectedImages(prev => {
                                             const next = new Set(prev)
@@ -583,46 +582,7 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                         })
                                     }}
                                 >
-                                    {/* Selection checkbox */}
-                                    <div className="absolute top-2 left-2 z-10">
-                                        <Checkbox
-                                            checked={isSelected}
-                                            className="bg-white/90 border-2"
-                                            onClick={(e) => e.stopPropagation()}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedImages(prev => {
-                                                    const next = new Set(prev)
-                                                    if (checked) {
-                                                        next.add(item.id)
-                                                    } else {
-                                                        next.delete(item.id)
-                                                    }
-                                                    return next
-                                                })
-                                            }}
-                                        />
-                                    </div>
-                                    {/* Undo button if has backup */}
-                                    {item.originalUrl && (
-                                        <Button
-                                            size="icon"
-                                            variant="secondary"
-                                            className="absolute bottom-2 right-2 z-10 h-6 w-6 opacity-0 group-hover:opacity-100"
-                                            onClick={async (e) => {
-                                                e.stopPropagation()
-                                                await fetch('/api/images/undo', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ projectId, mediaId: item.wpId })
-                                                })
-                                                fetchMediaFromDb(page)
-                                                setToast({ message: 'Image restored', type: 'success' })
-                                            }}
-                                            title="Undo Optimization"
-                                        >
-                                            <Undo2 className="h-3 w-3" />
-                                        </Button>
-                                    )}
+                                    {/* Image */}
                                     <div className="aspect-square bg-slate-100 relative overflow-hidden">
                                         {item.mime_type.includes('image') ? (
                                             <img
@@ -636,8 +596,60 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                                 <ImageIcon className="h-10 w-10 text-slate-300" />
                                             </div>
                                         )}
-
-                                        <div className="absolute top-2 right-2 flex gap-1 flex-wrap">
+                                        {/* Undo button if has backup */}
+                                        {item.originalUrl && (
+                                            <Button
+                                                size="icon"
+                                                variant="secondary"
+                                                className="absolute bottom-2 right-2 z-10 h-6 w-6 opacity-0 group-hover:opacity-100"
+                                                onClick={async (e) => {
+                                                    e.stopPropagation()
+                                                    await fetch('/api/images/undo', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ projectId, mediaId: item.wpId })
+                                                    })
+                                                    fetchMediaFromDb(page)
+                                                    setToast({ message: 'Image restored', type: 'success' })
+                                                }}
+                                                title="Undo Optimization"
+                                            >
+                                                <Undo2 className="h-3 w-3" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {/* Info box with checkbox, badges, and details */}
+                                    <div className="p-3">
+                                        {/* Top row: checkbox + filename */}
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                className="shrink-0"
+                                                onClick={(e) => e.stopPropagation()}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedImages(prev => {
+                                                        const next = new Set(prev)
+                                                        if (checked) {
+                                                            next.add(item.id)
+                                                        } else {
+                                                            next.delete(item.id)
+                                                        }
+                                                        return next
+                                                    })
+                                                }}
+                                            />
+                                            <p className="text-xs font-medium truncate flex-1" title={item.filename}>{item.filename}</p>
+                                        </div>
+                                        {/* Size, format, dimensions */}
+                                        <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                            <span>{formatBytes(item.filesize)}</span>
+                                            <span className="font-mono bg-slate-100 px-1 rounded">
+                                                {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
+                                            </span>
+                                            <span>{item.width}x{item.height}</span>
+                                        </div>
+                                        {/* Badges row */}
+                                        <div className="flex flex-wrap gap-1 mt-2">
                                             {item.filesize > 150 * 1024 && (
                                                 <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
                                                     HEAVY
@@ -658,37 +670,19 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                                                 item.parent_type.toUpperCase()}
                                                 </Badge>
                                             )}
+                                            {!item.alt && (
+                                                <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-orange-600 border-orange-300">
+                                                    No Alt
+                                                </Badge>
+                                            )}
                                         </div>
-
-                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                                            <Button size="sm" variant="secondary" className="h-8 text-xs w-24">
-                                                Optimize
-                                            </Button>
-                                            <Button size="sm" variant="outline" className="h-8 text-xs w-24 bg-transparent text-white border-white hover:bg-white hover:text-black">
-                                                Fix Alt
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    <div className="p-3">
-                                        <p className="text-xs font-medium truncate mb-1" title={item.filename}>{item.filename}</p>
-                                        <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                            <span>{formatBytes(item.filesize)}</span>
-                                            <span className="font-mono bg-slate-100 px-1 rounded">
-                                                {item.mime_type.split('/')[1]?.toUpperCase() || 'IMG'}
-                                            </span>
-                                            <span>{item.width}x{item.height}</span>
-                                        </div>
-                                        {!item.alt && (
-                                            <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
-                                                <AlertTriangle className="h-3 w-3" /> Missing Alt
-                                            </p>
-                                        )}
                                         {item.parent_url && (
                                             <a
                                                 href={item.parent_url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="mt-2 flex items-center gap-1 text-[10px] text-blue-600 hover:underline"
+                                                onClick={(e) => e.stopPropagation()}
                                             >
                                                 <ExternalLink className="h-3 w-3" />
                                                 View Page

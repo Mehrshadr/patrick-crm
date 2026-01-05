@@ -224,87 +224,116 @@ export async function POST(req: NextRequest) {
         const totalPages = data.pages || 1
 
         if (sync) {
-            console.log(`[ImageFactory] Starting bulk sync for project ${projectId}`)
-
-            // Fetch ALL media in one request using all=true
-            const bulkUrl = `${pluginBase}/media?all=true`
-            const bulkRes = await fetch(bulkUrl, { headers, next: { revalidate: 0 } })
-
-            if (!bulkRes.ok) {
-                console.error(`[ImageFactory] Bulk fetch failed: ${bulkRes.status}`)
-                return NextResponse.json({ error: 'Bulk fetch failed' }, { status: 500 })
-            }
-
-            const bulkData = await bulkRes.json()
-            const allMedia = bulkData.media || []
-
-            console.log(`[ImageFactory] Fetched ${allMedia.length} total media items`)
+            console.log(`[ImageFactory] Starting batched sync for project ${projectId}`)
 
             let added = 0
             let updated = 0
+            let totalScanned = 0
+            let currentPage = 1
+            let totalPages = 1
+            const BATCH_SIZE = 500
 
-            for (const item of allMedia) {
-                const existing = await prisma.projectMedia.findUnique({
-                    where: { projectId_wpId: { projectId: project.id, wpId: item.id } }
-                })
+            // First request to get total pages
+            const firstUrl = `${pluginBase}/media?page=1&per_page=${BATCH_SIZE}`
+            const firstRes = await fetch(firstUrl, { headers, next: { revalidate: 0 } })
 
-                if (existing) {
-                    updated++
-                    const changes: any[] = []
-                    if (existing.alt !== item.alt) changes.push({ field: 'alt', old: existing.alt, new: item.alt })
-                    if (existing.filesize !== item.filesize) changes.push({ field: 'filesize', old: String(existing.filesize), new: String(item.filesize) })
-
-                    if (changes.length > 0) {
-                        await Promise.all(changes.map(c =>
-                            prisma.mediaChangeLog.create({
-                                data: {
-                                    mediaId: existing.id,
-                                    fieldName: c.field,
-                                    oldValue: c.old || '',
-                                    newValue: c.new || ''
-                                }
-                            })
-                        ))
-                    }
-                } else {
-                    added++
-                }
-
-                await prisma.projectMedia.upsert({
-                    where: { projectId_wpId: { projectId: project.id, wpId: item.id } },
-                    update: {
-                        url: item.url,
-                        filename: item.filename,
-                        alt: item.alt,
-                        width: item.width,
-                        height: item.height,
-                        filesize: item.filesize,
-                        mimeType: item.mime_type,
-                        parentPostId: item.parent_id,
-                        parentPostTitle: item.parent_title,
-                        parentPostUrl: item.parent_url,
-                        parentPostType: item.parent_type,
-                        lastSyncedAt: new Date()
-                    },
-                    create: {
-                        projectId: project.id,
-                        wpId: item.id,
-                        url: item.url,
-                        filename: item.filename,
-                        alt: item.alt,
-                        width: item.width,
-                        height: item.height,
-                        filesize: item.filesize,
-                        mimeType: item.mime_type,
-                        parentPostId: item.parent_id,
-                        parentPostTitle: item.parent_title,
-                        parentPostUrl: item.parent_url,
-                        parentPostType: item.parent_type
-                    }
-                })
+            if (!firstRes.ok) {
+                console.error(`[ImageFactory] Initial fetch failed: ${firstRes.status}`)
+                return NextResponse.json({ error: 'Sync failed' }, { status: 500 })
             }
 
-            const totalScanned = allMedia.length
+            const firstData = await firstRes.json()
+            totalPages = firstData.pages || 1
+            console.log(`[ImageFactory] Total pages to sync: ${totalPages} (${firstData.total} items)`)
+
+            // Process all pages
+            while (currentPage <= totalPages) {
+                let pageItems = []
+
+                if (currentPage === 1) {
+                    pageItems = firstData.media || []
+                } else {
+                    const pageUrl = `${pluginBase}/media?page=${currentPage}&per_page=${BATCH_SIZE}`
+                    const pageRes = await fetch(pageUrl, { headers, next: { revalidate: 0 } })
+                    if (pageRes.ok) {
+                        const pageData = await pageRes.json()
+                        pageItems = pageData.media || []
+                    } else {
+                        console.error(`[ImageFactory] Failed to fetch page ${currentPage}`)
+                        currentPage++
+                        continue
+                    }
+                    // Small delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 200))
+                }
+
+                console.log(`[ImageFactory] Processing page ${currentPage}/${totalPages}: ${pageItems.length} items`)
+                totalScanned += pageItems.length
+
+                for (const item of pageItems) {
+                    const existing = await prisma.projectMedia.findUnique({
+                        where: { projectId_wpId: { projectId: project.id, wpId: item.id } }
+                    })
+
+                    if (existing) {
+                        updated++
+                        const changes: any[] = []
+                        if (existing.alt !== item.alt) changes.push({ field: 'alt', old: existing.alt, new: item.alt })
+                        if (existing.filesize !== item.filesize) changes.push({ field: 'filesize', old: String(existing.filesize), new: String(item.filesize) })
+
+                        if (changes.length > 0) {
+                            await Promise.all(changes.map(c =>
+                                prisma.mediaChangeLog.create({
+                                    data: {
+                                        mediaId: existing.id,
+                                        fieldName: c.field,
+                                        oldValue: c.old || '',
+                                        newValue: c.new || ''
+                                    }
+                                })
+                            ))
+                        }
+                    } else {
+                        added++
+                    }
+
+                    await prisma.projectMedia.upsert({
+                        where: { projectId_wpId: { projectId: project.id, wpId: item.id } },
+                        update: {
+                            url: item.url,
+                            filename: item.filename,
+                            alt: item.alt,
+                            width: item.width,
+                            height: item.height,
+                            filesize: item.filesize,
+                            mimeType: item.mime_type,
+                            parentPostId: item.parent_id,
+                            parentPostTitle: item.parent_title,
+                            parentPostUrl: item.parent_url,
+                            parentPostType: item.parent_type,
+                            lastSyncedAt: new Date()
+                        },
+                        create: {
+                            projectId: project.id,
+                            wpId: item.id,
+                            url: item.url,
+                            filename: item.filename,
+                            alt: item.alt,
+                            width: item.width,
+                            height: item.height,
+                            filesize: item.filesize,
+                            mimeType: item.mime_type,
+                            parentPostId: item.parent_id,
+                            parentPostTitle: item.parent_title,
+                            parentPostUrl: item.parent_url,
+                            parentPostType: item.parent_type
+                        }
+                    })
+                }
+
+                currentPage++
+            }
+
             console.log(`[ImageFactory] Sync complete: ${added} added, ${updated} updated, ${totalScanned} total`)
 
             // Check if this is first sync (DATABASE_CREATE) or update (DATABASE_UPDATE)

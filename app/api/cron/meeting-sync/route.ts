@@ -105,145 +105,158 @@ export async function GET(request: NextRequest) {
             // Status Protection: Don't revert 'Won' or 'Lost' leads
             const PROTECTED_STATUSES = ['Won', 'Lost', 'Bad Fit']
 
-            if (PROTECTED_STATUSES.includes(lead.status)) continue
+            if (PROTECTED_STATUSES.includes(lead.status)) {
+                console.log(`[MeetingSync] Skipping ${lead.email} - protected status: ${lead.status}`)
+                continue
+            }
 
-            // LOGIC: Handle Meeting Types based on Duration
-            if (durationMinutes >= 45) {
-                // LONG MEETING (60m Strategy/Proposal Call)
-                // Rule: DON'T change the pipeline stage
-                // Rule: Set subStatus to "Scheduled" or "Rescheduled" based on history
+            // ========== NEW MEETING LOGIC ==========
+            // Duration thresholds
+            const isShortMeeting = durationMinutes <= 30  // 15-30 min = Discovery/Data Gathering
+            const isLongMeeting = durationMinutes >= 45   // 45-60 min = Audit Reveal / Proposal
 
-                // Determine if this is a reschedule:
-                // - If subStatus is already "Scheduled", "Rescheduled", "No Show", or similar → it's a Reschedule
-                // - If lead already had a meeting before (nextMeetingAt was set or subStatus indicates previous scheduling)
-                const schedulingHistory = ['Scheduled', 'Rescheduled', 'No Show']
-                const hadPreviousMeeting = schedulingHistory.includes(leadAny.subStatus) || leadAny.nextMeetingAt
+            // Current state
+            const currentStage = lead.status
+            const currentSubStatus = leadAny.subStatus
 
-                const newSubStatus = hadPreviousMeeting ? 'Rescheduled' : 'Scheduled'
+            console.log(`[MeetingSync] Processing ${lead.email}: ${durationMinutes}min meeting, stage=${currentStage}, subStatus=${currentSubStatus}`)
 
-                // Check if meeting is already synced (same time and subStatus)
-                const existingMeetingTime = leadAny.nextMeetingAt ? new Date(leadAny.nextMeetingAt).getTime() : null
-                const newMeetingTime = nextEvent.start.getTime()
-                const isSameSubStatus = leadAny.subStatus === newSubStatus
-                const isSameMeetingTime = existingMeetingTime === newMeetingTime
+            // Determine target stage and subStatus
+            let targetStage = currentStage
+            let newSubStatus = 'Scheduled'
+            let shouldProcess = false
 
-                // Skip if nothing changed
-                if (isSameSubStatus && isSameMeetingTime) {
-                    console.log(`[MeetingSync] Skipping ${lead.email} - already synced (${newSubStatus}, same time)`)
-                    continue
+            if (isShortMeeting) {
+                // 15-min Discovery Call Logic
+                if (currentStage === 'New') {
+                    // Fresh lead → Move to Meeting1 (Data Gathering)
+                    targetStage = 'Meeting1'
+                    newSubStatus = 'Scheduled'
+                    shouldProcess = true
+                } else if (currentStage === 'Meeting1') {
+                    // Already in Meeting1 → Check for No Show
+                    if (currentSubStatus === 'No Show') {
+                        newSubStatus = 'Rescheduled'
+                    } else {
+                        newSubStatus = 'Scheduled'
+                    }
+                    shouldProcess = true
                 }
+                // Other stages: short meetings are not processed
 
-                const description = `${durationMinutes}min meeting detected → subStatus: ${newSubStatus} (pipeline unchanged)`
-
-                console.log(`[MeetingSync] Long meeting for ${lead.email}: ${description}`)
-
-                // Update Lead - Only subStatus and nextMeetingAt, NOT the pipeline status
-                await db.lead.update({
-                    where: { id: lead.id },
-                    data: {
-                        subStatus: newSubStatus,
-                        nextMeetingAt: nextEvent.start,
-                    } as any
-                })
-
-                // Activity Log
-                await logActivity({
-                    category: 'MEETING',
-                    action: 'MEETING_BOOKED',
-                    entityType: 'LEAD',
-                    entityId: lead.id,
-                    entityName: (lead.name || lead.email) || undefined,
-                    description: description,
-                })
-
-                // Timeline Log
-                await db.log.create({
-                    data: {
-                        leadId: lead.id,
-                        type: 'MEETING',
-                        status: 'BOOKED',
-                        title: `Meeting ${newSubStatus}`,
-                        content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. SubStatus → ${newSubStatus}. Pipeline unchanged.`,
-                        stage: lead.status, // Keep current stage
-                        meta: JSON.stringify({
-                            eventId: nextEvent.id,
-                            startTime: nextEvent.start,
-                            topic: nextEvent.title
-                        })
+            } else if (isLongMeeting) {
+                // 60-min Strategy/Proposal Call Logic
+                if (currentStage === 'Audit') {
+                    // From Audit Lab → Move to Meeting2 (Audit Reveal)
+                    targetStage = 'Meeting2'
+                    newSubStatus = 'Scheduled'
+                    shouldProcess = true
+                } else if (currentStage === 'Meeting2') {
+                    // Already in Meeting2 → Check for No Show
+                    if (currentSubStatus === 'No Show') {
+                        newSubStatus = 'Rescheduled'
+                    } else {
+                        newSubStatus = 'Scheduled'
                     }
+                    shouldProcess = true
+                } else if (currentStage === 'Meeting3') {
+                    // Already in Meeting3 (Proposal Session) → Check for No Show
+                    if (currentSubStatus === 'No Show') {
+                        newSubStatus = 'Rescheduled'
+                    } else {
+                        newSubStatus = 'Scheduled'
+                    }
+                    shouldProcess = true
+                }
+                // Other stages: long meetings are not processed
+            }
+
+            // Skip if not applicable
+            if (!shouldProcess) {
+                console.log(`[MeetingSync] Skipping ${lead.email} - ${durationMinutes}min meeting not applicable for stage ${currentStage}`)
+                continue
+            }
+
+            // Check if already synced (same stage, subStatus, and meeting time)
+            const existingMeetingTime = leadAny.nextMeetingAt ? new Date(leadAny.nextMeetingAt).getTime() : null
+            const newMeetingTime = nextEvent.start.getTime()
+            const isStageChange = currentStage !== targetStage
+            const isSubStatusChange = currentSubStatus !== newSubStatus
+            const isMeetingTimeChange = existingMeetingTime !== newMeetingTime
+
+            // Skip if nothing changed
+            if (!isStageChange && !isSubStatusChange && !isMeetingTimeChange) {
+                console.log(`[MeetingSync] Skipping ${lead.email} - already synced`)
+                continue
+            }
+
+            // Apply update
+            console.log(`[MeetingSync] Updating ${lead.email}: ${currentStage}→${targetStage}, subStatus→${newSubStatus}, meeting at ${nextEvent.start.toISOString()}`)
+
+            await db.lead.update({
+                where: { id: lead.id },
+                data: {
+                    status: targetStage,
+                    subStatus: newSubStatus,
+                    nextMeetingAt: nextEvent.start,
+                    nextNurtureAt: null // Clear nurture when meeting is scheduled
+                } as any
+            })
+
+            // Cancel Active Automations if status changed
+            if (isStageChange) {
+                const activeWorkflows = await db.workflowExecution.findMany({
+                    where: { leadId: lead.id, status: 'ACTIVE' }
                 })
 
-                updatedCount++
-
-            } else {
-                // SHORT MEETING (15min Discovery Call) - Keep existing Meeting1 logic
-                const targetStage = 'Meeting1'
-                const description = '15min Discovery Call Detected'
-
-                const isStatusChange = lead.status !== targetStage
-
-                if (isStatusChange || !leadAny.nextMeetingAt) {
-                    console.log(`[MeetingSync] Updating lead ${lead.email} to ${targetStage} (${description})`)
-
-                    // Update Lead (full status change for Meeting 1)
-                    await db.lead.update({
-                        where: { id: lead.id },
+                if (activeWorkflows.length > 0) {
+                    await db.workflowExecution.updateMany({
+                        where: { leadId: lead.id, status: 'ACTIVE' },
                         data: {
-                            status: targetStage,
-                            subStatus: 'Scheduled',
-                            nextMeetingAt: nextEvent.start,
-                            nextNurtureAt: null
-                        } as any
+                            status: 'CANCELLED',
+                            cancelReason: `Meeting Detected: ${durationMinutes}min meeting scheduled`,
+                            cancelledAt: new Date()
+                        }
                     })
-
-                    // Cancel Active Automations
-                    const activeWorkflows = await db.workflowExecution.findMany({
-                        where: { leadId: lead.id, status: 'ACTIVE' }
-                    })
-
-                    if (activeWorkflows.length > 0) {
-                        await db.workflowExecution.updateMany({
-                            where: { leadId: lead.id, status: 'ACTIVE' },
-                            data: {
-                                status: 'CANCELLED',
-                                cancelReason: `Meeting Detected: ${description}`,
-                                cancelledAt: new Date()
-                            }
-                        })
-                    }
-
-                    // Activity Log
-                    if (isStatusChange) {
-                        await logActivity({
-                            category: 'MEETING',
-                            action: 'MEETING_BOOKED',
-                            entityType: 'LEAD',
-                            entityId: lead.id,
-                            entityName: (lead.name || lead.email) || undefined,
-                            description: `Meeting detected: ${description}. Status → ${targetStage}`,
-                        })
-
-                        // Timeline Log
-                        await db.log.create({
-                            data: {
-                                leadId: lead.id,
-                                type: 'MEETING',
-                                status: 'BOOKED',
-                                title: `${targetStage} Confirmed`,
-                                content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. Status → ${targetStage}.`,
-                                stage: targetStage,
-                                meta: JSON.stringify({
-                                    eventId: nextEvent.id,
-                                    startTime: nextEvent.start,
-                                    topic: nextEvent.title
-                                })
-                            }
-                        })
-                    }
-
-                    updatedCount++
+                    console.log(`[MeetingSync] Cancelled ${activeWorkflows.length} active workflows for ${lead.email}`)
                 }
             }
+
+            // Activity Log
+            const description = isStageChange
+                ? `${durationMinutes}min meeting detected. Stage: ${currentStage} → ${targetStage}. SubStatus: ${newSubStatus}`
+                : `${durationMinutes}min meeting detected. SubStatus: ${newSubStatus}. Stage unchanged.`
+
+            await logActivity({
+                category: 'MEETING',
+                action: 'MEETING_BOOKED',
+                entityType: 'LEAD',
+                entityId: lead.id,
+                entityName: (lead.name || lead.email) || undefined,
+                description: description,
+            })
+
+            // Timeline Log
+            await db.log.create({
+                data: {
+                    leadId: lead.id,
+                    type: 'MEETING',
+                    status: 'BOOKED',
+                    title: `Meeting ${newSubStatus}`,
+                    content: `System detected a ${durationMinutes}min meeting on ${nextEvent.start.toLocaleString()}. ${isStageChange ? `Stage: ${currentStage} → ${targetStage}. ` : ''}SubStatus: ${newSubStatus}.`,
+                    stage: targetStage,
+                    meta: JSON.stringify({
+                        eventId: nextEvent.id,
+                        startTime: nextEvent.start,
+                        topic: nextEvent.title,
+                        duration: durationMinutes,
+                        previousStage: currentStage,
+                        previousSubStatus: currentSubStatus
+                    })
+                }
+            })
+
+            updatedCount++
         }
 
         // 6. Detect Cancellations

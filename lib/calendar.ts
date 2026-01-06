@@ -33,6 +33,8 @@ export async function getCalendarEvents(
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
+    console.log(`[Calendar] Fetching events from ${options?.timeMin?.toISOString()} to ${options?.timeMax?.toISOString()}`)
+
     try {
         const response = await calendar.events.list({
             calendarId: 'primary',
@@ -44,6 +46,14 @@ export async function getCalendarEvents(
         })
 
         const events = response.data.items || []
+        console.log(`[Calendar] Successfully fetched ${events.length} events`)
+
+        // Log attendees for debugging
+        events.forEach(e => {
+            if (e.attendees && e.attendees.length > 0) {
+                console.log(`[Calendar] Event "${e.summary}" has attendees: ${e.attendees.map(a => a.email).join(', ')}`)
+            }
+        })
 
         return events.map((event): CalendarEvent => ({
             id: event.id || '',
@@ -56,7 +66,18 @@ export async function getCalendarEvents(
             htmlLink: event.htmlLink || undefined
         }))
     } catch (error: any) {
-        console.error('Failed to fetch calendar events:', error.message)
+        console.error('[Calendar] Failed to fetch events:', error.message)
+
+        // Detect token expiry
+        if (error.response?.status === 401 || error.message?.includes('invalid_grant')) {
+            console.error('[Calendar] ⚠️ TOKEN EXPIRED! Mehrdad needs to re-login to refresh calendar tokens.')
+        }
+
+        // Log full error for debugging
+        if (error.response?.data) {
+            console.error('[Calendar] API Error:', JSON.stringify(error.response.data))
+        }
+
         return []
     }
 }

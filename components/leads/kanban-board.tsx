@@ -22,7 +22,8 @@ const getSubStatusColor = (sub: string | null | undefined) => {
     if (!sub) return "bg-slate-100 text-slate-700"
     const s = sub.toLowerCase()
     if (s.includes("done") || s.includes("received") || s.includes("won") || s.includes("data collected")) return "bg-emerald-600 text-white"
-    if (s.includes("ghosted") || s.includes("lost")) return "bg-slate-500 text-white"
+    if (s.includes("cancelled")) return "bg-red-600 text-white"  // Cancelled meetings in red
+    if (s.includes("ghosted") || s.includes("lost") || s.includes("no show")) return "bg-slate-500 text-white"
     if (s.includes("scheduled") || s.includes("booked")) return "bg-blue-600 text-white"
     if (s.includes("rescheduled")) return "bg-orange-500 text-white"
     if (s.includes("thinking") || s.includes("reviewing")) return "bg-indigo-500 text-white"
@@ -208,10 +209,21 @@ export function KanbanBoard({ leads: initialLeads }: KanbanBoardProps) {
                                                                     {(lead as any).links?.some((l: any) => l.type === 'PROPOSAL' || l.type === 'Proposal Link') && (
                                                                         <span title="Has Proposal" className="text-teal-600"><ClipboardList className="h-3 w-3" /></span>
                                                                     )}
-                                                                    {/* Confirmed Meeting Badge */}
+                                                                    {/* Confirmed Meeting Badge - Color based on subStatus */}
                                                                     {(lead as any).nextMeetingAt && new Date((lead as any).nextMeetingAt) > new Date() && (
-                                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-red-50 text-red-700 border-red-200 font-medium">
+                                                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-medium ${lead.subStatus === 'Cancelled'
+                                                                                ? 'bg-red-50 text-red-700 border-red-200'
+                                                                                : lead.subStatus === 'Rescheduled'
+                                                                                    ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'  // Scheduled = green
+                                                                            }`}>
                                                                             📅 {format(new Date((lead as any).nextMeetingAt), "MMM d, h:mm a")}
+                                                                        </Badge>
+                                                                    )}
+                                                                    {/* Cancelled Meeting Badge - Show even if nextMeetingAt is cleared */}
+                                                                    {lead.subStatus === 'Cancelled' && !(lead as any).nextMeetingAt && (
+                                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-red-50 text-red-700 border-red-200 font-medium">
+                                                                            ❌ Meeting Cancelled
                                                                         </Badge>
                                                                     )}
                                                                 </div>

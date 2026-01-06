@@ -15,6 +15,7 @@ interface CalendarEvent {
     attendees?: string[]
     location?: string
     htmlLink?: string
+    eventStatus?: 'confirmed' | 'tentative' | 'cancelled'  // Google Calendar event status
 }
 
 export async function getCalendarEvents(
@@ -24,6 +25,7 @@ export async function getCalendarEvents(
         timeMax?: Date
         maxResults?: number
         refreshToken?: string // Add refresh token support
+        showDeleted?: boolean // Include cancelled events
     }
 ): Promise<CalendarEvent[]> {
     oauth2Client.setCredentials({
@@ -42,16 +44,18 @@ export async function getCalendarEvents(
             timeMax: options?.timeMax?.toISOString(),
             maxResults: options?.maxResults || 50,
             singleEvents: true,
-            orderBy: 'startTime'
+            orderBy: 'startTime',
+            showDeleted: options?.showDeleted || false  // Include cancelled events when requested
         })
 
         const events = response.data.items || []
         console.log(`[Calendar] Successfully fetched ${events.length} events`)
 
-        // Log attendees for debugging
+        // Log attendees and status for debugging
         events.forEach(e => {
+            const statusInfo = e.status === 'cancelled' ? ' [CANCELLED]' : ''
             if (e.attendees && e.attendees.length > 0) {
-                console.log(`[Calendar] Event "${e.summary}" has attendees: ${e.attendees.map(a => a.email).join(', ')}`)
+                console.log(`[Calendar] Event "${e.summary}"${statusInfo} has attendees: ${e.attendees.map(a => a.email).join(', ')}`)
             }
         })
 
@@ -63,7 +67,8 @@ export async function getCalendarEvents(
             end: new Date(event.end?.dateTime || event.end?.date || ''),
             attendees: event.attendees?.map(a => a.email || '').filter(Boolean),
             location: event.location || undefined,
-            htmlLink: event.htmlLink || undefined
+            htmlLink: event.htmlLink || undefined,
+            eventStatus: event.status as 'confirmed' | 'tentative' | 'cancelled' | undefined
         }))
     } catch (error: any) {
         console.error('[Calendar] Failed to fetch events:', error.message)

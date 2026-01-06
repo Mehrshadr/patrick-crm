@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
         const events = await getCalendarEvents(accessToken, {
             refreshToken,
             timeMin: now,
-            timeMax: nextThirtyDays
+            timeMax: nextThirtyDays,
+            showDeleted: true  // Include cancelled events to detect cancellations
         })
 
         console.log(`[MeetingSync] Found ${events.length} upcoming events`)
@@ -93,10 +94,9 @@ export async function GET(request: NextRequest) {
 
             if (leadEvents.length === 0) continue
 
-            // Take the earliest upcoming meeting
-            const nextEvent = leadEvents[0] // Events are sorted by start time
-            // Calculate Duration in Minutes
-            const durationMs = nextEvent.end.getTime() - nextEvent.start.getTime()
+            // Calculate Duration from first event (for initial filtering)
+            const firstEvent = leadEvents[0] // Events are sorted by start time
+            const durationMs = firstEvent.end.getTime() - firstEvent.start.getTime()
             const durationMinutes = Math.floor(durationMs / (1000 * 60))
 
             // Cast lead to any to avoid TS error on server where Prisma client isn't updated yet
@@ -109,6 +109,63 @@ export async function GET(request: NextRequest) {
                 console.log(`[MeetingSync] Skipping ${lead.email} - protected status: ${lead.status}`)
                 continue
             }
+
+            // ========== CHECK FOR CANCELLED EVENTS FIRST ==========
+            // Find the first NON-CANCELLED event for this lead
+            const activeEvents = leadEvents.filter(e => e.eventStatus !== 'cancelled')
+            const cancelledEvents = leadEvents.filter(e => e.eventStatus === 'cancelled')
+
+            // If ALL events are cancelled, mark the lead as Cancelled
+            if (activeEvents.length === 0 && cancelledEvents.length > 0) {
+                const cancelledEvent = cancelledEvents[0]
+
+                // Only update if currently scheduled
+                const scheduledStatuses = ['Scheduled', 'Rescheduled']
+                if (scheduledStatuses.includes(leadAny.subStatus)) {
+                    console.log(`[MeetingSync] CANCELLED: ${lead.email} - meeting was cancelled`)
+
+                    await db.lead.update({
+                        where: { id: lead.id },
+                        data: {
+                            subStatus: 'Cancelled',
+                            nextMeetingAt: null  // Clear the meeting time
+                        } as any
+                    })
+
+                    // Activity Log
+                    await logActivity({
+                        category: 'MEETING',
+                        action: 'MEETING_CANCELLED',
+                        entityType: 'LEAD',
+                        entityId: lead.id,
+                        entityName: (lead.name || lead.email) || undefined,
+                        description: `Meeting cancelled: "${cancelledEvent.title}"`,
+                    })
+
+                    // Timeline Log
+                    await db.log.create({
+                        data: {
+                            leadId: lead.id,
+                            type: 'MEETING',
+                            status: 'CANCELLED',
+                            title: 'Meeting Cancelled',
+                            content: `Meeting "${cancelledEvent.title}" was cancelled. SubStatus → Cancelled.`,
+                            stage: lead.status,
+                            meta: JSON.stringify({
+                                eventId: cancelledEvent.id,
+                                originalTime: cancelledEvent.start,
+                                topic: cancelledEvent.title
+                            })
+                        }
+                    })
+
+                    updatedCount++
+                }
+                continue // Skip further processing for this lead
+            }
+
+            // Use the first active (non-cancelled) event
+            const nextEvent = activeEvents.length > 0 ? activeEvents[0] : leadEvents[0]
 
             // ========== NEW MEETING LOGIC ==========
             // Duration thresholds

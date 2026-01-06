@@ -6,6 +6,11 @@ const oauth2Client = new google.auth.OAuth2(
     process.env.NEXTAUTH_URL
 )
 
+interface AttendeeInfo {
+    email: string
+    responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted'
+}
+
 interface CalendarEvent {
     id: string
     title: string
@@ -13,6 +18,7 @@ interface CalendarEvent {
     start: Date
     end: Date
     attendees?: string[]
+    attendeesWithStatus?: AttendeeInfo[]  // Full attendee info with response status
     location?: string
     htmlLink?: string
     eventStatus?: 'confirmed' | 'tentative' | 'cancelled'  // Google Calendar event status
@@ -54,22 +60,40 @@ export async function getCalendarEvents(
         // Log attendees and status for debugging
         events.forEach(e => {
             const statusInfo = e.status === 'cancelled' ? ' [CANCELLED]' : ''
+            // Check if title contains "Canceled" or "Cancelled"
+            const titleCancelled = e.summary?.toLowerCase().includes('cancel') ? ' [TITLE-CANCELLED]' : ''
             if (e.attendees && e.attendees.length > 0) {
-                console.log(`[Calendar] Event "${e.summary}"${statusInfo} has attendees: ${e.attendees.map(a => a.email).join(', ')}`)
+                const attendeeInfo = e.attendees.map(a => `${a.email}(${a.responseStatus || '?'})`).join(', ')
+                console.log(`[Calendar] Event "${e.summary}"${statusInfo}${titleCancelled} attendees: ${attendeeInfo}`)
             }
         })
 
-        return events.map((event): CalendarEvent => ({
-            id: event.id || '',
-            title: event.summary || 'No Title',
-            description: event.description || undefined,
-            start: new Date(event.start?.dateTime || event.start?.date || ''),
-            end: new Date(event.end?.dateTime || event.end?.date || ''),
-            attendees: event.attendees?.map(a => a.email || '').filter(Boolean),
-            location: event.location || undefined,
-            htmlLink: event.htmlLink || undefined,
-            eventStatus: event.status as 'confirmed' | 'tentative' | 'cancelled' | undefined
-        }))
+        return events.map((event): CalendarEvent => {
+            // Check if event should be treated as cancelled:
+            // 1. Event status is 'cancelled'
+            // 2. Event title contains "Canceled", "Cancelled", "کنسل"
+            const titleCancelled = event.summary?.toLowerCase().includes('cancel') ||
+                event.summary?.includes('کنسل')
+            const effectiveStatus = event.status === 'cancelled' || titleCancelled
+                ? 'cancelled'
+                : event.status as 'confirmed' | 'tentative' | 'cancelled' | undefined
+
+            return {
+                id: event.id || '',
+                title: event.summary || 'No Title',
+                description: event.description || undefined,
+                start: new Date(event.start?.dateTime || event.start?.date || ''),
+                end: new Date(event.end?.dateTime || event.end?.date || ''),
+                attendees: event.attendees?.map(a => a.email || '').filter(Boolean),
+                attendeesWithStatus: event.attendees?.map(a => ({
+                    email: a.email || '',
+                    responseStatus: a.responseStatus as AttendeeInfo['responseStatus']
+                })).filter(a => a.email),
+                location: event.location || undefined,
+                htmlLink: event.htmlLink || undefined,
+                eventStatus: effectiveStatus
+            }
+        })
     } catch (error: any) {
         console.error('[Calendar] Failed to fetch events:', error.message)
 

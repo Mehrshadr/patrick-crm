@@ -172,6 +172,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
     const [maxWidth, setMaxWidth] = useState("1200")
     const [qualityThreshold, setQualityThreshold] = useState("90")
     const [format, setFormat] = useState("webp")
+    const [keepFormat, setKeepFormat] = useState(true) // Keep original format to preserve URLs
 
     // Results
     const [results, setResults] = useState<OptimizeResult[]>([])
@@ -213,6 +214,7 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                 formData.append('maxWidth', width.toString())
                 formData.append('qualityThreshold', quality.toString())
                 formData.append('format', format)
+                formData.append('keepFormat', keepFormat ? 'true' : 'false')
 
                 const res = await fetch('/api/images/compress', {
                     method: 'POST',
@@ -436,8 +438,8 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Output Format</Label>
-                                    <Select value={format} onValueChange={setFormat}>
-                                        <SelectTrigger>
+                                    <Select value={format} onValueChange={setFormat} disabled={keepFormat}>
+                                        <SelectTrigger className={keepFormat ? 'opacity-50' : ''}>
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -446,6 +448,23 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                                             <SelectItem value="png">PNG</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+                            </div>
+
+                            {/* Keep Format Checkbox */}
+                            <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                <Checkbox
+                                    id="keepFormat"
+                                    checked={keepFormat}
+                                    onCheckedChange={(checked) => setKeepFormat(checked === true)}
+                                />
+                                <div>
+                                    <Label htmlFor="keepFormat" className="font-medium cursor-pointer">
+                                        Keep original format
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Recommended: Only compress, don't convert. This preserves URLs in your content.
+                                    </p>
                                 </div>
                             </div>
 

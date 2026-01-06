@@ -14,15 +14,28 @@ export async function POST(request: NextRequest) {
         const imageUrl = formData.get("imageUrl") as string | null
         const maxSizeKB = parseInt(formData.get("maxSizeKB") as string) || 100
         const maxWidth = parseInt(formData.get("maxWidth") as string) || 1200
-        const outputFormat = (formData.get("format") as string) || "webp"
+        const requestedFormat = (formData.get("format") as string) || "webp"
         const qualityThreshold = parseInt(formData.get("qualityThreshold") as string) || 90
+        const keepFormat = formData.get("keepFormat") === "true"
 
         let originalBuffer: Buffer
+        let detectedFormat: string | null = null
 
         // Support both file upload and URL fetch
         if (file) {
             originalBuffer = Buffer.from(await file.arrayBuffer())
+            // Detect format from file name
+            const fileName = file.name.toLowerCase()
+            if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) detectedFormat = 'jpeg'
+            else if (fileName.endsWith('.png')) detectedFormat = 'png'
+            else if (fileName.endsWith('.webp')) detectedFormat = 'webp'
         } else if (imageUrl) {
+            // Detect format from URL
+            const urlLower = imageUrl.toLowerCase()
+            if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) detectedFormat = 'jpeg'
+            else if (urlLower.includes('.png')) detectedFormat = 'png'
+            else if (urlLower.includes('.webp')) detectedFormat = 'webp'
+
             // Fetch image from URL
             const response = await fetch(imageUrl)
             if (!response.ok) {
@@ -37,6 +50,17 @@ export async function POST(request: NextRequest) {
         // Get original file info
         const originalSizeKB = originalBuffer.length / 1024
         const originalMetadata = await sharp(originalBuffer).metadata()
+
+        // Use keepFormat: if enabled, preserve detected format; otherwise use requested format
+        // Also detect from sharp metadata as fallback
+        let outputFormat = requestedFormat
+        if (keepFormat) {
+            if (detectedFormat) {
+                outputFormat = detectedFormat
+            } else if (originalMetadata.format) {
+                outputFormat = originalMetadata.format === 'jpg' ? 'jpeg' : originalMetadata.format
+            }
+        }
 
         // If already under target, just convert format
         const targetSizeBytes = maxSizeKB * 1024

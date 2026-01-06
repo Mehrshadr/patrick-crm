@@ -35,6 +35,7 @@ interface OptimizeResult {
     status: 'pending' | 'processing' | 'done' | 'error'
     error?: string
     filename?: string
+    outputFormat?: string // actual format from compress API (jpeg, png, webp)
 }
 
 interface OptimizeDialogProps {
@@ -233,7 +234,8 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                         savings: data.stats.savings,
                         selected: data.stats.savings > 10, // Auto-select if >10% savings
                         status: 'done',
-                        filename: img.filename
+                        filename: img.filename,
+                        outputFormat: data.stats.compressed.format // Store actual format from API
                     })
                 } else {
                     newResults.push({
@@ -307,8 +309,10 @@ export function OptimizeDialog({ open, onClose, selectedImages, projectId, onOpt
                     continue
                 }
 
-                const mimeType = format === 'webp' ? 'image/webp' :
-                    format === 'jpeg' || format === 'jpg' ? 'image/jpeg' : 'image/png'
+                // Use the actual output format from compress API, not UI selection
+                const actualFormat = item.outputFormat || format
+                const mimeType = actualFormat === 'webp' ? 'image/webp' :
+                    actualFormat === 'jpeg' || actualFormat === 'jpg' ? 'image/jpeg' : 'image/png'
 
                 const res = await fetch('/api/images/replace', {
                     method: 'POST',

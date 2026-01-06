@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
         const projectId = searchParams.get('projectId')
         const action = searchParams.get('action') // DATABASE_CREATE, DATABASE_UPDATE, COMPRESS, ALT_EDIT
         const userId = searchParams.get('userId')
+        const mediaId = searchParams.get('mediaId') // Filter logs for specific image
         const from = searchParams.get('from') // ISO date string
         const to = searchParams.get('to') // ISO date string
         const page = parseInt(searchParams.get('page') || '1')
@@ -29,6 +30,13 @@ export async function GET(req: NextRequest) {
         // Filter by user
         if (userId) {
             where.userId = userId
+        }
+
+        // Filter by mediaId - search in details JSON
+        if (mediaId) {
+            where.details = {
+                contains: `"mediaId":${mediaId}`
+            }
         }
 
         // Filter by date range

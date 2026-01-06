@@ -30,6 +30,7 @@ import {
 import { formatBytes } from "@/lib/utils"
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { OptimizeDialog } from "./optimize-dialog"
+import { ImageHistoryPopover } from "./image-history-popover"
 
 interface MediaItem {
     id: number
@@ -598,36 +599,10 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                                 <ImageIcon className="h-10 w-10 text-slate-300" />
                                             </div>
                                         )}
-                                        {/* Undo button if has backup */}
-                                        {item.originalUrl && (
-                                            <Button
-                                                size="icon"
-                                                variant="secondary"
-                                                className="absolute bottom-2 right-2 z-10 h-6 w-6 opacity-0 group-hover:opacity-100"
-                                                onClick={async (e) => {
-                                                    e.stopPropagation()
-                                                    await fetch('/api/images/undo', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            projectId,
-                                                            mediaId: item.wpId,
-                                                            userId: session?.user?.id || 'unknown',
-                                                            userName: session?.user?.name || 'Unknown User'
-                                                        })
-                                                    })
-                                                    fetchMediaFromDb(page)
-                                                    setToast({ message: 'Image restored', type: 'success' })
-                                                }}
-                                                title="Undo Optimization"
-                                            >
-                                                <Undo2 className="h-3 w-3" />
-                                            </Button>
-                                        )}
                                     </div>
                                     {/* Info box with checkbox, badges, and details */}
                                     <div className="p-3">
-                                        {/* Top row: checkbox + filename */}
+                                        {/* Top row: checkbox + filename + history */}
                                         <div className="flex items-center gap-2 mb-1">
                                             <Checkbox
                                                 checked={isSelected}
@@ -646,6 +621,11 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                                 }}
                                             />
                                             <p className="text-xs font-medium truncate flex-1" title={item.filename}>{item.filename}</p>
+                                            <ImageHistoryPopover
+                                                item={{ id: item.id, wpId: item.wpId, filename: item.filename, originalUrl: item.originalUrl }}
+                                                projectId={projectId}
+                                                onRefresh={() => fetchMediaFromDb(page)}
+                                            />
                                         </div>
                                         {/* Size, format, dimensions */}
                                         <div className="flex items-center justify-between text-[10px] text-slate-500">

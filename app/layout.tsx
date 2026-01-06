@@ -23,7 +23,7 @@ const vazirmatn = Vazirmatn({
 });
 
 export const metadata: Metadata = {
-  title: "Patrick CRM | Mehrana Marketing",
+  title: "Mehrana App",
   description: "Lead management dashboard for Mehrana Marketing",
   icons: {
     icon: "/icon.png",

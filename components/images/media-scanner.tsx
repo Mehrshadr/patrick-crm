@@ -515,7 +515,7 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                 {lastUpdatedAt && (
                                     <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1">
                                         <History className="h-3 w-3" />
-                                        Updated {new Date(lastUpdatedAt).toLocaleDateString()}
+                                        Updated {new Date(lastUpdatedAt!).toLocaleDateString()}
                                     </p>
                                 )}
                             </div>
@@ -845,7 +845,7 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                                 {databaseCreatedAt && (
                                     <div className="p-3 border-t bg-slate-50 text-xs text-slate-500 flex items-center gap-1">
                                         <Database className="h-3 w-3" />
-                                        Database created: {new Date(databaseCreatedAt).toLocaleString()}
+                                        Database created: {new Date(databaseCreatedAt!).toLocaleString()}
                                     </div>
                                 )}
                             </div>

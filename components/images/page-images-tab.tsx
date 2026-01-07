@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -37,30 +37,59 @@ interface PageImagesTabProps {
 export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) {
     const [images, setImages] = useState<PageImage[]>([])
     const [loading, setLoading] = useState(false)
+    const [syncing, setSyncing] = useState(false)
     const [error, setError] = useState("")
     const [scanned, setScanned] = useState(false)
+    const [fromDatabase, setFromDatabase] = useState(false)
+    const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
     const [stats, setStats] = useState({ totalScanned: 0, postsScanned: 0, heavyImages: 0 })
     const [minSizeKB, setMinSizeKB] = useState("100")
 
-    const scanContent = async () => {
+    // Auto-load from database on mount
+    useEffect(() => {
+        loadFromDatabase()
+    }, [projectId])
+
+    const loadFromDatabase = async () => {
         setLoading(true)
         setError("")
 
         try {
-            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&minSizeKB=${minSizeKB}&limit=100`)
+            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&minSizeKB=${minSizeKB}&limit=1000`)
+            const data = await res.json()
+
+            if (data.success && data.images && data.images.length > 0) {
+                setImages(data.images)
+                setStats(data.stats || {})
+                setFromDatabase(data.fromDatabase || false)
+                setLastSyncedAt(data.stats?.lastSyncedAt ? new Date(data.stats.lastSyncedAt) : null)
+                setScanned(true)
+            }
+        } catch (e: any) {
+            console.error("Load error:", e)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const syncContent = async () => {
+        setSyncing(true)
+        setError("")
+
+        try {
+            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&minSizeKB=${minSizeKB}&limit=10000&sync=true`)
             const data = await res.json()
 
             if (!data.success) {
-                throw new Error(data.error || "Failed to scan content")
+                throw new Error(data.error || "Failed to sync content")
             }
 
-            setImages(data.images || [])
-            setStats(data.stats || {})
-            setScanned(true)
+            // Reload from database
+            await loadFromDatabase()
         } catch (e: any) {
             setError(e.message)
         } finally {
-            setLoading(false)
+            setSyncing(false)
         }
     }
 
@@ -99,19 +128,22 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         <span className="text-sm text-muted-foreground">KB</span>
                     </div>
 
-                    <Button onClick={scanContent} disabled={loading} size="lg">
-                        {loading ? (
+                    <Button onClick={syncContent} disabled={syncing || loading} size="lg">
+                        {syncing ? (
                             <>
                                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                                Scanning...
+                                Syncing from WordPress...
                             </>
                         ) : (
                             <>
-                                <Search className="h-5 w-5 mr-2" />
-                                Scan Content for Heavy Images
+                                <RefreshCw className="h-5 w-5 mr-2" />
+                                Sync Page Images
                             </>
                         )}
                     </Button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                        This will scan all your pages and save the results.
+                    </p>
                 </div>
             </div>
         )
@@ -122,19 +154,18 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             {/* Stats Bar */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
+                    {fromDatabase && lastSyncedAt && (
+                        <Badge variant="outline" className="py-1.5">
+                            Last synced: {new Date(lastSyncedAt).toLocaleDateString()}
+                        </Badge>
+                    )}
                     <Badge variant="outline" className="py-1.5">
-                        {stats.postsScanned} pages scanned
-                    </Badge>
-                    <Badge variant="outline" className="py-1.5">
-                        {stats.totalScanned} unique images found
-                    </Badge>
-                    <Badge variant="destructive" className="py-1.5">
                         {images.length} heavy images (&gt;{minSizeKB}KB)
                     </Badge>
                 </div>
-                <Button variant="outline" size="sm" onClick={scanContent} disabled={loading}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                    Rescan
+                <Button variant="outline" size="sm" onClick={syncContent} disabled={syncing || loading}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    Resync
                 </Button>
             </div>
 

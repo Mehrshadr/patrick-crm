@@ -195,29 +195,30 @@ model LoginLog {
 }
 
 model IndexingProject {
-  id                   Int                   @id @default(autoincrement())
-  name                 String
-  slug                 String?               @unique
-  domain               String?
-  description          String?
-  sortOrder            Int                   @default(0)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  platform             String?
-  activityLogs         ActivityLog[]
-  discoveredPageTypes  DiscoveredPageType[]
-  contents             GeneratedContent[]
-  urls                 IndexingUrl[]
-  jarvisConnections    JarvisConnection[]
-  jarvisFlows          JarvisFlow[]
-  media                ProjectMedia[]
-  linkBuildingKeywords LinkBuildingKeyword[]
-  linkBuildingLogs     LinkBuildingLog[]
-  assignedUsers        ProjectAccess[]
-  settings             ProjectSettings?
-  cachedPages          ProjectPage[]
-  imageFactoryLogs     ImageFactoryLog[]
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  slug                  String?                @unique
+  domain                String?
+  description           String?
+  sortOrder             Int                    @default(0)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  platform              String?
+  activityLogs          ActivityLog[]
+  discoveredPageTypes   DiscoveredPageType[]
+  contents              GeneratedContent[]
+  urls                  IndexingUrl[]
+  jarvisConnections     JarvisConnection[]
+  jarvisFlows           JarvisFlow[]
+  media                 ProjectMedia[]
+  linkBuildingKeywords  LinkBuildingKeyword[]
+  linkBuildingLogs      LinkBuildingLog[]
+  assignedUsers         ProjectAccess[]
+  settings              ProjectSettings?
+  cachedPages           ProjectPage[]
+  imageFactoryLogs      ImageFactoryLog[]
   imageFactorySnapshots ImageFactorySnapshot[]
+  pageImages            PageImage[]
 }
 
 model ProjectAccess {
@@ -470,71 +471,71 @@ model JarvisLog {
 }
 
 model ProjectPage {
-  id             Int             @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   projectId      Int
-  cmsId          String          // Original ID from CMS (e.g. WP post ID)
+  cmsId          String // Original ID from CMS (e.g. WP post ID)
   url            String
   title          String?
-  content        String?         // Cached content for keyword scanning
-  pageType       String?         // post, page, product, etc.
-  hasRedirect    Boolean         @default(false)
+  content        String? // Cached content for keyword scanning
+  pageType       String? // post, page, product, etc.
+  hasRedirect    Boolean   @default(false)
   redirectUrl    String?
-  lastSyncedAt   DateTime        @default(now())
-  lastModifiedAt DateTime?       // Remote modification time for incremental sync
-  
-  project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lastSyncedAt   DateTime  @default(now())
+  lastModifiedAt DateTime? // Remote modification time for incremental sync
+
+  project IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, cmsId]) // Prevent duplicate pages per project (by CMS ID)
   @@index([projectId, url])
 }
 
 model ProjectMedia {
-  id             Int             @id @default(autoincrement())
-  projectId      Int
-  wpId           Int             // WordPress Attachment ID
-  url            String
-  filename       String
-  alt            String?
-  width          Int
-  height         Int
-  filesize       Int
-  mimeType       String
-  parentPostId   Int?            // For categorization (e.g., attached to Product)
+  id              Int      @id @default(autoincrement())
+  projectId       Int
+  wpId            Int // WordPress Attachment ID
+  url             String
+  filename        String
+  alt             String?
+  width           Int
+  height          Int
+  filesize        Int
+  mimeType        String
+  parentPostId    Int? // For categorization (e.g., attached to Product)
   parentPostTitle String?
-  parentPostUrl  String?
-  parentPostType String?         // product, post, page
-  lastSyncedAt   DateTime        @default(now())
-  originalUrl    String?         // Backup URL for undo (set when image is replaced)
-  
-  project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  changeLogs     MediaChangeLog[]
+  parentPostUrl   String?
+  parentPostType  String? // product, post, page
+  lastSyncedAt    DateTime @default(now())
+  originalUrl     String? // Backup URL for undo (set when image is replaced)
+
+  project    IndexingProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changeLogs MediaChangeLog[]
 
   @@unique([projectId, wpId])
   @@index([projectId, parentPostType])
 }
 
 model MediaChangeLog {
-  id          Int          @id @default(autoincrement())
-  mediaId     Int
-  fieldName   String       // e.g., "alt", "filesize"
-  oldValue    String?
-  newValue    String?
-  changedAt   DateTime     @default(now())
-  
-  media       ProjectMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  mediaId   Int
+  fieldName String // e.g., "alt", "filesize"
+  oldValue  String?
+  newValue  String?
+  changedAt DateTime @default(now())
+
+  media ProjectMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 }
 
 // Image Factory Logging
 model ImageFactoryLog {
-  id          Int       @id @default(autoincrement())
-  projectId   Int
-  userId      String
-  userName    String
-  action      String    // DATABASE_CREATE, DATABASE_UPDATE, COMPRESS, ALT_EDIT
-  details     String?   // JSON-encoded details
-  createdAt   DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  userId    String
+  userName  String
+  action    String // DATABASE_CREATE, DATABASE_UPDATE, COMPRESS, ALT_EDIT
+  details   String? // JSON-encoded details
+  createdAt DateTime @default(now())
 
-  project     IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([action])
@@ -543,14 +544,35 @@ model ImageFactoryLog {
 
 // Image Factory Stats Snapshots (for charts)
 model ImageFactorySnapshot {
-  id              Int       @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   projectId       Int
   totalCount      Int
   heavyCount      Int
   missingAltCount Int
-  recordedAt      DateTime  @default(now())
+  recordedAt      DateTime @default(now())
 
-  project         IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, recordedAt])
+}
+
+// Page Images - Images actually used in page content
+model PageImage {
+  id            Int      @id @default(autoincrement())
+  projectId     Int
+  url           String
+  filename      String
+  sizeBytes     Int
+  sizeKB        Float
+  pageCount     Int
+  pages         String // JSON: [{id, title, url, type}, ...]
+  optimized     Boolean  @default(false)
+  lastScannedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  project IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, url])
+  @@index([projectId])
+  @@index([projectId, optimized])
 }

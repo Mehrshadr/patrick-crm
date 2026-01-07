@@ -19,7 +19,8 @@ import {
     ChevronRight,
     Zap,
     Upload,
-    Check
+    Check,
+    Undo2
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 
@@ -87,11 +88,13 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         error: string
         // Settings
         maxSizeKB: number
+        maxWidth: number
         format: 'webp' | 'jpeg' | 'png'
         keepOriginalFormat: boolean
         // Apply state
         applying: boolean
         applied: boolean
+        appliedData: any
     }>({
         open: false,
         imageUrl: "",
@@ -102,11 +105,13 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         error: "",
         // Settings defaults
         maxSizeKB: 100,
+        maxWidth: 1200,
         format: 'webp',
-        keepOriginalFormat: false,
+        keepOriginalFormat: true,
         // Apply state
         applying: false,
-        applied: false
+        applied: false,
+        appliedData: null
     })
 
     // Alt Modal
@@ -333,10 +338,12 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             result: null,
             error: "",
             maxSizeKB: 100,
+            maxWidth: 1200,
             format: 'webp',
-            keepOriginalFormat: false,
+            keepOriginalFormat: true,
             applying: false,
-            applied: false
+            applied: false,
+            appliedData: null
         })
     }
 
@@ -361,6 +368,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                     projectId,
                     imageUrl: compressModal.imageUrl,
                     maxSizeKB: compressModal.maxSizeKB,
+                    maxWidth: compressModal.maxWidth,
                     format,
                     keepFormat: compressModal.keepOriginalFormat
                 })
@@ -400,7 +408,8 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                     projectId,
                     imageUrl: compressModal.imageUrl,
                     base64: compressModal.result.compressed.base64,
-                    mimeType: `image/${compressModal.result.compressed.format || 'webp'}`
+                    mimeType: `image/${compressModal.result.compressed.format || 'webp'}`,
+                    newSizeBytes: compressModal.result.compressed.sizeBytes
                 })
             })
 
@@ -410,10 +419,19 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                 throw new Error(data.error || "Failed to apply to WordPress")
             }
 
+            // Update local state with new size
+            const newSizeKB = compressModal.result.compressed.sizeBytes / 1024
+            setAllImages(prev => prev.map(img =>
+                img.url === compressModal.imageUrl
+                    ? { ...img, size_kb: newSizeKB, size_bytes: compressModal.result.compressed.sizeBytes }
+                    : img
+            ))
+
             setCompressModal(prev => ({
                 ...prev,
                 applying: false,
-                applied: true
+                applied: true,
+                appliedData: data
             }))
         } catch (e: any) {
             setCompressModal(prev => ({
@@ -434,6 +452,52 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         link.click()
     }
 
+    const handleUndoReplace = async () => {
+        if (!compressModal.appliedData?.mediaId) return
+
+        setCompressModal(prev => ({ ...prev, applying: true, error: "" }))
+
+        try {
+            const res = await fetch('/api/images/restore-original', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId,
+                    mediaId: compressModal.appliedData.mediaId,
+                    backupPath: compressModal.appliedData.backupPath
+                })
+            })
+
+            const data = await res.json()
+
+            if (!data.success) {
+                throw new Error(data.error || "Failed to restore original")
+            }
+
+            // Restore original size in local state
+            setAllImages(prev => prev.map(img =>
+                img.url === compressModal.imageUrl
+                    ? { ...img, size_kb: compressModal.originalSize, size_bytes: compressModal.originalSize * 1024 }
+                    : img
+            ))
+
+            setCompressModal(prev => ({
+                ...prev,
+                applying: false,
+                applied: false,
+                appliedData: null
+            }))
+
+            alert("Original image restored successfully!")
+        } catch (e: any) {
+            setCompressModal(prev => ({
+                ...prev,
+                applying: false,
+                error: e.message
+            }))
+        }
+    }
+
     const closeCompressModal = () => {
         setCompressModal({
             open: false,
@@ -444,10 +508,12 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             result: null,
             error: "",
             maxSizeKB: 100,
+            maxWidth: 1200,
             format: 'webp',
-            keepOriginalFormat: false,
+            keepOriginalFormat: true,
             applying: false,
-            applied: false
+            applied: false,
+            appliedData: null
         })
     }
 
@@ -896,6 +962,24 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             {/* Settings (show when not compressing and no result) */}
                             {!compressModal.compressing && !compressModal.result && (
                                 <div className="space-y-4 mb-4">
+                                    {/* Max Width */}
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Max Width (px)</label>
+                                        <select
+                                            value={compressModal.maxWidth}
+                                            onChange={(e) => setCompressModal(prev => ({ ...prev, maxWidth: parseInt(e.target.value) }))}
+                                            className="w-full border rounded-lg p-2"
+                                        >
+                                            <option value={0}>No Resize</option>
+                                            <option value={800}>800px</option>
+                                            <option value={1000}>1000px</option>
+                                            <option value={1200}>1200px</option>
+                                            <option value={1600}>1600px</option>
+                                            <option value={2000}>2000px</option>
+                                        </select>
+                                        <p className="text-xs text-slate-400 mt-1">Resize only if image is wider</p>
+                                    </div>
+
                                     {/* Max Size */}
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Max Size (KB)</label>
@@ -931,10 +1015,10 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                             }}
                                             className="w-full border rounded-lg p-2"
                                         >
+                                            <option value="original">Keep Original Format</option>
                                             <option value="webp">WebP (Best compression)</option>
                                             <option value="jpeg">JPEG</option>
                                             <option value="png">PNG</option>
-                                            <option value="original">Keep Original Format</option>
                                         </select>
                                     </div>
 
@@ -1036,13 +1120,30 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                                 )}
                                             </Button>
                                         ) : (
-                                            <Button
-                                                onClick={closeCompressModal}
-                                                className="flex-1 bg-green-600 hover:bg-green-700"
-                                            >
-                                                <Check className="h-4 w-4 mr-2" />
-                                                Done - Applied!
-                                            </Button>
+                                            <div className="flex gap-2 w-full">
+                                                <Button
+                                                    onClick={handleUndoReplace}
+                                                    variant="outline"
+                                                    className="flex-1"
+                                                    disabled={compressModal.applying}
+                                                >
+                                                    {compressModal.applying ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <>
+                                                            <Undo2 className="h-4 w-4 mr-2" />
+                                                            Undo
+                                                        </>
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    onClick={closeCompressModal}
+                                                    className="flex-1 bg-green-600 hover:bg-green-700"
+                                                >
+                                                    <Check className="h-4 w-4 mr-2" />
+                                                    Done
+                                                </Button>
+                                            </div>
                                         )}
                                     </div>
 

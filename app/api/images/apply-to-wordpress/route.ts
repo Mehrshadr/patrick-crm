@@ -101,6 +101,22 @@ export async function POST(request: NextRequest) {
 
         console.log(`[ApplyToWP] Successfully replaced media ${mediaId}`)
 
+        // Update PageImage in database with new size
+        const newSizeBytes = body.newSizeBytes || replaceData.new_size || 0
+        if (newSizeBytes > 0) {
+            await prisma.pageImage.updateMany({
+                where: {
+                    projectId: parseInt(projectId),
+                    url: imageUrl
+                },
+                data: {
+                    sizeBytes: newSizeBytes,
+                    sizeKB: newSizeBytes / 1024,
+                    optimized: true
+                }
+            })
+        }
+
         // Log activity
         logActivity({
             userId: session?.user?.email,
@@ -112,7 +128,8 @@ export async function POST(request: NextRequest) {
             details: {
                 mediaId,
                 imageUrl,
-                backupPath: replaceData.backup_path
+                backupPath: replaceData.backup_path,
+                newSizeBytes
             }
         })
 

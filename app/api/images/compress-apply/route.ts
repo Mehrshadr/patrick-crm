@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { projectId, imageUrl, maxSizeKB = 100, format = 'webp' } = body
+        const { projectId, imageUrl, maxSizeKB = 100, maxWidth = 1200, format = 'webp' } = body
 
         if (!projectId || !imageUrl) {
             return NextResponse.json({ error: "projectId and imageUrl are required" }, { status: 400 })
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "WordPress API key not configured" }, { status: 400 })
         }
 
-        console.log(`[CompressApply] Compressing image: ${imageUrl} to ${format}`)
+        console.log(`[CompressApply] Compressing image: ${imageUrl} to ${format}, maxWidth: ${maxWidth}px`)
 
         // Step 1: Fetch the image
         const imageResponse = await fetch(imageUrl)
@@ -50,12 +50,11 @@ export async function POST(request: NextRequest) {
         let bestResult: Buffer | null = null
         let bestQuality = 85
 
-        // Width constraint
-        const maxWidth = 1200
+        // Width constraint - only resize if maxWidth > 0 and image is wider
         let pipeline = sharp(originalBuffer)
         let currentWidth = originalMetadata.width || 0
 
-        if (currentWidth > maxWidth) {
+        if (maxWidth > 0 && currentWidth > maxWidth) {
             const aspectRatio = (originalMetadata.height || 800) / currentWidth
             pipeline = pipeline.resize(maxWidth, Math.round(maxWidth * aspectRatio))
         }

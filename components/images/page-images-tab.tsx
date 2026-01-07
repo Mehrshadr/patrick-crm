@@ -51,11 +51,19 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
     }, [projectId])
 
     const loadFromDatabase = async () => {
-        setLoading(true)
+        // Don't set loading to true here - we don't want to block the sync button
         setError("")
 
         try {
             const res = await fetch(`/api/images/scan-content?projectId=${projectId}&minSizeKB=${minSizeKB}&limit=1000`)
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+                console.error("Load error:", errorData)
+                // Don't show error on initial load - just let them click sync
+                return
+            }
+
             const data = await res.json()
 
             if (data.success && data.images && data.images.length > 0) {
@@ -67,8 +75,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             }
         } catch (e: any) {
             console.error("Load error:", e)
-        } finally {
-            setLoading(false)
+            // Don't show error on initial load
         }
     }
 

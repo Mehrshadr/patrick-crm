@@ -49,6 +49,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
     const [allImages, setAllImages] = useState<PageImage[]>([]) // Unfiltered
     const [loading, setLoading] = useState(false)
     const [syncing, setSyncing] = useState(false)
+    const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, images: 0 })
     const [error, setError] = useState("")
     const [scanned, setScanned] = useState(false)
     const [fromDatabase, setFromDatabase] = useState(false)
@@ -173,22 +174,70 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
     const syncContent = async () => {
         setSyncing(true)
         setError("")
+        setSyncProgress({ current: 0, total: 0, images: 0 })
+
+        let pageNum = 1
+        let hasMore = true
+        let totalImages = 0
+        let totalPagesScanned = 0
 
         try {
-            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&limit=50000&sync=true`)
-            const data = await res.json()
+            // First call to get total count
+            const firstRes = await fetch(`/api/images/scan-content?projectId=${projectId}&sync=true&page=1`)
+            const firstData = await firstRes.json()
 
-            if (!data.success) {
-                throw new Error(data.error || "Failed to sync content")
+            if (!firstData.success) {
+                throw new Error(firstData.error || "Failed to sync content")
             }
 
-            // Reload from database
+            totalImages += firstData.images?.length || 0
+            totalPagesScanned = 1
+
+            // Estimate total pages based on posts_scanned (50 posts per page)
+            const estimatedTotalPages = Math.ceil((firstData.posts_scanned || 50) / 50)
+            setSyncProgress({ current: 1, total: estimatedTotalPages, images: totalImages })
+
+            // Continue fetching remaining pages
+            pageNum = 2
+            hasMore = (firstData.images?.length || 0) > 0 && firstData.posts_scanned > 50
+
+            while (hasMore && pageNum <= 100) { // Max 100 pages (5000 posts)
+                const res = await fetch(`/api/images/scan-content?projectId=${projectId}&sync=true&page=${pageNum}`)
+                const data = await res.json()
+
+                if (!data.success) {
+                    break
+                }
+
+                const newImages = data.images?.length || 0
+                totalImages += newImages
+                totalPagesScanned = pageNum
+
+                setSyncProgress({
+                    current: pageNum,
+                    total: estimatedTotalPages,
+                    images: totalImages
+                })
+
+                // Stop if no more images found
+                if (newImages === 0) {
+                    hasMore = false
+                } else {
+                    pageNum++
+                }
+
+                // Small delay to prevent overwhelming the server
+                await new Promise(r => setTimeout(r, 100))
+            }
+
+            // Reload from database after sync
             setPage(1)
             await loadFromDatabase()
         } catch (e: any) {
             setError(e.message)
         } finally {
             setSyncing(false)
+            setSyncProgress({ current: 0, total: 0, images: 0 })
         }
     }
 
@@ -288,6 +337,26 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         )}
                     </div>
                 </div>
+
+                {/* Sync Progress Bar */}
+                {syncing && syncProgress.total > 0 && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-blue-700">
+                                Syncing pages: {syncProgress.current}/{syncProgress.total}
+                            </span>
+                            <span className="text-sm text-blue-600">
+                                {syncProgress.images} images found
+                            </span>
+                        </div>
+                        <div className="w-full bg-blue-200 rounded-full h-2">
+                            <div
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${Math.min((syncProgress.current / syncProgress.total) * 100, 100)}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* Filters */}
                 <div className="flex flex-wrap gap-3 items-center border-t pt-4">
@@ -512,21 +581,24 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                                 e.stopPropagation()
                                                 window.open(image.url, '_blank')
                                             }}
+                                            title="Open image in new tab"
                                         >
-                                            <ExternalLink className="h-3 w-3 mr-1" />
-                                            View
+                                            <ImageIcon className="h-3 w-3 mr-1" />
+                                            Image
                                         </Button>
                                         {image.pages[0]?.url && (
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="sm"
-                                                className="h-7 text-xs"
+                                                className="flex-1 h-7 text-xs"
                                                 onClick={(e) => {
                                                     e.stopPropagation()
                                                     window.open(image.pages[0].url, '_blank')
                                                 }}
+                                                title={`Open page: ${image.pages[0].title}`}
                                             >
-                                                <FileText className="h-3 w-3" />
+                                                <FileText className="h-3 w-3 mr-1" />
+                                                Page
                                             </Button>
                                         )}
                                     </div>

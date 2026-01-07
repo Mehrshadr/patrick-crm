@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const projectId = searchParams.get("projectId")
         const minSizeKB = searchParams.get("minSizeKB") || "0" // Default 0 = fetch ALL images
-        const limit = searchParams.get("limit") || "10000"
+        const limit = searchParams.get("limit") || "500"
+        const pageNum = searchParams.get("page") || "1"
         const sync = searchParams.get("sync") === "true"
 
         if (!projectId) {
@@ -72,9 +73,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "WordPress API key not configured" }, { status: 400 })
         }
 
-        // Call WordPress plugin
+        // Call WordPress plugin with pagination
         const pluginBase = project.settings.cmsUrl.replace(/\/$/, '')
-        const url = `${pluginBase}/wp-json/mehrana/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}`
+        const url = `${pluginBase}/wp-json/mehrana/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}&page=${pageNum}`
 
         const response = await fetch(url, {
             method: 'GET',

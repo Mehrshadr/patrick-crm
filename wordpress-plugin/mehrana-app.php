@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.6.0
+ * Version: 3.7.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.6.0';
+    private $version = '3.7.0';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1001,9 +1001,15 @@ class Mehrana_App_Plugin
             // Extract image URLs using regex
             // Matches: src="...", background-image: url(...), etc.
             $patterns = [
-                '/src=["\']([^"\']+\.(jpg|jpeg|png|gif|webp|svg)(\?[^"\']*)?)["\'/i',
-                '/url\(["\']?([^"\')]+\.(jpg|jpeg|png|gif|webp)(\?[^"\')]*)?)["\']?\)/i',
-                '/"url":\s*"([^"]+\.(jpg|jpeg|png|gif|webp))"/i', // Elementor JSON
+                '/src=["\\']([^"\\']+\\.(jpg|jpeg|png|gif|webp|svg)(\\?[^"\\']*)?)["\\']?/i',
+                '/url\\(["\\']?([^"\\')]+\\.(jpg|jpeg|png|gif|webp)(\\?[^"\\')]*)?["\\']?\\)/i',
+                '/"url":\\s*"([^"]+\\.(jpg|jpeg|png|gif|webp))"/i',
+                // Lazy loading
+                '/data-src=["\\']([^"\\']+\\.(jpg|jpeg|png|gif|webp)(\\?[^"\\']*)?)["\\']?/i',
+                '/data-lazy-src=["\\']([^"\\']+\\.(jpg|jpeg|png|gif|webp)(\\?[^"\\']*)?)["\\']?/i',
+                // WooCommerce
+                '/data-large_image=["\\']([^"\\']+\\.(jpg|jpeg|png|gif|webp))["\\']?/i',
+                '/data-thumb=["\\']([^"\\']+\\.(jpg|jpeg|png|gif|webp))["\\']?/i',
             ];
 
             foreach ($patterns as $pattern) {

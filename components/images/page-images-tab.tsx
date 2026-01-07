@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     Loader2,
     Search,
@@ -11,15 +12,23 @@ import {
     ExternalLink,
     AlertTriangle,
     FileText,
-    RefreshCw
+    RefreshCw,
+    Database,
+    FileWarning,
+    ChevronLeft,
+    ChevronRight,
+    Zap
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 
 interface PageImage {
+    id?: number
     url: string
     filename: string
     size_bytes: number
     size_kb: number
+    alt?: string
+    mime_type?: string
     pages: {
         id: number
         title: string
@@ -27,6 +36,7 @@ interface PageImage {
         type: string
     }[]
     page_count: number
+    optimized?: boolean
 }
 
 interface PageImagesTabProps {
@@ -36,47 +46,128 @@ interface PageImagesTabProps {
 
 export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) {
     const [images, setImages] = useState<PageImage[]>([])
+    const [allImages, setAllImages] = useState<PageImage[]>([]) // Unfiltered
     const [loading, setLoading] = useState(false)
     const [syncing, setSyncing] = useState(false)
     const [error, setError] = useState("")
     const [scanned, setScanned] = useState(false)
     const [fromDatabase, setFromDatabase] = useState(false)
     const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null)
-    const [stats, setStats] = useState({ totalScanned: 0, postsScanned: 0, heavyImages: 0 })
-    const [minSizeKB, setMinSizeKB] = useState("100")
+
+    // Global stats
+    const [globalStats, setGlobalStats] = useState({ total: 0, heavy: 0, missingAlt: 0 })
+
+    // Filters
+    const [filterUrl, setFilterUrl] = useState("")
+    const [filterFormat, setFilterFormat] = useState("")
+    const [filterType, setFilterType] = useState("")
+    const [filterHeavy, setFilterHeavy] = useState(false)
+    const [filterMissingAlt, setFilterMissingAlt] = useState(false)
+    const [search, setSearch] = useState("")
+
+    // Pagination
+    const [page, setPage] = useState(1)
+    const perPage = 24
+    const [totalPages, setTotalPages] = useState(1)
+
+    // Selection
+    const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set())
 
     // Auto-load from database on mount
     useEffect(() => {
         loadFromDatabase()
     }, [projectId])
 
+    // Apply filters whenever filter state changes
+    useEffect(() => {
+        applyFilters()
+    }, [allImages, filterUrl, filterFormat, filterType, filterHeavy, filterMissingAlt, search, page])
+
     const loadFromDatabase = async () => {
-        // Don't set loading to true here - we don't want to block the sync button
         setError("")
 
         try {
-            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&minSizeKB=${minSizeKB}&limit=1000`)
+            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&limit=10000`)
 
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
                 console.error("Load error:", errorData)
-                // Don't show error on initial load - just let them click sync
                 return
             }
 
             const data = await res.json()
 
             if (data.success && data.images && data.images.length > 0) {
-                setImages(data.images)
-                setStats(data.stats || {})
+                setAllImages(data.images)
                 setFromDatabase(data.fromDatabase || false)
                 setLastSyncedAt(data.stats?.lastSyncedAt ? new Date(data.stats.lastSyncedAt) : null)
                 setScanned(true)
+
+                // Calculate global stats
+                const total = data.images.length
+                const heavy = data.images.filter((img: PageImage) => img.size_kb > 150).length
+                const missingAlt = data.images.filter((img: PageImage) => !img.alt).length
+                setGlobalStats({ total, heavy, missingAlt })
             }
         } catch (e: any) {
             console.error("Load error:", e)
-            // Don't show error on initial load
         }
+    }
+
+    const applyFilters = () => {
+        let filtered = [...allImages]
+
+        // Search filter
+        if (search) {
+            const s = search.toLowerCase()
+            filtered = filtered.filter(img =>
+                img.filename.toLowerCase().includes(s) ||
+                img.url.toLowerCase().includes(s)
+            )
+        }
+
+        // URL filter (filter by page URL)
+        if (filterUrl) {
+            const urlLower = filterUrl.toLowerCase()
+            filtered = filtered.filter(img =>
+                img.pages.some(p => p.url.toLowerCase().includes(urlLower))
+            )
+        }
+
+        // Format filter
+        if (filterFormat) {
+            filtered = filtered.filter(img => {
+                const ext = img.filename.split('.').pop()?.toLowerCase() || ''
+                if (filterFormat === 'jpeg') return ext === 'jpg' || ext === 'jpeg'
+                return ext === filterFormat
+            })
+        }
+
+        // Type filter
+        if (filterType) {
+            filtered = filtered.filter(img =>
+                img.pages.some(p => p.type === filterType)
+            )
+        }
+
+        // Heavy filter (>150KB)
+        if (filterHeavy) {
+            filtered = filtered.filter(img => img.size_kb > 150)
+        }
+
+        // Missing alt filter
+        if (filterMissingAlt) {
+            filtered = filtered.filter(img => !img.alt)
+        }
+
+        // Pagination
+        const total = filtered.length
+        setTotalPages(Math.ceil(total / perPage) || 1)
+
+        const start = (page - 1) * perPage
+        const paged = filtered.slice(start, start + perPage)
+
+        setImages(paged)
     }
 
     const syncContent = async () => {
@@ -84,7 +175,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         setError("")
 
         try {
-            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&minSizeKB=${minSizeKB}&limit=10000&sync=true`)
+            const res = await fetch(`/api/images/scan-content?projectId=${projectId}&limit=50000&sync=true`)
             const data = await res.json()
 
             if (!data.success) {
@@ -92,6 +183,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             }
 
             // Reload from database
+            setPage(1)
             await loadFromDatabase()
         } catch (e: any) {
             setError(e.message)
@@ -102,12 +194,34 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
 
     const formatType = (type: string) => {
         const types: Record<string, string> = {
-            'post': 'Blog Post',
+            'post': 'Blog',
             'page': 'Page',
             'product': 'Product',
-            'landing_page': 'Landing Page'
+            'landing_page': 'Landing'
         }
         return types[type] || type
+    }
+
+    const clearFilters = () => {
+        setFilterUrl("")
+        setFilterFormat("")
+        setFilterType("")
+        setFilterHeavy(false)
+        setFilterMissingAlt(false)
+        setSearch("")
+        setPage(1)
+    }
+
+    const toggleSelectImage = (url: string) => {
+        setSelectedImages(prev => {
+            const next = new Set(prev)
+            if (next.has(url)) {
+                next.delete(url)
+            } else {
+                next.add(url)
+            }
+            return next
+        })
     }
 
     if (!scanned) {
@@ -119,21 +233,9 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                     </div>
                     <h3 className="text-xl font-semibold mb-2">Scan Page Content</h3>
                     <p className="text-muted-foreground mb-6">
-                        Find heavy images that are actually being loaded on your pages.
-                        This helps you optimize the images that impact page speed the most.
+                        Find all images that are being loaded on your published pages.
+                        This helps you optimize images, add alt text, and improve SEO.
                     </p>
-
-                    <div className="flex items-center gap-3 justify-center mb-4">
-                        <label className="text-sm text-muted-foreground">Min size:</label>
-                        <Input
-                            type="number"
-                            value={minSizeKB}
-                            onChange={(e) => setMinSizeKB(e.target.value)}
-                            className="w-24"
-                            placeholder="KB"
-                        />
-                        <span className="text-sm text-muted-foreground">KB</span>
-                    </div>
 
                     <Button onClick={syncContent} disabled={syncing || loading} size="lg">
                         {syncing ? (
@@ -149,7 +251,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         )}
                     </Button>
                     <p className="text-xs text-muted-foreground mt-2">
-                        This will scan all your pages and save the results.
+                        This will scan all published pages and save the results.
                     </p>
                 </div>
             </div>
@@ -158,119 +260,307 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
 
     return (
         <div className="space-y-6">
-            {/* Stats Bar */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    {fromDatabase && lastSyncedAt && (
-                        <Badge variant="outline" className="py-1.5">
-                            Last synced: {new Date(lastSyncedAt).toLocaleDateString()}
-                        </Badge>
-                    )}
-                    <Badge variant="outline" className="py-1.5">
-                        {images.length} heavy images (&gt;{minSizeKB}KB)
-                    </Badge>
+            {/* Controls */}
+            <div className="bg-white p-4 rounded-xl border shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <form onSubmit={(e) => { e.preventDefault(); setPage(1); }} className="flex gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                placeholder="Search images..."
+                                className="pl-9"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                    </form>
+
+                    <div className="flex gap-2">
+                        <Button onClick={syncContent} disabled={syncing} variant="default">
+                            {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                            {syncing ? "Syncing..." : "Resync"}
+                        </Button>
+
+                        {selectedImages.size > 0 && (
+                            <Button variant="outline" size="sm" onClick={() => setSelectedImages(new Set())}>
+                                Clear Selection ({selectedImages.size})
+                            </Button>
+                        )}
+                    </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={syncContent} disabled={syncing || loading}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                    Resync
-                </Button>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-3 items-center border-t pt-4">
+                    <span className="text-xs font-medium text-slate-500 uppercase">Filters:</span>
+
+                    {/* URL Filter */}
+                    <Input
+                        placeholder="Filter by page URL..."
+                        className="w-48 h-8 text-xs"
+                        value={filterUrl}
+                        onChange={(e) => { setFilterUrl(e.target.value); setPage(1); }}
+                    />
+
+                    {/* Format Filter */}
+                    <select
+                        value={filterFormat}
+                        onChange={(e) => { setFilterFormat(e.target.value); setPage(1); }}
+                        className="h-8 px-2 text-xs border rounded-md bg-white"
+                    >
+                        <option value="">All Formats</option>
+                        <option value="jpeg">JPG</option>
+                        <option value="png">PNG</option>
+                        <option value="webp">WebP</option>
+                        <option value="gif">GIF</option>
+                        <option value="svg">SVG</option>
+                    </select>
+
+                    {/* Type Filter */}
+                    <select
+                        value={filterType}
+                        onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+                        className="h-8 px-2 text-xs border rounded-md bg-white"
+                    >
+                        <option value="">All Types</option>
+                        <option value="product">Product</option>
+                        <option value="post">Blog</option>
+                        <option value="page">Page</option>
+                    </select>
+
+                    {/* Heavy Files Checkbox */}
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filterHeavy}
+                            onChange={(e) => { setFilterHeavy(e.target.checked); setPage(1); }}
+                            className="w-3.5 h-3.5"
+                        />
+                        <span>Heavy Only</span>
+                    </label>
+
+                    {/* Missing Alt Checkbox */}
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filterMissingAlt}
+                            onChange={(e) => { setFilterMissingAlt(e.target.checked); setPage(1); }}
+                            className="w-3.5 h-3.5"
+                        />
+                        <span>Missing Alt</span>
+                    </label>
+
+                    {/* Clear Filters */}
+                    {(filterUrl || filterFormat || filterType || filterHeavy || filterMissingAlt || search) && (
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={clearFilters}
+                            className="h-8 text-xs"
+                        >
+                            Clear All
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {error && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
-                    <p className="text-red-700">{error}</p>
+                <div className="bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    {error}
                 </div>
             )}
 
-            {/* Images List */}
-            {images.length === 0 ? (
-                <div className="text-center py-12">
-                    <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                        <ImageIcon className="h-8 w-8 text-green-600" />
+            {/* Stats Dashboard */}
+            {globalStats.total > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Total Images */}
+                    <div
+                        className="bg-white p-5 rounded-xl border hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={clearFilters}
+                    >
+                        <p className="text-slate-500 text-xs uppercase font-medium flex items-center gap-1">
+                            <Database className="h-3 w-3" /> Total Images
+                        </p>
+                        <p className="text-3xl font-bold mt-1">{globalStats.total.toLocaleString()}</p>
+                        {lastSyncedAt && (
+                            <p className="text-[10px] text-slate-400 mt-2">
+                                Last synced: {new Date(lastSyncedAt).toLocaleDateString()}
+                            </p>
+                        )}
                     </div>
-                    <h3 className="text-lg font-medium">No Heavy Images Found!</h3>
-                    <p className="text-muted-foreground">
-                        All images on your pages are under {minSizeKB}KB
-                    </p>
+
+                    {/* Heavy Files */}
+                    <div
+                        className={`p-5 rounded-xl border cursor-pointer hover:shadow-md transition-shadow ${filterHeavy ? 'bg-yellow-100 border-yellow-300' : 'bg-yellow-50 border-yellow-100'}`}
+                        onClick={() => { setFilterHeavy(!filterHeavy); setPage(1); }}
+                    >
+                        <p className="text-yellow-700 text-xs uppercase font-medium flex items-center gap-1">
+                            <FileWarning className="h-3 w-3" /> Heavy Files (&gt;150KB)
+                        </p>
+                        <p className="text-3xl font-bold text-yellow-800 mt-1">{globalStats.heavy.toLocaleString()}</p>
+                    </div>
+
+                    {/* Missing Alt */}
+                    <div
+                        className={`p-5 rounded-xl border cursor-pointer hover:shadow-md transition-shadow ${filterMissingAlt ? 'bg-orange-100 border-orange-300' : 'bg-orange-50 border-orange-100'}`}
+                        onClick={() => { setFilterMissingAlt(!filterMissingAlt); setPage(1); }}
+                    >
+                        <p className="text-orange-700 text-xs uppercase font-medium flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Missing Alt Text
+                        </p>
+                        <p className="text-3xl font-bold text-orange-800 mt-1">{globalStats.missingAlt.toLocaleString()}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Images Grid */}
+            {images.length === 0 ? (
+                <div className="text-center py-20 bg-slate-50 rounded-xl border border-dashed">
+                    <ImageIcon className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No images found</p>
+                    <p className="text-sm text-slate-400 mt-1">Try adjusting your filters or sync again</p>
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {images.map((image, index) => (
-                        <div
-                            key={image.url}
-                            className="flex items-start gap-4 p-4 bg-white border rounded-lg hover:border-primary/50 transition-colors"
-                        >
-                            {/* Thumbnail */}
-                            <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
-                                <img
-                                    src={image.url}
-                                    alt={image.filename}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).src = '/placeholder-image.png'
-                                    }}
-                                />
-                            </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                    {images.map((image) => {
+                        const isSelected = selectedImages.has(image.url)
+                        return (
+                            <div
+                                key={image.url}
+                                className={`group bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all cursor-pointer ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                                onClick={() => toggleSelectImage(image.url)}
+                            >
+                                {/* Image */}
+                                <div className="aspect-square bg-slate-100 relative overflow-hidden">
+                                    <img
+                                        src={image.url}
+                                        alt={image.alt || image.filename}
+                                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                        loading="lazy"
+                                    />
+                                </div>
 
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <h4 className="font-medium text-sm truncate max-w-md" title={image.filename}>
+                                {/* Info */}
+                                <div className="p-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Checkbox
+                                            checked={isSelected}
+                                            className="shrink-0"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setSelectedImages(prev => new Set([...prev, image.url]))
+                                                } else {
+                                                    setSelectedImages(prev => {
+                                                        const next = new Set(prev)
+                                                        next.delete(image.url)
+                                                        return next
+                                                    })
+                                                }
+                                            }}
+                                        />
+                                        <p className="text-xs font-medium truncate flex-1" title={image.filename}>
                                             {image.filename}
-                                        </h4>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <Badge variant={image.size_kb > 500 ? "destructive" : "secondary"}>
-                                                {formatBytes(image.size_bytes)}
-                                            </Badge>
-                                            <span className="text-xs text-muted-foreground">
-                                                Used in {image.page_count} {image.page_count === 1 ? 'page' : 'pages'}
-                                            </span>
-                                        </div>
+                                        </p>
                                     </div>
 
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => onSelectImage?.(image)}
-                                    >
-                                        Optimize
-                                    </Button>
-                                </div>
-
-                                {/* Pages using this image */}
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {image.pages.slice(0, 3).map((page) => (
-                                        <a
-                                            key={page.id}
-                                            href={page.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded text-xs hover:bg-slate-100 transition-colors"
-                                        >
-                                            <FileText className="h-3 w-3" />
-                                            <span className="truncate max-w-[150px]">{page.title}</span>
-                                            <Badge variant="outline" className="text-[10px] py-0">
-                                                {formatType(page.type)}
-                                            </Badge>
-                                            <ExternalLink className="h-3 w-3 opacity-50" />
-                                        </a>
-                                    ))}
-                                    {image.pages.length > 3 && (
-                                        <span className="px-2 py-1 text-xs text-muted-foreground">
-                                            +{image.pages.length - 3} more
+                                    {/* Size and format */}
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                        <span>{formatBytes(image.size_bytes)}</span>
+                                        <span className="font-mono bg-slate-100 px-1 rounded">
+                                            {image.filename.split('.').pop()?.toUpperCase() || 'IMG'}
                                         </span>
-                                    )}
+                                    </div>
+
+                                    {/* Badges */}
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                        {image.size_kb > 150 && (
+                                            <Badge variant="destructive" className="h-5 px-1.5 text-[9px]">
+                                                HEAVY
+                                            </Badge>
+                                        )}
+                                        {image.pages[0]?.type && (
+                                            <Badge
+                                                variant="secondary"
+                                                className={`h-5 px-1.5 text-[9px] ${image.pages[0].type === 'product' ? 'bg-blue-100 text-blue-700' :
+                                                    image.pages[0].type === 'post' ? 'bg-green-100 text-green-700' :
+                                                        'bg-purple-100 text-purple-700'
+                                                    }`}
+                                            >
+                                                {formatType(image.pages[0].type).toUpperCase()}
+                                            </Badge>
+                                        )}
+                                        {!image.alt && (
+                                            <Badge variant="outline" className="h-5 px-1.5 text-[9px] text-orange-600 border-orange-300">
+                                                No Alt
+                                            </Badge>
+                                        )}
+                                    </div>
+
+                                    {/* Pages count */}
+                                    <div className="mt-2 text-[10px] text-slate-500">
+                                        Used in {image.page_count} {image.page_count === 1 ? 'page' : 'pages'}
+                                    </div>
+
+                                    {/* View/Optimize buttons */}
+                                    <div className="flex gap-1 mt-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1 h-7 text-xs"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                window.open(image.url, '_blank')
+                                            }}
+                                        >
+                                            <ExternalLink className="h-3 w-3 mr-1" />
+                                            View
+                                        </Button>
+                                        {image.pages[0]?.url && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 text-xs"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    window.open(image.pages[0].url, '_blank')
+                                                }}
+                                            >
+                                                <FileText className="h-3 w-3" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+                        )
+                    })}
+                </div>
+            )}
 
-                            {/* Rank */}
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">
-                                #{index + 1}
-                            </div>
-                        </div>
-                    ))}
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(page - 1)}
+                        disabled={page === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-4">
+                        Page {page} of {totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(page + 1)}
+                        disabled={page === totalPages}
+                    >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
                 </div>
             )}
         </div>

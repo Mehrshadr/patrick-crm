@@ -254,9 +254,19 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
     const missingAltCount = media.filter(m => !m.alt).length
     const largeFilesCount = media.filter(m => m.filesize > 150 * 1024).length // > 150KB
 
+    // TEMPORARY: Hide Media Library and show only Page Images
+    // Remove this return block to restore Media Library tab
     return (
         <div className="space-y-6">
-            {/* Tab Toggle */}
+            <PageImagesTab projectId={projectId} />
+        </div>
+    )
+
+    // ORIGINAL RETURN - Media Library (hidden for now)
+    return (
+        <div className="space-y-6">
+            {/* Tab Toggle - HIDDEN: Media Library kept for future use */}
+            {/* 
             <div className="flex items-center gap-2 border-b pb-4">
                 <Button
                     variant={activeTab === 'library' ? 'default' : 'outline'}
@@ -275,12 +285,13 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                     Page Images
                 </Button>
             </div>
+            */}
 
-            {activeTab === 'pages' && (
-                <PageImagesTab projectId={projectId} />
-            )}
+            {/* Page Images is now the default and only visible tab */}
+            <PageImagesTab projectId={projectId} />
 
-            {activeTab === 'library' && (
+            {/* HIDDEN: Media Library - kept for future use, change false to activeTab === 'library' to restore */}
+            {false && (
                 <div className="space-y-6">
                     {/* Controls */}
                     <div className="bg-white p-4 rounded-xl border shadow-sm space-y-4">
@@ -856,7 +867,5 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                         }}
                     />
                 </div>
-            )}
-        </div>
-    )
-}
+            )
+            }

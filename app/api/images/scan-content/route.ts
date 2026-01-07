@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const projectId = searchParams.get("projectId")
-        const minSizeKB = searchParams.get("minSizeKB") || "50"
-        const limit = searchParams.get("limit") || "100"
+        const minSizeKB = searchParams.get("minSizeKB") || "0" // Default 0 = fetch ALL images
+        const limit = searchParams.get("limit") || "10000"
         const sync = searchParams.get("sync") === "true"
 
         if (!projectId) {

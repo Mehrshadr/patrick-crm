@@ -17,7 +17,9 @@ import {
     FileWarning,
     ChevronLeft,
     ChevronRight,
-    Zap
+    Zap,
+    Upload,
+    Check
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
 
@@ -83,6 +85,13 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         compressing: boolean
         result: any
         error: string
+        // Settings
+        maxSizeKB: number
+        format: 'webp' | 'jpeg' | 'png'
+        keepOriginalFormat: boolean
+        // Apply state
+        applying: boolean
+        applied: boolean
     }>({
         open: false,
         imageUrl: "",
@@ -90,7 +99,14 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         originalSize: 0,
         compressing: false,
         result: null,
-        error: ""
+        error: "",
+        // Settings defaults
+        maxSizeKB: 100,
+        format: 'webp',
+        keepOriginalFormat: false,
+        // Apply state
+        applying: false,
+        applied: false
     })
 
     // Alt Modal
@@ -219,7 +235,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         let pageNum = 1
         let hasMore = true
         let totalImages = 0
-        let totalPagesScanned = 0
+        let totalPosts = 0
 
         try {
             // First call to get total count
@@ -231,17 +247,16 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             }
 
             totalImages += firstData.images?.length || 0
-            totalPagesScanned = 1
+            totalPosts = firstData.total_posts || 0
+            hasMore = firstData.has_more === true
 
-            // Estimate total pages based on posts_scanned (50 posts per page)
-            const estimatedTotalPages = Math.ceil((firstData.posts_scanned || 50) / 50)
-            setSyncProgress({ current: 1, total: estimatedTotalPages, images: totalImages })
+            // Calculate total pages based on total_posts (50 posts per page)
+            const totalPages = Math.ceil(totalPosts / 50) || 1
+            setSyncProgress({ current: 1, total: totalPages, images: totalImages })
 
             // Continue fetching remaining pages
             pageNum = 2
-            hasMore = (firstData.images?.length || 0) > 0 && firstData.posts_scanned > 50
-
-            while (hasMore && pageNum <= 100) { // Max 100 pages (5000 posts)
+            while (hasMore && pageNum <= 500) { // Max 500 pages (25000 posts)
                 const res = await fetch(`/api/images/scan-content?projectId=${projectId}&sync=true&page=${pageNum}`)
                 const data = await res.json()
 
@@ -249,22 +264,16 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                     break
                 }
 
-                const newImages = data.images?.length || 0
-                totalImages += newImages
-                totalPagesScanned = pageNum
+                totalImages += data.images?.length || 0
+                hasMore = data.has_more === true
 
                 setSyncProgress({
                     current: pageNum,
-                    total: estimatedTotalPages,
+                    total: totalPages,
                     images: totalImages
                 })
 
-                // Stop if no more images found
-                if (newImages === 0) {
-                    hasMore = false
-                } else {
-                    pageNum++
-                }
+                pageNum++
 
                 // Small delay to prevent overwhelming the server
                 await new Promise(r => setTimeout(r, 100))
@@ -313,25 +322,47 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         })
     }
 
-    const handleCompress = async (imageUrl: string, filename: string, sizeKB: number) => {
+    // Open compress modal with settings (don't start compression yet)
+    const handleCompress = (imageUrl: string, filename: string, sizeKB: number) => {
         setCompressModal({
             open: true,
             imageUrl,
             imageFilename: filename,
             originalSize: sizeKB,
-            compressing: true,
+            compressing: false,
             result: null,
-            error: ""
+            error: "",
+            maxSizeKB: 100,
+            format: 'webp',
+            keepOriginalFormat: false,
+            applying: false,
+            applied: false
         })
+    }
+
+    // Start compression with current settings
+    const startCompression = async () => {
+        setCompressModal(prev => ({ ...prev, compressing: true, error: "", result: null }))
 
         try {
+            // Detect original format for keepOriginalFormat option
+            let format = compressModal.format
+            if (compressModal.keepOriginalFormat) {
+                const ext = compressModal.imageFilename.split('.').pop()?.toLowerCase()
+                if (ext === 'jpg' || ext === 'jpeg') format = 'jpeg'
+                else if (ext === 'png') format = 'png'
+                else format = 'webp'
+            }
+
             const res = await fetch('/api/images/compress-apply', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     projectId,
-                    imageUrl,
-                    maxSizeKB: 100
+                    imageUrl: compressModal.imageUrl,
+                    maxSizeKB: compressModal.maxSizeKB,
+                    format,
+                    keepFormat: compressModal.keepOriginalFormat
                 })
             })
 
@@ -355,12 +386,51 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         }
     }
 
+    // Apply compressed image to WordPress
+    const handleApplyToWordPress = async () => {
+        if (!compressModal.result) return
+
+        setCompressModal(prev => ({ ...prev, applying: true, error: "" }))
+
+        try {
+            const res = await fetch('/api/images/apply-to-wordpress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId,
+                    imageUrl: compressModal.imageUrl,
+                    base64: compressModal.result.compressed.base64,
+                    mimeType: `image/${compressModal.result.compressed.format || 'webp'}`
+                })
+            })
+
+            const data = await res.json()
+
+            if (!data.success) {
+                throw new Error(data.error || "Failed to apply to WordPress")
+            }
+
+            setCompressModal(prev => ({
+                ...prev,
+                applying: false,
+                applied: true
+            }))
+        } catch (e: any) {
+            setCompressModal(prev => ({
+                ...prev,
+                applying: false,
+                error: e.message
+            }))
+        }
+    }
+
     const handleDownloadCompressed = () => {
         if (!compressModal.result) return
 
+        const format = compressModal.result.compressed.format || 'webp'
         const link = document.createElement('a')
-        link.href = `data:image/webp;base64,${compressModal.result.compressed.base64}`
-        link.download = compressModal.imageFilename.replace(/\.[^.]+$/, '.webp')
+        link.href = `data:image/${format};base64,${compressModal.result.compressed.base64}`
+        link.download = compressModal.imageFilename.replace(/\.[^.]+$/, `.${format}`)
         link.click()
     }
 
@@ -372,7 +442,12 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             originalSize: 0,
             compressing: false,
             result: null,
-            error: ""
+            error: "",
+            maxSizeKB: 100,
+            format: 'webp',
+            keepOriginalFormat: false,
+            applying: false,
+            applied: false
         })
     }
 
@@ -818,11 +893,73 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                 {compressModal.imageFilename}
                             </p>
 
+                            {/* Settings (show when not compressing and no result) */}
+                            {!compressModal.compressing && !compressModal.result && (
+                                <div className="space-y-4 mb-4">
+                                    {/* Max Size */}
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Max Size (KB)</label>
+                                        <select
+                                            value={compressModal.maxSizeKB}
+                                            onChange={(e) => setCompressModal(prev => ({ ...prev, maxSizeKB: parseInt(e.target.value) }))}
+                                            className="w-full border rounded-lg p-2"
+                                        >
+                                            <option value={50}>50 KB</option>
+                                            <option value={100}>100 KB</option>
+                                            <option value={150}>150 KB</option>
+                                            <option value={200}>200 KB</option>
+                                            <option value={300}>300 KB</option>
+                                            <option value={500}>500 KB</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Format */}
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Output Format</label>
+                                        <select
+                                            value={compressModal.keepOriginalFormat ? 'original' : compressModal.format}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'original') {
+                                                    setCompressModal(prev => ({ ...prev, keepOriginalFormat: true }))
+                                                } else {
+                                                    setCompressModal(prev => ({
+                                                        ...prev,
+                                                        format: e.target.value as 'webp' | 'jpeg' | 'png',
+                                                        keepOriginalFormat: false
+                                                    }))
+                                                }
+                                            }}
+                                            className="w-full border rounded-lg p-2"
+                                        >
+                                            <option value="webp">WebP (Best compression)</option>
+                                            <option value="jpeg">JPEG</option>
+                                            <option value="png">PNG</option>
+                                            <option value="original">Keep Original Format</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Original Size Info */}
+                                    <div className="bg-slate-50 p-3 rounded-lg text-sm">
+                                        <span className="text-slate-500">Original size: </span>
+                                        <span className="font-medium">{Math.round(compressModal.originalSize)} KB</span>
+                                    </div>
+
+                                    {/* Start Compress Button */}
+                                    <Button
+                                        onClick={startCompression}
+                                        className="w-full"
+                                    >
+                                        <Zap className="h-4 w-4 mr-2" />
+                                        Start Compression
+                                    </Button>
+                                </div>
+                            )}
+
                             {compressModal.compressing && (
                                 <div className="text-center py-8">
                                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
                                     <p className="text-slate-600">Compressing image...</p>
-                                    <p className="text-xs text-slate-400">Converting to WebP format</p>
+                                    <p className="text-xs text-slate-400">Converting to {compressModal.keepOriginalFormat ? 'optimized' : compressModal.format.toUpperCase()} format</p>
                                 </div>
                             )}
 
@@ -876,20 +1013,44 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                             onClick={handleDownloadCompressed}
                                             className="flex-1"
                                             variant="outline"
+                                            disabled={compressModal.applying}
                                         >
-                                            Download WebP
+                                            Download
                                         </Button>
-                                        <Button
-                                            onClick={closeCompressModal}
-                                            className="flex-1"
-                                        >
-                                            Done
-                                        </Button>
+                                        {!compressModal.applied ? (
+                                            <Button
+                                                onClick={handleApplyToWordPress}
+                                                className="flex-1"
+                                                disabled={compressModal.applying}
+                                            >
+                                                {compressModal.applying ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                        Applying...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Upload className="h-4 w-4 mr-2" />
+                                                        Apply to WordPress
+                                                    </>
+                                                )}
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                onClick={closeCompressModal}
+                                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                            >
+                                                <Check className="h-4 w-4 mr-2" />
+                                                Done - Applied!
+                                            </Button>
+                                        )}
                                     </div>
 
-                                    <p className="text-xs text-center text-slate-400">
-                                        Upload the compressed image to WordPress manually for now
-                                    </p>
+                                    {compressModal.applied && (
+                                        <p className="text-xs text-center text-green-600 font-medium">
+                                            ✓ Image replaced in WordPress successfully!
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>

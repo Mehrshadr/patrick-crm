@@ -103,15 +103,32 @@ export async function GET(request: NextRequest) {
 
         // If syncing, save to database
         if (sync && data.images) {
-            // Delete old records for this project
-            await prisma.pageImage.deleteMany({
-                where: { projectId: projId }
-            })
+            // Only delete old records on first page
+            const currentPage = parseInt(pageNum)
+            if (currentPage === 1) {
+                await prisma.pageImage.deleteMany({
+                    where: { projectId: projId }
+                })
+            }
 
-            // Insert new records (SQLite doesn't support createMany efficiently, use loop)
+            // Insert/upsert new records
             for (const img of data.images) {
-                await prisma.pageImage.create({
-                    data: {
+                await prisma.pageImage.upsert({
+                    where: {
+                        projectId_url: {
+                            projectId: projId,
+                            url: img.url
+                        }
+                    },
+                    update: {
+                        filename: img.filename,
+                        sizeBytes: img.size_bytes,
+                        sizeKB: img.size_kb,
+                        pageCount: img.page_count,
+                        pages: JSON.stringify(img.pages),
+                        lastScannedAt: new Date()
+                    },
+                    create: {
                         projectId: projId,
                         url: img.url,
                         filename: img.filename,
@@ -128,7 +145,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 synced: true,
+                images: data.images,
                 totalSynced: data.images.length,
+                posts_scanned: data.posts_scanned,
+                total_posts: data.total_posts,
+                has_more: data.has_more,
+                page: currentPage,
                 stats: {
                     totalScanned: data.total_scanned,
                     postsScanned: data.posts_scanned,
@@ -141,6 +163,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             images: data.images,
+            total_posts: data.total_posts,
+            has_more: data.has_more,
+            page: parseInt(pageNum),
             stats: {
                 totalScanned: data.total_scanned,
                 postsScanned: data.posts_scanned,

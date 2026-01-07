@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.7.3
+ * Version: 3.8.1
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.7.3';
+    private $version = '3.8.1';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -160,6 +160,13 @@ class Mehrana_App_Plugin
         register_rest_route($this->namespace, '/scan-content-images', [
             'methods' => 'GET',
             'callback' => [$this, 'scan_content_images'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
+
+        // Find media by URL
+        register_rest_route($this->namespace, '/find-media', [
+            'methods' => 'GET',
+            'callback' => [$this, 'find_media_by_url'],
             'permission_callback' => [$this, 'check_permission'],
         ]);
     }
@@ -826,6 +833,80 @@ class Mehrana_App_Plugin
     }
 
     /**
+     * Find media ID by URL
+     */
+    public function find_media_by_url($request)
+    {
+        $url = $request->get_param('url');
+
+        if (!$url) {
+            return new WP_Error('missing_url', 'URL parameter is required', ['status' => 400]);
+        }
+
+        // Try to find attachment by URL
+        $attachment_id = attachment_url_to_postid($url);
+
+        if ($attachment_id) {
+            return rest_ensure_response([
+                'success' => true,
+                'media_id' => $attachment_id
+            ]);
+        }
+
+        // If not found, try searching by filename in uploads
+        $upload_dir = wp_upload_dir();
+        $base_url = $upload_dir['baseurl'];
+
+        // Check if URL is from this site
+        if (strpos($url, $base_url) === false) {
+            // Try with https/http variations
+            $url_https = str_replace('http://', 'https://', $url);
+            $url_http = str_replace('https://', 'http://', $url);
+
+            $attachment_id = attachment_url_to_postid($url_https);
+            if ($attachment_id) {
+                return rest_ensure_response([
+                    'success' => true,
+                    'media_id' => $attachment_id
+                ]);
+            }
+
+            $attachment_id = attachment_url_to_postid($url_http);
+            if ($attachment_id) {
+                return rest_ensure_response([
+                    'success' => true,
+                    'media_id' => $attachment_id
+                ]);
+            }
+        }
+
+        // Try to find by guid (sometimes works when URL has been modified)
+        global $wpdb;
+        $filename = basename(parse_url($url, PHP_URL_PATH));
+
+        $attachment_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} 
+             WHERE post_type = 'attachment' 
+             AND (guid LIKE %s OR post_title = %s OR post_name = %s)",
+            '%' . $wpdb->esc_like($filename) . '%',
+            pathinfo($filename, PATHINFO_FILENAME),
+            pathinfo($filename, PATHINFO_FILENAME)
+        ));
+
+        if ($attachment_id) {
+            return rest_ensure_response([
+                'success' => true,
+                'media_id' => intval($attachment_id)
+            ]);
+        }
+
+        return rest_ensure_response([
+            'success' => false,
+            'error' => 'Media not found in library'
+        ]);
+    }
+
+    /**
      * Restore media from backup
      */
     public function restore_media($request)
@@ -1004,6 +1085,26 @@ class Mehrana_App_Plugin
                 }
             }
 
+            // 4. Get WooCommerce product gallery images
+            if ($post->post_type === 'product') {
+                $gallery_ids = get_post_meta($post->ID, '_product_image_gallery', true);
+                if ($gallery_ids) {
+                    $gallery_array = explode(',', $gallery_ids);
+                    foreach ($gallery_array as $gallery_id) {
+                        $gallery_url = wp_get_attachment_url((int) $gallery_id);
+                        if ($gallery_url) {
+                            if (!isset($images[$gallery_url])) {
+                                $images[$gallery_url] = null;
+                                $image_pages[$gallery_url] = [];
+                            }
+                            if (!in_array($post->ID, $image_pages[$gallery_url])) {
+                                $image_pages[$gallery_url][] = $post->ID;
+                            }
+                        }
+                    }
+                }
+            }
+
             // Extract image URLs using regex
             // Matches: src="...", background-image: url(...), etc.
             $patterns = [
@@ -1102,11 +1203,25 @@ class Mehrana_App_Plugin
         // Apply limit
         $results = array_slice($results, 0, $limit);
 
+        // Get total posts count for pagination
+        $total_posts_query = new WP_Query([
+            'post_type' => array_values($post_types),
+            'post_status' => 'publish',
+            'posts_per_page' => 1,
+            'fields' => 'ids'
+        ]);
+        $total_posts = $total_posts_query->found_posts;
+        $has_more = ($page_num * $per_page) < $total_posts;
+
         return rest_ensure_response([
             'success' => true,
             'total_scanned' => count($images),
             'images' => $results,
-            'posts_scanned' => count($posts)
+            'posts_scanned' => count($posts),
+            'page' => $page_num,
+            'per_page' => $per_page,
+            'total_posts' => $total_posts,
+            'has_more' => $has_more
         ]);
     }
 

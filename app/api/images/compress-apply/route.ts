@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { projectId, imageUrl, maxSizeKB = 100 } = body
+        const { projectId, imageUrl, maxSizeKB = 100, format = 'webp' } = body
 
         if (!projectId || !imageUrl) {
             return NextResponse.json({ error: "projectId and imageUrl are required" }, { status: 400 })
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "WordPress API key not configured" }, { status: 400 })
         }
 
-        console.log(`[CompressApply] Compressing image: ${imageUrl}`)
+        console.log(`[CompressApply] Compressing image: ${imageUrl} to ${format}`)
 
         // Step 1: Fetch the image
         const imageResponse = await fetch(imageUrl)
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         const originalSizeKB = originalBuffer.length / 1024
         const originalMetadata = await sharp(originalBuffer).metadata()
 
-        // Step 2: Compress to WebP
+        // Step 2: Compress to target format
         const targetSizeBytes = maxSizeKB * 1024
         let bestResult: Buffer | null = null
         let bestQuality = 85
@@ -64,7 +64,15 @@ export async function POST(request: NextRequest) {
         const qualitySteps = [90, 85, 80, 75, 70, 65, 60]
 
         for (const quality of qualitySteps) {
-            const result = await pipeline.clone().webp({ quality }).toBuffer()
+            let result: Buffer
+
+            if (format === 'jpeg') {
+                result = await pipeline.clone().jpeg({ quality, mozjpeg: true }).toBuffer()
+            } else if (format === 'png') {
+                result = await pipeline.clone().png({ compressionLevel: 9, quality }).toBuffer()
+            } else {
+                result = await pipeline.clone().webp({ quality }).toBuffer()
+            }
 
             if (result.length <= targetSizeBytes) {
                 bestResult = result
@@ -84,10 +92,16 @@ export async function POST(request: NextRequest) {
                 const newWidth = Math.round((originalMetadata.width || 1200) * scale)
                 if (newWidth < 400) break
 
-                const result = await sharp(originalBuffer)
-                    .resize(newWidth)
-                    .webp({ quality: 75 })
-                    .toBuffer()
+                let resized = sharp(originalBuffer).resize(newWidth)
+                let result: Buffer
+
+                if (format === 'jpeg') {
+                    result = await resized.jpeg({ quality: 75, mozjpeg: true }).toBuffer()
+                } else if (format === 'png') {
+                    result = await resized.png({ compressionLevel: 9 }).toBuffer()
+                } else {
+                    result = await resized.webp({ quality: 75 }).toBuffer()
+                }
 
                 if (result.length <= targetSizeBytes) {
                     bestResult = result
@@ -105,26 +119,25 @@ export async function POST(request: NextRequest) {
 
         console.log(`[CompressApply] Compressed: ${Math.round(originalSizeKB)}KB -> ${Math.round(finalSizeKB)}KB (${savings}% savings)`)
 
-        // Step 3: Try to find media ID from URL or extract from WordPress
-        // For now, return compressed image. User can manually apply or we enhance later.
         const base64 = bestResult.toString("base64")
-
-        // Get final metadata
         const finalMetadata = await sharp(bestResult).metadata()
 
-        // Log activity
+        // Determine MIME type
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'png' ? 'image/png' : 'image/webp'
+
         logActivity({
             userId: session?.user?.email,
             userName: session?.user?.name,
             projectId: parseInt(projectId),
             category: 'IMAGE_FACTORY',
             action: 'COMPRESSED',
-            description: `Compressed image to WebP (${savings}% savings)`,
+            description: `Compressed image to ${format.toUpperCase()} (${savings}% savings)`,
             details: {
                 imageUrl,
                 originalSize: Math.round(originalSizeKB),
                 finalSize: Math.round(finalSizeKB),
-                savings
+                savings,
+                format
             }
         })
 
@@ -132,7 +145,8 @@ export async function POST(request: NextRequest) {
             success: true,
             compressed: {
                 base64,
-                mimeType: "image/webp",
+                mimeType,
+                format,
                 sizeKB: Math.round(finalSizeKB * 10) / 10,
                 width: finalMetadata.width,
                 height: finalMetadata.height,

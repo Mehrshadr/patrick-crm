@@ -77,6 +77,8 @@ export async function GET(request: NextRequest) {
         const pluginBase = project.settings.cmsUrl.replace(/\/$/, '')
         const url = `${pluginBase}/wp-json/mehrana/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}&page=${pageNum}`
 
+        console.log(`[ScanContent] Calling WordPress: ${url} (sync=${sync}, page=${pageNum})`)
+
         const response = await fetch(url, {
             method: 'GET',
             headers: {

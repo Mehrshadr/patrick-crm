@@ -602,6 +602,40 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                             </Button>
                                         )}
                                     </div>
+
+                                    {/* Optimize Actions */}
+                                    <div className="flex gap-1 mt-1">
+                                        {image.size_kb > 100 && (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="flex-1 h-6 text-[10px] bg-orange-50 hover:bg-orange-100 text-orange-700"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    // TODO: Implement compress
+                                                    alert('Compress feature coming soon!')
+                                                }}
+                                            >
+                                                <Zap className="h-2.5 w-2.5 mr-0.5" />
+                                                Compress
+                                            </Button>
+                                        )}
+                                        {!image.alt && (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="flex-1 h-6 text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    // TODO: Implement add alt
+                                                    alert('Add Alt feature coming soon!')
+                                                }}
+                                            >
+                                                <FileWarning className="h-2.5 w-2.5 mr-0.5" />
+                                                Add Alt
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )

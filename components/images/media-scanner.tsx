@@ -856,9 +856,7 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                         }}
                     />
                 </div>
-            )
-            </div>
-    )
+            )}
         </div>
     )
 }

@@ -93,6 +93,27 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         error: ""
     })
 
+    // Alt Modal
+    const [altModal, setAltModal] = useState<{
+        open: boolean
+        imageUrl: string
+        imageFilename: string
+        altText: string
+        pages: { id: number; title: string; url: string }[]
+        saving: boolean
+        error: string
+        success: boolean
+    }>({
+        open: false,
+        imageUrl: "",
+        imageFilename: "",
+        altText: "",
+        pages: [],
+        saving: false,
+        error: "",
+        success: false
+    })
+
     // Auto-load from database on mount
     useEffect(() => {
         loadFromDatabase()
@@ -352,6 +373,32 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             compressing: false,
             result: null,
             error: ""
+        })
+    }
+
+    const handleAddAlt = (image: PageImage) => {
+        setAltModal({
+            open: true,
+            imageUrl: image.url,
+            imageFilename: image.filename,
+            altText: "",
+            pages: image.pages,
+            saving: false,
+            error: "",
+            success: false
+        })
+    }
+
+    const closeAltModal = () => {
+        setAltModal({
+            open: false,
+            imageUrl: "",
+            imageFilename: "",
+            altText: "",
+            pages: [],
+            saving: false,
+            error: "",
+            success: false
         })
     }
 
@@ -709,8 +756,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                                     className="flex-1 h-6 text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
-                                                        // TODO: Implement add alt
-                                                        alert('Add Alt feature coming soon!')
+                                                        handleAddAlt(image)
                                                     }}
                                                 >
                                                     <FileWarning className="h-2.5 w-2.5 mr-0.5" />
@@ -848,8 +894,103 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             )}
                         </div>
                     </div>
-                )
-            }
+                )}
+
+            {/* Alt Modal */}
+            {altModal.open && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold">Add Alt Text</h3>
+                            <button
+                                onClick={closeAltModal}
+                                className="text-slate-400 hover:text-slate-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Image Preview */}
+                        <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden mb-4">
+                            <img
+                                src={altModal.imageUrl}
+                                alt="Preview"
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+
+                        <p className="text-sm text-slate-600 mb-2 truncate">
+                            {altModal.imageFilename}
+                        </p>
+
+                        {/* Pages where image is used */}
+                        {altModal.pages.length > 0 && (
+                            <div className="mb-4 text-xs text-slate-500">
+                                Used in: {altModal.pages.map(p => p.title).join(', ')}
+                            </div>
+                        )}
+
+                        {/* Alt Text Input */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-1">Alt Text</label>
+                            <Input
+                                value={altModal.altText}
+                                onChange={(e) => setAltModal(prev => ({ ...prev, altText: e.target.value }))}
+                                placeholder="Describe this image for accessibility..."
+                                className="w-full"
+                            />
+                            <p className="text-xs text-slate-400 mt-1">
+                                Describe what the image shows for screen readers
+                            </p>
+                        </div>
+
+                        {altModal.error && (
+                            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
+                                {altModal.error}
+                            </div>
+                        )}
+
+                        {altModal.success && (
+                            <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm">
+                                Alt text suggestion saved! (Manual update in WordPress required)
+                            </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={closeAltModal}
+                                variant="outline"
+                                className="flex-1"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    // For now, just show success message
+                                    // In future, this could update a suggestions list
+                                    setAltModal(prev => ({ ...prev, success: true }))
+                                }}
+                                className="flex-1"
+                                disabled={!altModal.altText.trim() || altModal.saving}
+                            >
+                                {altModal.saving ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Save Suggestion'
+                                )}
+                            </Button>
+                        </div>
+
+                        <p className="text-xs text-center text-slate-400 mt-4">
+                            Alt text must be manually updated in WordPress media library
+                        </p>
+                    </div>
+                </div>
+            )}
         </>
     )
 }

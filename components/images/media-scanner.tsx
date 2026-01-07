@@ -448,9 +448,9 @@ export function MediaScanner({ projectId, isAdmin = false }: MediaScannerProps) 
                     </div>
 
                     {toast && (
-                        <div className={`p-4 rounded-xl flex items-center gap-2 ${toast.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        <div className={`p-4 rounded-xl flex items-center gap-2 ${toast!.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                             <CheckCircle2 className="h-5 w-5" />
-                            {toast.message}
+                            {toast!.message}
                         </div>
                     )}
 

@@ -14,6 +14,9 @@ const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 const MEETING_SYNC_INTERVAL = 2 * 60 * 1000  // Every 2 minutes
 const GENERAL_CRON_INTERVAL = 5 * 60 * 1000  // Every 5 minutes
 
+// Startup delay to wait for main app to be ready
+const STARTUP_DELAY = 30 * 1000  // 30 seconds
+
 async function callEndpoint(endpoint, name) {
     const url = `${BASE_URL}${endpoint}?secret=${encodeURIComponent(CRON_SECRET)}`
 
@@ -47,18 +50,29 @@ async function runGeneralCron() {
     await callEndpoint('/api/cron', 'GeneralCron')
 }
 
-// Initial run
-console.log(`[${new Date().toISOString()}] Cron Scheduler starting...`)
-console.log(`  BASE_URL: ${BASE_URL}`)
-console.log(`  Meeting Sync: Every ${MEETING_SYNC_INTERVAL / 1000 / 60} minutes`)
-console.log(`  General Cron: Every ${GENERAL_CRON_INTERVAL / 1000 / 60} minutes`)
+async function startScheduler() {
+    console.log(`[${new Date().toISOString()}] Cron Scheduler starting...`)
+    console.log(`  BASE_URL: ${BASE_URL}`)
+    console.log(`  CRON_SECRET: ${CRON_SECRET.substring(0, 10)}...`)
+    console.log(`  Startup delay: ${STARTUP_DELAY / 1000} seconds`)
+    console.log(`  Meeting Sync: Every ${MEETING_SYNC_INTERVAL / 1000 / 60} minutes`)
+    console.log(`  General Cron: Every ${GENERAL_CRON_INTERVAL / 1000 / 60} minutes`)
 
-// Run immediately on startup
-runMeetingSync()
-runGeneralCron()
+    // Wait for main app to start
+    console.log(`[${new Date().toISOString()}] Waiting ${STARTUP_DELAY / 1000} seconds for main app to start...`)
+    await new Promise(resolve => setTimeout(resolve, STARTUP_DELAY))
 
-// Set up intervals
-setInterval(runMeetingSync, MEETING_SYNC_INTERVAL)
-setInterval(runGeneralCron, GENERAL_CRON_INTERVAL)
+    // Run immediately after delay
+    console.log(`[${new Date().toISOString()}] Starting first sync...`)
+    runMeetingSync()
+    runGeneralCron()
 
-console.log(`[${new Date().toISOString()}] Cron Scheduler is running!`)
+    // Set up intervals
+    setInterval(runMeetingSync, MEETING_SYNC_INTERVAL)
+    setInterval(runGeneralCron, GENERAL_CRON_INTERVAL)
+
+    console.log(`[${new Date().toISOString()}] Cron Scheduler is running!`)
+}
+
+// Start the scheduler
+startScheduler()

@@ -74,12 +74,12 @@ export async function GET(request: NextRequest) {
 
         // Call WordPress plugin
         const pluginBase = project.settings.cmsUrl.replace(/\/$/, '')
-        const url = `${pluginBase}/wp-json/mehrana-app/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}`
+        const url = `${pluginBase}/wp-json/mehrana/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}`
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'X-Mehrana-Key': project.settings.cmsApiKey
+                'X-MAP-API-Key': project.settings.cmsApiKey
             }
         })
 

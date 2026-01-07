@@ -232,7 +232,12 @@ export async function POST(req: NextRequest) {
         const totalPages = data.pages || 1
 
         if (sync) {
+            console.log(`[ImageFactory] ==================== SYNC DEBUG START ====================`)
             console.log(`[ImageFactory] Starting batched sync for project ${projectId}`)
+            console.log(`[ImageFactory] Plugin Base URL: ${pluginBase}`)
+            console.log(`[ImageFactory] Auth Method: ${settings.cmsApiKey ? 'API Key' : 'Basic Auth'}`)
+            console.log(`[ImageFactory] API Key exists: ${!!settings.cmsApiKey}`)
+            console.log(`[ImageFactory] Username: ${settings.cmsUsername || 'N/A'}`)
 
             let added = 0
             let updated = 0
@@ -247,10 +252,13 @@ export async function POST(req: NextRequest) {
 
             if (!firstRes.ok) {
                 console.error(`[ImageFactory] Initial fetch failed: ${firstRes.status}`)
-                return NextResponse.json({ error: 'Sync failed' }, { status: 500 })
+                const errorBody = await firstRes.text()
+                console.error(`[ImageFactory] Error response body: ${errorBody}`)
+                return NextResponse.json({ error: 'Sync failed', details: errorBody }, { status: 500 })
             }
 
             const firstData = await firstRes.json()
+            console.log(`[ImageFactory] First page response - Total: ${firstData.total}, Pages: ${firstData.pages}, Media count: ${firstData.media?.length || 0}`)
             totalPages = firstData.pages || 1
             console.log(`[ImageFactory] Total pages to sync: ${totalPages} (${firstData.total} items)`)
 
@@ -343,6 +351,7 @@ export async function POST(req: NextRequest) {
             }
 
             console.log(`[ImageFactory] Sync complete: ${added} added, ${updated} updated, ${totalScanned} total`)
+            console.log(`[ImageFactory] ==================== SYNC DEBUG END ====================`)
 
             // Check if this is first sync (DATABASE_CREATE) or update (DATABASE_UPDATE)
             const existingLog = await prisma.imageFactoryLog.findFirst({

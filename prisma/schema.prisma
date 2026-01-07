@@ -564,6 +564,7 @@ model PageImage {
   filename      String
   sizeBytes     Int
   sizeKB        Float
+  alt           String?
   pageCount     Int
   pages         String // JSON: [{id, title, url, type}, ...]
   optimized     Boolean  @default(false)

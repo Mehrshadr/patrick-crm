@@ -124,6 +124,7 @@ export async function GET(request: NextRequest) {
                         filename: img.filename,
                         sizeBytes: img.size_bytes,
                         sizeKB: img.size_kb,
+                        alt: img.alt || null,
                         pageCount: img.page_count,
                         pages: JSON.stringify(img.pages),
                         lastScannedAt: new Date()
@@ -134,6 +135,7 @@ export async function GET(request: NextRequest) {
                         filename: img.filename,
                         sizeBytes: img.size_bytes,
                         sizeKB: img.size_kb,
+                        alt: img.alt || null,
                         pageCount: img.page_count,
                         pages: JSON.stringify(img.pages),
                         optimized: false,

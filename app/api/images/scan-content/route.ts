@@ -58,32 +58,28 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Get project to find WordPress URL
-        const project = await prisma.project.findUnique({
-            where: { id: projId }
+        // Get project with settings
+        const project = await prisma.indexingProject.findUnique({
+            where: { id: projId },
+            include: { settings: true }
         })
 
-        if (!project?.pluginUrl) {
-            return NextResponse.json({ error: "Project has no plugin URL configured" }, { status: 400 })
+        if (!project?.settings?.cmsUrl) {
+            return NextResponse.json({ error: "Project has no CMS URL configured" }, { status: 400 })
         }
 
-        // Get plugin credentials
-        const credentials = await prisma.projectSettings.findFirst({
-            where: { projectId: projId, key: 'wp_plugin_key' }
-        })
-
-        if (!credentials?.value) {
-            return NextResponse.json({ error: "WordPress plugin key not configured" }, { status: 400 })
+        if (!project.settings.cmsApiKey) {
+            return NextResponse.json({ error: "WordPress API key not configured" }, { status: 400 })
         }
 
         // Call WordPress plugin
-        const pluginBase = project.pluginUrl.replace(/\/$/, '')
-        const url = `${pluginBase}/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}`
+        const pluginBase = project.settings.cmsUrl.replace(/\/$/, '')
+        const url = `${pluginBase}/wp-json/mehrana-app/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}`
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
-                'X-Mehrana-Key': credentials.value
+                'X-Mehrana-Key': project.settings.cmsApiKey
             }
         })
 
@@ -109,27 +105,27 @@ export async function GET(request: NextRequest) {
                 where: { projectId: projId }
             })
 
-            // Insert new records
-            const imageRecords = data.images.map((img: any) => ({
-                projectId: projId,
-                url: img.url,
-                filename: img.filename,
-                sizeBytes: img.size_bytes,
-                sizeKB: img.size_kb,
-                pageCount: img.page_count,
-                pages: JSON.stringify(img.pages),
-                optimized: false,
-                lastScannedAt: new Date()
-            }))
-
-            await prisma.pageImage.createMany({
-                data: imageRecords
-            })
+            // Insert new records (SQLite doesn't support createMany efficiently, use loop)
+            for (const img of data.images) {
+                await prisma.pageImage.create({
+                    data: {
+                        projectId: projId,
+                        url: img.url,
+                        filename: img.filename,
+                        sizeBytes: img.size_bytes,
+                        sizeKB: img.size_kb,
+                        pageCount: img.page_count,
+                        pages: JSON.stringify(img.pages),
+                        optimized: false,
+                        lastScannedAt: new Date()
+                    }
+                })
+            }
 
             return NextResponse.json({
                 success: true,
                 synced: true,
-                totalSynced: imageRecords.length,
+                totalSynced: data.images.length,
                 stats: {
                     totalScanned: data.total_scanned,
                     postsScanned: data.posts_scanned,

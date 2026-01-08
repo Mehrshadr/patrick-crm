@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.0
+ * Version: 3.9.1
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.0';
+    private $version = '3.9.1';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -737,17 +737,30 @@ class Mehrana_App_Plugin
             $new_file = $upload_dir['path'] . '/optimized_' . $id . '.' . ($new_extension ?: 'webp');
         }
 
-        // Ensure directory exists
+        // Ensure directory exists with proper permissions
         $new_dir = dirname($new_file);
         if (!file_exists($new_dir)) {
-            wp_mkdir_p($new_dir);
+            if (!wp_mkdir_p($new_dir)) {
+                if ($backup_created)
+                    unlink($backup_path);
+                return new WP_Error('dir_failed', 'Failed to create directory: ' . $new_dir, ['status' => 500]);
+            }
+        }
+
+        // Check if directory is writable
+        if (!is_writable($new_dir)) {
+            if ($backup_created)
+                unlink($backup_path);
+            return new WP_Error('dir_not_writable', 'Directory not writable: ' . $new_dir, ['status' => 500]);
         }
 
         // Write new image to local filesystem
-        if (file_put_contents($new_file, $image_binary) === false) {
+        $bytes_written = file_put_contents($new_file, $image_binary);
+        if ($bytes_written === false) {
             if ($backup_created)
                 unlink($backup_path);
-            return new WP_Error('write_failed', 'Failed to write new image', ['status' => 500]);
+            $error_info = error_get_last();
+            return new WP_Error('write_failed', 'Failed to write new image: ' . ($error_info['message'] ?? 'Unknown error') . ' Path: ' . $new_file, ['status' => 500]);
         }
 
         // If extension changed, delete old file and update attachment metadata

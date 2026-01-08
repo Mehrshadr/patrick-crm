@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.8.5
+ * Version: 3.8.6
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.8.5';
+    private $version = '3.8.6';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1176,7 +1176,8 @@ class Mehrana_App_Plugin
 
             $size_kb = round($size_bytes / 1024, 1);
 
-            // Fallback: try to get size from attachment metadata
+            // Fallback: try to get size from attachment metadata or S3/CDN URL
+            $real_url = $url;
             if (!$size_bytes) {
                 $attachment_id = attachment_url_to_postid($url);
                 if (!$attachment_id) {
@@ -1184,10 +1185,33 @@ class Mehrana_App_Plugin
                     $attachment_id = attachment_url_to_postid($clean_url);
                 }
                 if ($attachment_id) {
+                    // First try local file
                     $file_path = get_attached_file($attachment_id);
                     if ($file_path && file_exists($file_path)) {
                         $size_bytes = filesize($file_path);
                         $size_kb = round($size_bytes / 1024, 1);
+                    } else {
+                        // File not local - probably using S3/CDN offload
+                        // Get the real URL (which may be S3) and retry HEAD
+                        $real_url = wp_get_attachment_url($attachment_id);
+                        if ($real_url && $real_url !== $url) {
+                            $response = wp_remote_head($real_url, [
+                                'timeout' => 5,
+                                'sslverify' => false
+                            ]);
+                            if (!is_wp_error($response)) {
+                                $size_bytes = intval(wp_remote_retrieve_header($response, 'content-length'));
+                                $size_kb = round($size_bytes / 1024, 1);
+                            }
+                        }
+                    }
+                    // Last resort: try attachment metadata for filesize
+                    if (!$size_bytes) {
+                        $metadata = wp_get_attachment_metadata($attachment_id);
+                        if (!empty($metadata['filesize'])) {
+                            $size_bytes = intval($metadata['filesize']);
+                            $size_kb = round($size_bytes / 1024, 1);
+                        }
                     }
                 }
             }

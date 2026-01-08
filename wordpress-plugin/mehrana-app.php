@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.1
+ * Version: 3.9.2
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.1';
+    private $version = '3.9.2';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -671,14 +671,33 @@ class Mehrana_App_Plugin
 
         // Get current file path (may not exist locally if offloaded to S3)
         $current_file = get_attached_file($id);
-        $file_exists_locally = $current_file && file_exists($current_file);
 
         // Get upload directory for creating new/backup files
         $upload_dir = wp_upload_dir();
 
-        // If file doesn't exist locally (S3 offload), reconstruct the path
+        // Check if get_attached_file returned a URL instead of a local path (S3 Offload case)
+        if ($current_file && (strpos($current_file, 'http://') === 0 || strpos($current_file, 'https://') === 0)) {
+            // Extract relative path from URL and construct local path
+            $metadata = wp_get_attachment_metadata($id);
+            if (!empty($metadata['file'])) {
+                // metadata['file'] contains relative path like '2024/08/filename.jpg'
+                $current_file = $upload_dir['basedir'] . '/' . $metadata['file'];
+            } else {
+                // Fallback: extract path from URL
+                $parsed = parse_url($current_file);
+                if (!empty($parsed['path'])) {
+                    // Path like /wp-content/uploads/2024/08/filename.jpg
+                    if (preg_match('/\/wp-content\/uploads\/(.+)$/', $parsed['path'], $matches)) {
+                        $current_file = $upload_dir['basedir'] . '/' . $matches[1];
+                    }
+                }
+            }
+        }
+
+        $file_exists_locally = $current_file && file_exists($current_file);
+
+        // If file doesn't exist locally (S3 offload), ensure directory exists
         if (!$file_exists_locally && $current_file) {
-            // Ensure directory exists
             $dir = dirname($current_file);
             if (!file_exists($dir)) {
                 wp_mkdir_p($dir);

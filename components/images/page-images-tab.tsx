@@ -135,15 +135,50 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         success: false
     })
 
-    // Auto-load from database on mount
+    // Background sync job status
+    const [syncJob, setSyncJob] = useState<{
+        hasJob: boolean
+        status: string
+        currentPage: number
+        totalPages: number | null
+        progress: number
+        error: string | null
+    } | null>(null)
+
+    // Auto-load from database on mount and check sync status
     useEffect(() => {
         loadFromDatabase()
+        checkSyncStatus()
     }, [projectId])
+
+    // Poll sync status when job is active
+    useEffect(() => {
+        if (syncJob?.status === 'pending' || syncJob?.status === 'running') {
+            const interval = setInterval(() => {
+                checkSyncStatus()
+                // Also reload images to show progress
+                loadFromDatabase()
+            }, 5000) // Check every 5 seconds
+            return () => clearInterval(interval)
+        }
+    }, [syncJob?.status])
 
     // Apply filters whenever filter state changes
     useEffect(() => {
         applyFilters()
     }, [allImages, filterUrl, filterFormat, filterType, filterHeavy, filterMissingAlt, search, page])
+
+    const checkSyncStatus = async () => {
+        try {
+            const res = await fetch(`/api/images/sync-job?projectId=${projectId}`)
+            const data = await res.json()
+            if (data.success) {
+                setSyncJob(data.hasJob ? data.job : null)
+            }
+        } catch (e) {
+            console.error('Failed to check sync status:', e)
+        }
+    }
 
     const loadFromDatabase = async () => {
         setError("")
@@ -235,63 +270,39 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
     const syncContent = async () => {
         setSyncing(true)
         setError("")
-        setSyncProgress({ current: 0, total: 0, images: 0 })
-
-        let pageNum = 1
-        let hasMore = true
-        let totalImages = 0
-        let totalPosts = 0
 
         try {
-            // First call to get total count
-            const firstRes = await fetch(`/api/images/scan-content?projectId=${projectId}&sync=true&page=1`)
-            const firstData = await firstRes.json()
+            // Start a background sync job
+            const res = await fetch(`/api/images/sync-job?projectId=${projectId}`, {
+                method: 'POST'
+            })
+            const data = await res.json()
 
-            if (!firstData.success) {
-                throw new Error(firstData.error || "Failed to sync content")
+            if (!data.success) {
+                throw new Error(data.error || "Failed to start sync")
             }
 
-            totalImages += firstData.images?.length || 0
-            totalPosts = firstData.total_posts || 0
-            hasMore = firstData.has_more === true
+            // Update sync job status
+            setSyncJob(data.job)
 
-            // Calculate total pages based on total_posts (50 posts per page)
-            const totalPages = Math.ceil(totalPosts / 50) || 1
-            setSyncProgress({ current: 1, total: totalPages, images: totalImages })
+            // The background job will process images in batches
+            // We poll for status updates in the useEffect
 
-            // Continue fetching remaining pages
-            pageNum = 2
-            while (hasMore && pageNum <= 500) { // Max 500 pages (25000 posts)
-                const res = await fetch(`/api/images/scan-content?projectId=${projectId}&sync=true&page=${pageNum}`)
-                const data = await res.json()
-
-                if (!data.success) {
-                    break
-                }
-
-                totalImages += data.images?.length || 0
-                hasMore = data.has_more === true
-
-                setSyncProgress({
-                    current: pageNum,
-                    total: totalPages,
-                    images: totalImages
-                })
-
-                pageNum++
-
-                // Small delay to prevent overwhelming the server
-                await new Promise(r => setTimeout(r, 100))
-            }
-
-            // Reload from database after sync
-            setPage(1)
-            await loadFromDatabase()
         } catch (e: any) {
             setError(e.message)
-        } finally {
             setSyncing(false)
-            setSyncProgress({ current: 0, total: 0, images: 0 })
+        }
+    }
+
+    const cancelSync = async () => {
+        try {
+            await fetch(`/api/images/sync-job?projectId=${projectId}`, {
+                method: 'DELETE'
+            })
+            setSyncJob(null)
+            setSyncing(false)
+        } catch (e) {
+            console.error('Failed to cancel sync:', e)
         }
     }
 
@@ -596,10 +607,22 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         </form>
 
                         <div className="flex gap-2">
-                            <Button onClick={syncContent} disabled={syncing} variant="default">
-                                {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                                {syncing ? "Syncing..." : "Resync"}
+                            <Button
+                                onClick={syncContent}
+                                disabled={syncing || syncJob?.status === 'running' || syncJob?.status === 'pending'}
+                                variant="default"
+                            >
+                                {(syncing || syncJob?.status === 'running' || syncJob?.status === 'pending')
+                                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    : <RefreshCw className="h-4 w-4 mr-2" />}
+                                {(syncing || syncJob?.status === 'running' || syncJob?.status === 'pending') ? "Syncing..." : "Resync"}
                             </Button>
+
+                            {(syncJob?.status === 'running' || syncJob?.status === 'pending') && (
+                                <Button variant="outline" size="sm" onClick={cancelSync}>
+                                    Cancel
+                                </Button>
+                            )}
 
                             {selectedImages.size > 0 && (
                                 <Button variant="outline" size="sm" onClick={() => setSelectedImages(new Set())}>
@@ -609,23 +632,50 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         </div>
                     </div>
 
-                    {/* Sync Progress Bar */}
-                    {syncing && syncProgress.total > 0 && (
+                    {/* Background Sync Progress Bar */}
+                    {(syncJob?.status === 'running' || syncJob?.status === 'pending') && (
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium text-blue-700">
-                                    Syncing pages: {syncProgress.current}/{syncProgress.total}
+                                    🔄 Background Sync: Page {syncJob.currentPage}/{syncJob.totalPages || '?'}
                                 </span>
                                 <span className="text-sm text-blue-600">
-                                    {syncProgress.images} images found
+                                    {globalStats.total} images synced
                                 </span>
                             </div>
                             <div className="w-full bg-blue-200 rounded-full h-2">
                                 <div
                                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${Math.min((syncProgress.current / syncProgress.total) * 100, 100)}%` }}
+                                    style={{ width: `${syncJob.progress || 0}%` }}
                                 />
                             </div>
+                            <p className="text-xs text-blue-600 mt-2">
+                                Sync runs in background every 2 minutes. You can close this page.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Sync Completed */}
+                    {syncJob?.status === 'completed' && (
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-200 flex items-center justify-between">
+                            <span className="text-sm text-green-700">
+                                ✅ Sync completed! {syncJob.totalPages} pages processed.
+                            </span>
+                            <Button variant="ghost" size="sm" onClick={() => setSyncJob(null)}>
+                                Dismiss
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Sync Error */}
+                    {syncJob?.status === 'failed' && (
+                        <div className="bg-red-50 p-3 rounded-lg border border-red-200 flex items-center justify-between">
+                            <span className="text-sm text-red-700">
+                                ❌ Sync failed: {syncJob.error}
+                            </span>
+                            <Button variant="ghost" size="sm" onClick={syncContent}>
+                                Retry
+                            </Button>
                         </div>
                     )}
 

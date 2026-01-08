@@ -219,6 +219,7 @@ model IndexingProject {
   imageFactoryLogs      ImageFactoryLog[]
   imageFactorySnapshots ImageFactorySnapshot[]
   pageImages            PageImage[]
+  imageSyncJob          ImageSyncJob?
 }
 
 model ProjectAccess {
@@ -576,4 +577,24 @@ model PageImage {
   @@unique([projectId, url])
   @@index([projectId])
   @@index([projectId, optimized])
+}
+
+// Background Image Sync Job
+model ImageSyncJob {
+  id              Int       @id @default(autoincrement())
+  projectId       Int       @unique
+  status          String    @default("pending") // pending, running, completed, failed
+  currentPage     Int       @default(1)
+  totalPages      Int?
+  totalImages     Int?
+  processedImages Int       @default(0)
+  startedAt       DateTime?
+  lastRunAt       DateTime?
+  completedAt     DateTime?
+  error           String?
+  createdAt       DateTime  @default(now())
+
+  project IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status])
 }

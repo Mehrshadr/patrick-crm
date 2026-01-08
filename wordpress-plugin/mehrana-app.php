@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.3
+ * Version: 3.9.4
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.3';
+    private $version = '3.9.4';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -538,6 +538,74 @@ class Mehrana_App_Plugin
     }
 
     /**
+     * Trigger S3 re-upload for WP Offload Media
+     * This handles both legacy (post_meta) and modern (as3cf_items table) storage
+     * 
+     * @param int $attachment_id The attachment ID
+     * @param string $local_file_path The local file path
+     * @param array $metadata The attachment metadata
+     */
+    private function trigger_s3_reupload($attachment_id, $local_file_path, $metadata)
+    {
+        // Check if WP Offload Media is active
+        if (!class_exists('Amazon_S3_And_CloudFront')) {
+            error_log('[Mehrana] WP Offload Media not detected, skipping S3 upload');
+            return;
+        }
+
+        error_log('[Mehrana] Starting S3 re-upload for attachment ID: ' . $attachment_id);
+
+        global $wpdb, $as3cf;
+
+        // STEP 1: Clear legacy post_meta (WP Offload Media 1.x)
+        delete_post_meta($attachment_id, 'amazonS3_info');
+        delete_post_meta($attachment_id, 'as3cf_provider_object');
+
+        // STEP 2: Clear modern as3cf_items table (WP Offload Media 2.3+)
+        // This is the key step - the table stores S3 object info
+        $table_name = $wpdb->prefix . 'as3cf_items';
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name) {
+            // Delete the entry for this attachment so WP Offload Media thinks it's new
+            $deleted = $wpdb->delete($table_name, ['source_id' => $attachment_id], ['%d']);
+            error_log('[Mehrana] Deleted ' . $deleted . ' rows from as3cf_items table for attachment ' . $attachment_id);
+        }
+
+        // STEP 3: Try direct upload via WP Offload Media API
+        if ($as3cf) {
+            try {
+                // Method 1: Use the background process handler (most reliable in 3.x)
+                if (method_exists($as3cf, 'get_item_handler')) {
+                    $handler = $as3cf->get_item_handler('upload');
+                    if ($handler && method_exists($handler, 'handle')) {
+                        $handler->handle($attachment_id, ['offload' => true]);
+                        error_log('[Mehrana] Used item_handler->handle() for S3 upload');
+                    }
+                }
+                // Method 2: Use upload_attachment (older versions)
+                elseif (method_exists($as3cf, 'upload_attachment')) {
+                    $as3cf->upload_attachment($attachment_id);
+                    error_log('[Mehrana] Used upload_attachment() for S3 upload');
+                }
+            } catch (Exception $e) {
+                error_log('[Mehrana] Direct S3 upload failed: ' . $e->getMessage());
+            }
+        }
+
+        // STEP 4: Trigger WordPress hooks that WP Offload Media listens to
+        // This is the fallback if direct methods don't work
+
+        // Simulate new attachment added - WP Offload Media hooks into this
+        do_action('add_attachment', $attachment_id);
+
+        // Trigger metadata update filter - this is what WP Offload Media monitors
+        // for edits/optimizations/replacements
+        $metadata = apply_filters('wp_update_attachment_metadata', $metadata, $attachment_id);
+        wp_update_attachment_metadata($attachment_id, $metadata);
+
+        error_log('[Mehrana] S3 re-upload triggered via hooks for attachment ' . $attachment_id);
+    }
+
+    /**
      * Check if a URL redirects via HTTP HEAD request
      */
     private function check_http_redirect($url)
@@ -824,25 +892,9 @@ class Mehrana_App_Plugin
         $attach_data = wp_generate_attachment_metadata($id, $new_file);
         wp_update_attachment_metadata($id, $attach_data);
 
-        // Trigger WP Offload Media to upload the new file to S3
-        // This handles sites using WP Offload Media plugin
-        if (class_exists('Amazon_S3_And_CloudFront') || class_exists('AS3CF_Plugin_Base')) {
-            // Try to get the WP Offload Media instance and upload the new file
-            global $as3cf;
-            if ($as3cf && method_exists($as3cf, 'upload_attachment')) {
-                // Remove old S3 object first if it exists
-                if (method_exists($as3cf, 'delete_attachment')) {
-                    $as3cf->delete_attachment($id);
-                }
-                // Upload new file to S3
-                $as3cf->upload_attachment($id);
-            } else {
-                // Alternative: Use the action hook that WP Offload Media listens to
-                do_action('add_attachment', $id);
-                // Also try wp_update_attachment_metadata hook
-                do_action('wp_update_attachment_metadata', $attach_data, $id);
-            }
-        }
+        // Handle WP Offload Media re-upload to S3
+        // This is the COMPLETE fix for sites using WP Offload Media
+        $this->trigger_s3_reupload($id, $new_file, $attach_data);
 
         // Get backup URL
         $backup_url = $upload_dir['baseurl'] . '/mehrana-backups/' . $backup_filename;

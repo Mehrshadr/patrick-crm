@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
                     filename: img.filename,
                     size_bytes: img.sizeBytes,
                     size_kb: img.sizeKB,
+                    alt: img.alt,
                     pages: JSON.parse(img.pages),
                     page_count: img.pageCount,
                     optimized: img.optimized

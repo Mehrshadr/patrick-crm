@@ -570,35 +570,13 @@ class Mehrana_App_Plugin
             error_log('[Mehrana] Deleted ' . $deleted . ' rows from as3cf_items table for attachment ' . $attachment_id);
         }
 
-        // STEP 3: Try direct upload via WP Offload Media API
-        if ($as3cf) {
-            try {
-                // Method 1: Use the background process handler (most reliable in 3.x)
-                if (method_exists($as3cf, 'get_item_handler')) {
-                    $handler = $as3cf->get_item_handler('upload');
-                    if ($handler && method_exists($handler, 'handle')) {
-                        $handler->handle($attachment_id, ['offload' => true]);
-                        error_log('[Mehrana] Used item_handler->handle() for S3 upload');
-                    }
-                }
-                // Method 2: Use upload_attachment (older versions)
-                elseif (method_exists($as3cf, 'upload_attachment')) {
-                    $as3cf->upload_attachment($attachment_id);
-                    error_log('[Mehrana] Used upload_attachment() for S3 upload');
-                }
-            } catch (Exception $e) {
-                error_log('[Mehrana] Direct S3 upload failed: ' . $e->getMessage());
-            }
-        }
-
-        // STEP 4: Trigger WordPress hooks that WP Offload Media listens to
-        // This is the fallback if direct methods don't work
+        // STEP 3: Trigger WordPress hooks that WP Offload Media listens to
+        // This is the most reliable way - WP Offload Media will pick up the change
 
         // Simulate new attachment added - WP Offload Media hooks into this
         do_action('add_attachment', $attachment_id);
 
         // Trigger metadata update filter - this is what WP Offload Media monitors
-        // for edits/optimizations/replacements
         $metadata = apply_filters('wp_update_attachment_metadata', $metadata, $attachment_id);
         wp_update_attachment_metadata($attachment_id, $metadata);
 

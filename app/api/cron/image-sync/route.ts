@@ -72,6 +72,7 @@ export async function POST(request: Request) {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-MAP-API-Key': job.project.settings.cmsApiKey || '',
                         'X-Mehrana-API-Key': job.project.settings.cmsApiKey || ''
                     }
                 })

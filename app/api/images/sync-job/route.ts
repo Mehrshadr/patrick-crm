@@ -86,10 +86,8 @@ export async function POST(request: Request) {
             }
         })
 
-        // Clear existing images for fresh sync
-        await prisma.pageImage.deleteMany({
-            where: { projectId: projId }
-        })
+        // Note: We don't delete existing images here anymore
+        // The cron job will upsert images, updating existing ones and adding new ones
 
         return NextResponse.json({
             success: true,

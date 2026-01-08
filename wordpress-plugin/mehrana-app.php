@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.8.4
+ * Version: 3.8.5
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.8.4';
+    private $version = '3.8.5';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1176,7 +1176,23 @@ class Mehrana_App_Plugin
 
             $size_kb = round($size_bytes / 1024, 1);
 
-            // Only include images above threshold
+            // Fallback: try to get size from attachment metadata
+            if (!$size_bytes) {
+                $attachment_id = attachment_url_to_postid($url);
+                if (!$attachment_id) {
+                    $clean_url = preg_replace('/-\d+x\d+\./', '.', $url);
+                    $attachment_id = attachment_url_to_postid($clean_url);
+                }
+                if ($attachment_id) {
+                    $file_path = get_attached_file($attachment_id);
+                    if ($file_path && file_exists($file_path)) {
+                        $size_bytes = filesize($file_path);
+                        $size_kb = round($size_bytes / 1024, 1);
+                    }
+                }
+            }
+
+            // Only include images above threshold (or include all if size unknown)
             if ($size_kb >= $min_size_kb) {
                 // Get page info
                 $pages_info = [];

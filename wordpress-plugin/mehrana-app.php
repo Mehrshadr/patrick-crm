@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.8.3
+ * Version: 3.8.4
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.8.3';
+    private $version = '3.8.4';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1108,13 +1108,14 @@ class Mehrana_App_Plugin
             // Extract image URLs using regex
             // Matches: src="...", background-image: url(...), etc.
             $patterns = [
-                '/src=["\'']([^"\'']+\.(jpg|jpeg|png|gif|webp|svg)(\?[^"\'']*)?)["\'']/i',
-                '/data-src=["\'']([^"\'']+\.(jpg|jpeg|png|gif|webp)(\?[^"\'']*)?)["\'']/i',
-                '/data-lazy-src=["\'']([^"\'']+\.(jpg|jpeg|png|gif|webp)(\?[^"\'']*)?)["\'']/i',
-                '/srcset=["\'']([^"\'',\s]+\.(jpg|jpeg|png|gif|webp))/i',
-                '/url\(["\'']?([^"\''\)]+\.(jpg|jpeg|png|gif|webp)(\?[^"\'']*)?)["\'']*?\)/i',
+                '/src=["\']([^"\']+\.(jpg|jpeg|png|gif|webp|svg)(\?[^"\']*)?)["\']/i',
+                '/data-src=["\']([^"\']+\.(jpg|jpeg|png|gif|webp)(\?[^"\']*)?)["\']/i',
+                '/data-lazy-src=["\']([^"\']+\.(jpg|jpeg|png|gif|webp)(\?[^"\']*)?)["\']/i',
+                '/srcset=["\']([^"\',\s]+\.(jpg|jpeg|png|gif|webp))/i',
+                '/url\(["\']?([^"\')]+\.(jpg|jpeg|png|gif|webp)(\?[^"\')]*)?)["\']?\)/i',
                 '/"url":\s*"([^"]+\.(jpg|jpeg|png|gif|webp))"/i',
                 '/"image":\s*\{[^}]*"url":\s*"([^"]+)"/i',
+                '/"background_image":\s*\{[^}]*"url":\s*"([^"]+)"/i',
             ];
 
             foreach ($patterns as $pattern) {
@@ -2676,7 +2677,9 @@ class Mehrana_App_Plugin
                 </style>
 
                 <div class="wrap map-settings-wrap">
-                    <h1 class="map-header">Mehrana App <span class="version-badge"><?php echo esc_html($this->version); ?></span></h1>
+                    <h1 class="map-header">Mehrana App <span class="version-badge">
+                            <?php echo esc_html($this->version); ?>
+                        </span></h1>
 
                     <form method="post" action="options.php">
                         <?php settings_fields('map_settings'); ?>
@@ -2793,7 +2796,9 @@ class Mehrana_App_Plugin
                         <table class="map-info-table">
                             <tr>
                                 <td>Current Version</td>
-                                <td><strong><?php echo esc_html($this->version); ?></strong></td>
+                                <td><strong>
+                                        <?php echo esc_html($this->version); ?>
+                                    </strong></td>
                             </tr>
                             <tr>
                                 <td>Check for Updates</td>

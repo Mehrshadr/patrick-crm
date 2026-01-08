@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.8.8
+ * Version: 3.8.9
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.8.8';
+    private $version = '3.8.9';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1151,21 +1151,45 @@ class Mehrana_App_Plugin
             }
         }
 
-        // Now get file sizes for each unique image
+        // Now get file sizes for each unique image - NO HEAD REQUESTS to avoid timeouts
         $results = [];
         foreach ($images as $url => $_) {
-            // Try to get file size via HTTP HEAD
-            $response = wp_remote_head($url, [
-                'timeout' => 2,
-                'sslverify' => false
-            ]);
-
             $size_bytes = 0;
-            if (!is_wp_error($response)) {
-                $size_bytes = intval(wp_remote_retrieve_header($response, 'content-length'));
+            $size_kb = 0;
+            $real_url = $url;
+            $attachment_id = null;
+
+            // First try: Get attachment ID from URL
+            $attachment_id = attachment_url_to_postid($url);
+            if (!$attachment_id) {
+                // Try without size suffix (e.g., -1024x768)
+                $clean_url = preg_replace('/-\d+x\d+\./', '.', $url);
+                $attachment_id = attachment_url_to_postid($clean_url);
             }
 
-            // If HEAD failed, try to get from local file
+            if ($attachment_id) {
+                // Get real URL (handles S3/CDN offload)
+                $offload_url = wp_get_attachment_url($attachment_id);
+                if ($offload_url) {
+                    $real_url = $offload_url;
+                }
+
+                // Try attachment metadata first (fastest)
+                $metadata = wp_get_attachment_metadata($attachment_id);
+                if (!empty($metadata['filesize'])) {
+                    $size_bytes = intval($metadata['filesize']);
+                }
+
+                // Fallback: try local file if metadata doesn't have filesize
+                if (!$size_bytes) {
+                    $file_path = get_attached_file($attachment_id);
+                    if ($file_path && file_exists($file_path)) {
+                        $size_bytes = filesize($file_path);
+                    }
+                }
+            }
+
+            // Final fallback: try local file path from URL
             if (!$size_bytes) {
                 $upload_dir = wp_upload_dir();
                 $local_path = str_replace($upload_dir['baseurl'], $upload_dir['basedir'], $url);
@@ -1175,46 +1199,6 @@ class Mehrana_App_Plugin
             }
 
             $size_kb = round($size_bytes / 1024, 1);
-
-            // Fallback: try to get size from attachment metadata or S3/CDN URL
-            $real_url = $url;
-            if (!$size_bytes) {
-                $attachment_id = attachment_url_to_postid($url);
-                if (!$attachment_id) {
-                    $clean_url = preg_replace('/-\d+x\d+\./', '.', $url);
-                    $attachment_id = attachment_url_to_postid($clean_url);
-                }
-                if ($attachment_id) {
-                    // First try local file
-                    $file_path = get_attached_file($attachment_id);
-                    if ($file_path && file_exists($file_path)) {
-                        $size_bytes = filesize($file_path);
-                        $size_kb = round($size_bytes / 1024, 1);
-                    } else {
-                        // File not local - probably using S3/CDN offload
-                        // Get the real URL (which may be S3) and retry HEAD
-                        $real_url = wp_get_attachment_url($attachment_id);
-                        if ($real_url && $real_url !== $url) {
-                            $response = wp_remote_head($real_url, [
-                                'timeout' => 2,
-                                'sslverify' => false
-                            ]);
-                            if (!is_wp_error($response)) {
-                                $size_bytes = intval(wp_remote_retrieve_header($response, 'content-length'));
-                                $size_kb = round($size_bytes / 1024, 1);
-                            }
-                        }
-                    }
-                    // Last resort: try attachment metadata for filesize
-                    if (!$size_bytes) {
-                        $metadata = wp_get_attachment_metadata($attachment_id);
-                        if (!empty($metadata['filesize'])) {
-                            $size_bytes = intval($metadata['filesize']);
-                            $size_kb = round($size_bytes / 1024, 1);
-                        }
-                    }
-                }
-            }
 
             // Only include images above threshold (or include all if size unknown)
             if ($size_kb >= $min_size_kb) {

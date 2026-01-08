@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.8.9
+ * Version: 3.9.0
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.8.9';
+    private $version = '3.9.0';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -651,6 +651,7 @@ class Mehrana_App_Plugin
     /**
      * Replace media with optimized version (creates backup first)
      * Expects: base64 encoded image data
+     * Supports S3 offloaded files via WP Offload Media
      */
     public function replace_media($request)
     {
@@ -668,14 +669,23 @@ class Mehrana_App_Plugin
             return new WP_Error('invalid_id', 'Invalid attachment ID', ['status' => 404]);
         }
 
-        // Get current file path
+        // Get current file path (may not exist locally if offloaded to S3)
         $current_file = get_attached_file($id);
-        if (!$current_file || !file_exists($current_file)) {
-            return new WP_Error('file_not_found', 'Attachment file not found', ['status' => 404]);
+        $file_exists_locally = $current_file && file_exists($current_file);
+
+        // Get upload directory for creating new/backup files
+        $upload_dir = wp_upload_dir();
+
+        // If file doesn't exist locally (S3 offload), reconstruct the path
+        if (!$file_exists_locally && $current_file) {
+            // Ensure directory exists
+            $dir = dirname($current_file);
+            if (!file_exists($dir)) {
+                wp_mkdir_p($dir);
+            }
         }
 
         // Create backup directory
-        $upload_dir = wp_upload_dir();
         $backup_dir = $upload_dir['basedir'] . '/mehrana-backups';
         if (!file_exists($backup_dir)) {
             wp_mkdir_p($backup_dir);
@@ -683,24 +693,28 @@ class Mehrana_App_Plugin
             file_put_contents($backup_dir . '/.htaccess', 'Options -Indexes');
         }
 
-        // Generate backup filename (include date to avoid conflicts)
-        $original_filename = basename($current_file);
+        // Generate backup filename
+        $original_filename = $current_file ? basename($current_file) : 'attachment_' . $id . '.jpg';
         $backup_filename = date('Y-m-d_His') . '_' . $original_filename;
         $backup_path = $backup_dir . '/' . $backup_filename;
 
-        // Copy original to backup
-        if (!copy($current_file, $backup_path)) {
-            return new WP_Error('backup_failed', 'Failed to create backup', ['status' => 500]);
+        // If file exists locally, create backup; if S3, skip backup (file is in cloud storage)
+        $backup_created = false;
+        if ($file_exists_locally) {
+            if (copy($current_file, $backup_path)) {
+                $backup_created = true;
+            }
         }
 
-        // Decode base64 and save new image (keep same path/name)
+        // Decode base64 and save new image
         $image_binary = base64_decode($image_data);
         if ($image_binary === false) {
-            unlink($backup_path); // Clean up backup
+            if ($backup_created)
+                unlink($backup_path);
             return new WP_Error('decode_failed', 'Failed to decode image data', ['status' => 400]);
         }
 
-        // If format changed (e.g., jpg -> webp), update the file extension
+        // Determine new extension based on mime type
         $new_extension = '';
         if ($mime_type === 'image/webp') {
             $new_extension = 'webp';
@@ -710,17 +724,29 @@ class Mehrana_App_Plugin
             $new_extension = 'png';
         }
 
-        // Keep same path but potentially change extension
-        $path_info = pathinfo($current_file);
-        if ($new_extension && $path_info['extension'] !== $new_extension) {
-            $new_file = $path_info['dirname'] . '/' . $path_info['filename'] . '.' . $new_extension;
+        // Determine the new file path
+        if ($current_file) {
+            $path_info = pathinfo($current_file);
+            if ($new_extension && $path_info['extension'] !== $new_extension) {
+                $new_file = $path_info['dirname'] . '/' . $path_info['filename'] . '.' . $new_extension;
+            } else {
+                $new_file = $current_file;
+            }
         } else {
-            $new_file = $current_file;
+            // Fallback: create path in current year/month folder
+            $new_file = $upload_dir['path'] . '/optimized_' . $id . '.' . ($new_extension ?: 'webp');
         }
 
-        // Write new image
+        // Ensure directory exists
+        $new_dir = dirname($new_file);
+        if (!file_exists($new_dir)) {
+            wp_mkdir_p($new_dir);
+        }
+
+        // Write new image to local filesystem
         if (file_put_contents($new_file, $image_binary) === false) {
-            unlink($backup_path); // Clean up backup
+            if ($backup_created)
+                unlink($backup_path);
             return new WP_Error('write_failed', 'Failed to write new image', ['status' => 500]);
         }
 

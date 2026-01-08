@@ -987,132 +987,60 @@ class Mehrana_App_Plugin
             ]);
         }
 
-        // Method 2: Try WP Offload Media's official API (AS3CF_Utils class)
-        if (class_exists('AS3CF_Utils')) {
-            $this->log("[find_media] Trying AS3CF_Utils::get_item_source_by_remote_url()");
-            try {
-                $item = AS3CF_Utils::get_item_source_by_remote_url($url);
-                if ($item && !empty($item['id'])) {
-                    $this->log("[find_media] Found via AS3CF_Utils: " . $item['id']);
-                    return rest_ensure_response([
-                        'success' => true,
-                        'media_id' => intval($item['id'])
-                    ]);
-                }
-            } catch (Exception $e) {
-                $this->log("[find_media] AS3CF_Utils error: " . $e->getMessage());
-            }
-        }
-
-        // Method 3: Try WP Offload Media's global $as3cf object
-        global $as3cf;
-        if (isset($as3cf) && is_object($as3cf)) {
-            // Try get_attachment_id_from_url if available
-            if (method_exists($as3cf, 'get_attachment_id_from_url')) {
-                $this->log("[find_media] Trying \$as3cf->get_attachment_id_from_url()");
-                $attachment_id = $as3cf->get_attachment_id_from_url($url);
-                if ($attachment_id) {
-                    $this->log("[find_media] Found via \$as3cf->get_attachment_id_from_url: $attachment_id");
-                    return rest_ensure_response([
-                        'success' => true,
-                        'media_id' => intval($attachment_id)
-                    ]);
-                }
-            }
-
-            // Try decode_item_url and then source lookup
-            if (method_exists($as3cf, 'decode_item_url')) {
-                $this->log("[find_media] Trying \$as3cf->decode_item_url()");
-                $decoded = $as3cf->decode_item_url($url);
-                if ($decoded && !empty($decoded['source_id'])) {
-                    $this->log("[find_media] Found via decode_item_url: " . $decoded['source_id']);
-                    return rest_ensure_response([
-                        'success' => true,
-                        'media_id' => intval($decoded['source_id'])
-                    ]);
-                }
-            }
-        }
-
-        // Method 4: Direct database query to as3cf_items table
+        // Method 2: Direct database query to as3cf_items table (FAST - do this before API calls)
         $as3cf_table = $wpdb->prefix . 'as3cf_items';
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$as3cf_table'") === $as3cf_table;
         $this->log("[find_media] as3cf_items table exists: " . ($table_exists ? 'yes' : 'no'));
 
         if ($table_exists) {
-            // Extract path from S3 URL
             $parsed = parse_url($url);
             if (!empty($parsed['path'])) {
                 $path = ltrim($parsed['path'], '/');
-                $this->log("[find_media] Extracted path: $path");
+                $filename = basename($path);
+                $this->log("[find_media] Extracted path: $path, filename: $filename");
 
-                // Try exact path match
+                // Try exact path match first
                 $attachment_id = $wpdb->get_var($wpdb->prepare(
-                    "SELECT source_id FROM $as3cf_table WHERE path = %s",
+                    "SELECT source_id FROM $as3cf_table WHERE path = %s LIMIT 1",
                     $path
                 ));
-
                 if ($attachment_id) {
                     $this->log("[find_media] Found via exact path: $attachment_id");
-                    return rest_ensure_response([
-                        'success' => true,
-                        'media_id' => intval($attachment_id)
-                    ]);
+                    return rest_ensure_response(['success' => true, 'media_id' => intval($attachment_id)]);
                 }
 
-                // Try matching just the filename in path column
-                $filename = basename($path);
-                $this->log("[find_media] Searching by filename: $filename");
-
+                // Try filename search in path column
                 $attachment_id = $wpdb->get_var($wpdb->prepare(
                     "SELECT source_id FROM $as3cf_table WHERE path LIKE %s LIMIT 1",
                     '%' . $wpdb->esc_like($filename)
                 ));
-
                 if ($attachment_id) {
                     $this->log("[find_media] Found via path filename: $attachment_id");
-                    return rest_ensure_response([
-                        'success' => true,
-                        'media_id' => intval($attachment_id)
-                    ]);
+                    return rest_ensure_response(['success' => true, 'media_id' => intval($attachment_id)]);
                 }
 
-                // Try source_path column (stores relative path without wp-content/uploads)
-                // Extract relative path from full path
-                $relative_path = preg_replace('#^wp-content/uploads/#', '', $path);
-                $this->log("[find_media] Trying source_path with: $relative_path");
-
+                // Try source_path column
                 $attachment_id = $wpdb->get_var($wpdb->prepare(
                     "SELECT source_id FROM $as3cf_table WHERE source_path LIKE %s LIMIT 1",
                     '%' . $wpdb->esc_like($filename)
                 ));
-
                 if ($attachment_id) {
                     $this->log("[find_media] Found via source_path: $attachment_id");
-                    return rest_ensure_response([
-                        'success' => true,
-                        'media_id' => intval($attachment_id)
-                    ]);
+                    return rest_ensure_response(['success' => true, 'media_id' => intval($attachment_id)]);
                 }
 
                 // Handle WordPress edited images: strip -eXXXXXXXXXX suffix
-                // Pattern: filename-scaled-e1724061745990.jpg -> filename-scaled.jpg
                 $clean_filename = preg_replace('/-e\d+(\.[^.]+)$/', '$1', $filename);
                 if ($clean_filename !== $filename) {
                     $this->log("[find_media] Trying without editor suffix: $clean_filename");
-
                     $attachment_id = $wpdb->get_var($wpdb->prepare(
                         "SELECT source_id FROM $as3cf_table WHERE path LIKE %s OR source_path LIKE %s LIMIT 1",
                         '%' . $wpdb->esc_like($clean_filename),
                         '%' . $wpdb->esc_like($clean_filename)
                     ));
-
                     if ($attachment_id) {
                         $this->log("[find_media] Found via clean filename: $attachment_id");
-                        return rest_ensure_response([
-                            'success' => true,
-                            'media_id' => intval($attachment_id)
-                        ]);
+                        return rest_ensure_response(['success' => true, 'media_id' => intval($attachment_id)]);
                     }
                 }
 
@@ -1120,31 +1048,39 @@ class Mehrana_App_Plugin
                 $base_filename = preg_replace('/-scaled(-e\d+)?(\.[^.]+)$/', '$2', $filename);
                 if ($base_filename !== $filename && $base_filename !== $clean_filename) {
                     $this->log("[find_media] Trying without scaled suffix: $base_filename");
-
                     $attachment_id = $wpdb->get_var($wpdb->prepare(
                         "SELECT source_id FROM $as3cf_table WHERE path LIKE %s OR source_path LIKE %s LIMIT 1",
                         '%' . $wpdb->esc_like($base_filename),
                         '%' . $wpdb->esc_like($base_filename)
                     ));
-
                     if ($attachment_id) {
                         $this->log("[find_media] Found via base filename: $attachment_id");
-                        return rest_ensure_response([
-                            'success' => true,
-                            'media_id' => intval($attachment_id)
-                        ]);
+                        return rest_ensure_response(['success' => true, 'media_id' => intval($attachment_id)]);
                     }
                 }
 
-                // Debug: Show a sample row to understand structure
-                $sample = $wpdb->get_row("SELECT source_id, path, source_path FROM $as3cf_table LIMIT 1");
+                // Debug: Show sample row to compare formats
+                $sample = $wpdb->get_row("SELECT source_id, path, source_path FROM $as3cf_table WHERE path LIKE '%netvue%' OR source_path LIKE '%netvue%' LIMIT 1");
+                if (!$sample) {
+                    $sample = $wpdb->get_row("SELECT source_id, path, source_path FROM $as3cf_table LIMIT 1");
+                }
                 if ($sample) {
                     $this->log("[find_media] Sample: id={$sample->source_id}, path={$sample->path}, source_path={$sample->source_path}");
-                } else {
-                    $this->log("[find_media] as3cf_items table is empty");
                 }
             }
         }
+
+        // Method 3: Try WP Offload Media's global $as3cf object
+        global $as3cf;
+        if (isset($as3cf) && is_object($as3cf) && method_exists($as3cf, 'get_attachment_id_from_url')) {
+            $this->log("[find_media] Trying \$as3cf->get_attachment_id_from_url()");
+            $attachment_id = $as3cf->get_attachment_id_from_url($url);
+            if ($attachment_id) {
+                $this->log("[find_media] Found via \$as3cf: $attachment_id");
+                return rest_ensure_response(['success' => true, 'media_id' => intval($attachment_id)]);
+            }
+        }
+
 
         // Method 5: Try to find by filename in wp_posts guid
         $parsed = parse_url($url);
@@ -2789,15 +2725,15 @@ class Mehrana_App_Plugin
         ?>
         <!-- Google Tag Manager -->
         <script>(function (w, d, s, l, i) {
-                                w[            l] = w[l] || []; w[l].push({
-                                    'gtm.start':
-                                        new Date().getTime(), event: 'gtm.js'
-                                }); var f = d.getElementsByTagName(s)[0],
-                                    j = d.createElement(s), dl = l != 'dataLayer' ? '    &l=' + l : '     '; j.async = true; j.src =
-                                        'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
-                            })(window, document, 'script', 'dataLayer', '<?php echo esc_attr($gtm_id); ?>');</script>
-                        <!-- End Google Tag Manager -->
-                        <?php
+                w[l] = w[l] || []; w[l].push({
+                    'gtm.start':
+                        new Date().getTime(), event: 'gtm.js'
+                }); var f = d.getElementsByTagName(s)[0],
+                    j = d.createElement(s), dl = l != 'dataLayer' ? '    &l=' + l : '     '; j.async = true; j.src =
+                        'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+            })(window, document, 'script', 'dataLayer', '<?php echo esc_attr($gtm_id); ?>');</script>
+        <!-- End Google Tag Manager -->
+        <?php
     }
 
     /**
@@ -2810,11 +2746,11 @@ class Mehrana_App_Plugin
             return;
         }
         ?>
-                        <!-- Google Tag Manager (noscript) -->
-                        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=<?php echo esc_attr($gtm_id); ?>" height="0"
-                                width="0" style="display:none;visibility:hidden"></iframe></noscript>
-                        <!-- End Google Tag Manager (noscript) -->
-                        <?php
+        <!-- Google Tag Manager (noscript) -->
+        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=<?php echo esc_attr($gtm_id); ?>" height="0"
+                width="0" style="display:none;visibility:hidden"></iframe></noscript>
+        <!-- End Google Tag Manager (noscript) -->
+        <?php
     }
 
     /**
@@ -2836,339 +2772,339 @@ class Mehrana_App_Plugin
     public function settings_page()
     {
         ?>
-                        <style>
-                            .map-settings-wrap {
-                                max-width: 900px;
-                            }
+        <style>
+            .map-settings-wrap {
+                max-width: 900px;
+            }
 
-                            .map-settings-wrap .map-header {
-                                display: flex;
-                                align-items: center;
-                                gap: 10px;
-                                margin-bottom: 20px;
-                            }
+            .map-settings-wrap .map-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
 
-                            .map-settings-wrap .map-header h1 {
-                                margin: 0;
-                                font-size: 23px;
-                                font-weight: 400;
-                            }
+            .map-settings-wrap .map-header h1 {
+                margin: 0;
+                font-size: 23px;
+                font-weight: 400;
+            }
 
-                            .map-settings-wrap .map-header .version-badge {
-                                background: #0073aa;
-                                color: #fff;
-                                padding: 3px 8px;
-                                border-radius: 3px;
-                                font-size: 11px;
-                            }
+            .map-settings-wrap .map-header .version-badge {
+                background: #0073aa;
+                color: #fff;
+                padding: 3px 8px;
+                border-radius: 3px;
+                font-size: 11px;
+            }
 
-                            .map-settings-wrap .map-card {
-                                background: #fff;
-                                border: 1px solid #e0e0e0;
-                                border-radius: 8px;
-                                padding: 20px;
-                                margin-bottom: 20px;
-                                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-                            }
+            .map-settings-wrap .map-card {
+                background: #fff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            }
 
-                            .map-settings-wrap .map-card h2 {
-                                margin-top: 0;
-                                padding-bottom: 10px;
-                                border-bottom: 1px solid #eee;
-                                color: #1e3a5f;
-                            }
+            .map-settings-wrap .map-card h2 {
+                margin-top: 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eee;
+                color: #1e3a5f;
+            }
 
-                            .map-settings-wrap .map-card h3 {
-                                margin: 20px 0 10px;
-                                color: #333;
-                                font-size: 14px;
-                            }
+            .map-settings-wrap .map-card h3 {
+                margin: 20px 0 10px;
+                color: #333;
+                font-size: 14px;
+            }
 
-                            .map-settings-wrap .map-field-row {
-                                margin-bottom: 20px;
-                            }
+            .map-settings-wrap .map-field-row {
+                margin-bottom: 20px;
+            }
 
-                            .map-settings-wrap .map-field-row label {
-                                display: block;
-                                font-weight: 600;
-                                margin-bottom: 5px;
-                                color: #1e3a5f;
-                            }
+            .map-settings-wrap .map-field-row label {
+                display: block;
+                font-weight: 600;
+                margin-bottom: 5px;
+                color: #1e3a5f;
+            }
 
-                            .map-settings-wrap .map-field-row .description {
-                                color: #666;
-                                font-size: 13px;
-                                margin-top: 5px;
-                            }
+            .map-settings-wrap .map-field-row .description {
+                color: #666;
+                font-size: 13px;
+                margin-top: 5px;
+            }
 
-                            .map-settings-wrap .map-field-row input[type="text"],
-                            .map-settings-wrap .map-field-row input[type="password"],
-                            .map-settings-wrap .map-field-row textarea {
-                                width: 100%;
-                                max-width: 400px;
-                            }
+            .map-settings-wrap .map-field-row input[type="text"],
+            .map-settings-wrap .map-field-row input[type="password"],
+            .map-settings-wrap .map-field-row textarea {
+                width: 100%;
+                max-width: 400px;
+            }
 
-                            .map-settings-wrap .map-field-row textarea {
-                                max-width: 100%;
-                                font-family: 'Courier New', monospace;
-                                font-size: 12px;
-                            }
+            .map-settings-wrap .map-field-row textarea {
+                max-width: 100%;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+            }
 
-                            .map-settings-wrap .map-api-key-wrapper {
-                                display: flex;
-                                gap: 8px;
-                                align-items: center;
-                                flex-wrap: wrap;
-                            }
+            .map-settings-wrap .map-api-key-wrapper {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
 
-                            .map-settings-wrap .map-api-key-wrapper input {
-                                flex: 1;
-                                min-width: 200px;
-                                max-width: 350px;
-                            }
+            .map-settings-wrap .map-api-key-wrapper input {
+                flex: 1;
+                min-width: 200px;
+                max-width: 350px;
+            }
 
-                            .map-settings-wrap .map-toggle-btn {
-                                padding: 6px 12px;
-                                background: #f0f0f0;
-                                border: 1px solid #ccc;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-size: 14px;
-                            }
+            .map-settings-wrap .map-toggle-btn {
+                padding: 6px 12px;
+                background: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            }
 
-                            .map-settings-wrap .map-toggle-btn:hover {
-                                background: #e0e0e0;
-                            }
+            .map-settings-wrap .map-toggle-btn:hover {
+                background: #e0e0e0;
+            }
 
-                            .map-settings-wrap .map-info-table {
-                                width: 100%;
-                                border-collapse: collapse;
-                            }
+            .map-settings-wrap .map-info-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
 
-                            .map-settings-wrap .map-info-table td {
-                                padding: 10px;
-                                border-bottom: 1px solid #eee;
-                                vertical-align: top;
-                            }
+            .map-settings-wrap .map-info-table td {
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+                vertical-align: top;
+            }
 
-                            .map-settings-wrap .map-info-table td:first-child {
-                                width: 150px;
-                                font-weight: 600;
-                                color: #1e3a5f;
-                            }
+            .map-settings-wrap .map-info-table td:first-child {
+                width: 150px;
+                font-weight: 600;
+                color: #1e3a5f;
+            }
 
-                            .map-settings-wrap .map-info-table code {
-                                background: #f5f5f5;
-                                padding: 2px 6px;
-                                border-radius: 3px;
-                                font-size: 12px;
-                            }
+            .map-settings-wrap .map-info-table code {
+                background: #f5f5f5;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
 
-                            .map-settings-wrap .map-checkbox-label {
-                                display: flex;
-                                align-items: center;
-                                gap: 8px;
-                                cursor: pointer;
-                            }
+            .map-settings-wrap .map-checkbox-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+            }
 
-                            .map-settings-wrap .map-success-msg {
-                                background: #d4edda;
-                                color: #155724;
-                                padding: 10px 15px;
-                                border-radius: 4px;
-                                margin-top: 10px;
-                            }
-                        </style>
+            .map-settings-wrap .map-success-msg {
+                background: #d4edda;
+                color: #155724;
+                padding: 10px 15px;
+                border-radius: 4px;
+                margin-top: 10px;
+            }
+        </style>
 
-                        <div class="wrap map-settings-wrap">
-                            <h1 class="map-header">Mehrana App <span class="version-badge">
-                                    <?php echo esc_html($this->version); ?>
-                                </span></h1>
+        <div class="wrap map-settings-wrap">
+            <h1 class="map-header">Mehrana App <span class="version-badge">
+                    <?php echo esc_html($this->version); ?>
+                </span></h1>
 
-                            <form method="post" action="options.php">
-                                <?php settings_fields('map_settings'); ?>
+            <form method="post" action="options.php">
+                <?php settings_fields('map_settings'); ?>
 
-                                <!-- Authentication Settings -->
-                                <div class="map-card">
-                                    <h2>🔐 Authentication</h2>
+                <!-- Authentication Settings -->
+                <div class="map-card">
+                    <h2>🔐 Authentication</h2>
 
-                                    <div class="map-field-row">
-                                        <label for="map_api_key">API Key</label>
-                                        <div class="map-api-key-wrapper">
-                                            <input type="password" name="map_api_key" id="map_api_key"
-                                                value="<?php echo esc_attr(get_option('map_api_key')); ?>"
-                                                placeholder="Click 'Generate Key' to create" />
-                                            <button type="button" class="map-toggle-btn" onclick="mapToggleApiKey()" id="map_toggle_btn"
-                                                title="Show/Hide API Key">👁️</button>
-                                            <button type="button" class="button"
-                                                onclick="document.getElementById('map_api_key').value = 'map_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);">🔑
-                                                Generate Key</button>
-                                        </div>
-                                        <p class="description">
-                                            <strong>Recommended:</strong> Use this API Key for authentication. Send it as
-                                            <code>X-MAP-API-Key</code> header.<br>
-                                            No Application Password needed when using API Key!
-                                        </p>
-                                    </div>
-
-                                    <div class="map-field-row">
-                                        <label for="map_allowed_origins">Allowed Origins</label>
-                                        <input type="text" name="map_allowed_origins" id="map_allowed_origins"
-                                            value="<?php echo esc_attr(get_option('map_allowed_origins')); ?>"
-                                            placeholder="https://app.example.com, https://crm.example.com" />
-                                        <p class="description">Comma-separated list of allowed origins. Leave empty to allow all authenticated
-                                            requests.</p>
-                                    </div>
-                                </div>
-
-                                <!-- Tracking & Analytics -->
-                                <div class="map-card">
-                                    <h2>📊 Tracking & Analytics</h2>
-
-                                    <div class="map-field-row">
-                                        <label for="map_gtm_id">Google Tag Manager ID</label>
-                                        <input type="text" name="map_gtm_id" id="map_gtm_id"
-                                            value="<?php echo esc_attr(get_option('map_gtm_id')); ?>" placeholder="GTM-XXXXXXX"
-                                            style="max-width: 200px;" />
-                                        <p class="description">
-                                            Enter your GTM Container ID (e.g., <code>GTM-XXXXXXX</code>).<br>
-                                            The GTM code will be automatically injected into all pages.
-                                        </p>
-                                    </div>
-
-                                    <div class="map-field-row">
-                                        <label for="map_custom_head_code">Custom Head Code</label>
-                                        <textarea name="map_custom_head_code" id="map_custom_head_code" rows="6"
-                                            placeholder="<!-- Paste your tracking code here -->"><?php echo esc_textarea(get_option('map_custom_head_code')); ?></textarea>
-                                        <p class="description">
-                                            Paste any custom tracking code here (e.g., <strong>Microsoft Clarity</strong>, <strong>Facebook
-                                                Pixel</strong>, <strong>Hotjar</strong>, etc.).<br>
-                                            This code will be injected into the <code>&lt;head&gt;</code> of all pages.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <!-- Advanced Settings -->
-                                <div class="map-card">
-                                    <h2>⚙️ Advanced Settings</h2>
-
-                                    <div class="map-field-row">
-                                        <label class="map-checkbox-label">
-                                            <input type="checkbox" name="map_enable_logging" value="1" <?php checked(get_option('map_enable_logging', '1'), '1'); ?> />
-                                            Enable API Logging
-                                        </label>
-                                        <p class="description">Log all API activity to <code>wp-content/mehrana-app.log</code> for debugging
-                                            purposes.</p>
-                                    </div>
-                                </div>
-
-                                <?php submit_button('Save Changes', 'primary', 'submit', true); ?>
-                            </form>
-
-                            <!-- API Information -->
-                            <div class="map-card">
-                                <h2>📡 API Information</h2>
-                                <table class="map-info-table">
-                                    <tr>
-                                        <td>Base URL</td>
-                                        <td><code><?php echo esc_html(rest_url($this->namespace)); ?></code></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Authentication</td>
-                                        <td>
-                                            <strong>Option 1 (Recommended):</strong> API Key via <code>X-MAP-API-Key</code> header<br>
-                                            <strong>Option 2:</strong> WordPress Application Passwords (Basic Auth)
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Endpoints</td>
-                                        <td>
-                                            <code>GET /pages</code> — Get all content pages<br>
-                                            <code>POST /pages/{id}/apply-links</code> — Apply links to a page<br>
-                                            <code>POST /pages/{id}/scan</code> — Scan page for keywords<br>
-                                            <code>GET /pages/{id}/links</code> — Get existing backlinks<br>
-                                            <code>DELETE /pages/{id}/links/{link_id}</code> — Remove a backlink<br>
-                                            <code>GET /health</code> — Health check
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-
-                            <!-- Plugin Updates -->
-                            <div class="map-card">
-                                <h2>🔄 Plugin Updates</h2>
-                                <table class="map-info-table">
-                                    <tr>
-                                        <td>Current Version</td>
-                                        <td><strong>
-                                                <?php echo esc_html($this->version); ?>
-                                            </strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Check for Updates</td>
-                                        <td>
-                                            <form method="post" style="display:inline;">
-                                                <?php wp_nonce_field('map_check_update', 'map_update_nonce'); ?>
-                                                <button type="submit" name="map_check_update" class="button button-secondary">
-                                                    🔄 Check for Updates Now
-                                                </button>
-                                            </form>
-                                            <?php
-                                            if (isset($_POST['map_check_update']) && wp_verify_nonce($_POST['map_update_nonce'], 'map_check_update')) {
-                                                // Clear cache
-                                                delete_transient('mehrana_app_github_release');
-                                                delete_site_transient('update_plugins');
-
-                                                // Force check
-                                                $debug_info = $this->get_github_release_info(true); // Call with debug flag
-                                                wp_update_plugins();
-
-                                                echo '<div class="map-success-msg" style="margin-top:10px; border-left:4px solid #46b450; padding:10px; background:#fff;">';
-                                                echo '<strong>✅ Diagnostics Run:</strong><br>';
-                                                if (isset($debug_info['error'])) {
-                                                    echo '<span style="color:#d63638">❌ API Error: ' . esc_html($debug_info['error']) . '</span><br>';
-                                                    if (isset($debug_info['response_code']))
-                                                        echo 'Response Code: ' . $debug_info['response_code'] . '<br>';
-                                                    if (isset($debug_info['body']))
-                                                        echo 'Response Body (excerpt): ' . esc_html(substr($debug_info['body'], 0, 200)) . '...<br>';
-                                                } elseif (isset($debug_info['tag_name'])) {
-                                                    echo '<span style="color:#46b450">✅ Found Tag: ' . esc_html($debug_info['tag_name']) . '</span><br>';
-                                                    echo 'Latest Version: ' . ltrim($debug_info['tag_name'], 'v') . '<br>';
-                                                    echo 'Your Version: ' . $this->version . '<br>';
-                                                    if (version_compare($this->version, ltrim($debug_info['tag_name'], 'v'), '<')) {
-                                                        echo '<strong>🟢 Update Available!</strong> Refresh this page to see it.';
-                                                    } else {
-                                                        echo '<strong>⚪ You are on the latest version.</strong>';
-                                                    }
-                                                } else {
-                                                    echo '❓ Unknown Response format.';
-                                                }
-                                                echo '</div>';
-                                            }
-                                            ?>
-                                            <p class="description">Click to force check GitHub for plugin updates (bypasses 12-hour cache)</p>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
+                    <div class="map-field-row">
+                        <label for="map_api_key">API Key</label>
+                        <div class="map-api-key-wrapper">
+                            <input type="password" name="map_api_key" id="map_api_key"
+                                value="<?php echo esc_attr(get_option('map_api_key')); ?>"
+                                placeholder="Click 'Generate Key' to create" />
+                            <button type="button" class="map-toggle-btn" onclick="mapToggleApiKey()" id="map_toggle_btn"
+                                title="Show/Hide API Key">👁️</button>
+                            <button type="button" class="button"
+                                onclick="document.getElementById('map_api_key').value = 'map_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);">🔑
+                                Generate Key</button>
                         </div>
+                        <p class="description">
+                            <strong>Recommended:</strong> Use this API Key for authentication. Send it as
+                            <code>X-MAP-API-Key</code> header.<br>
+                            No Application Password needed when using API Key!
+                        </p>
+                    </div>
 
-                        <script>
-                            function mapToggleApiKey() {
-                                var input = document.getElementById('map_api_key');
-                                var btn = document.getElementById('map_toggle_btn');
-                                if (input.type === 'password') {
-                                    input.type = 'text';
-                                    btn.textContent = '🙈';
-                                    btn.title = 'Hide API Key';
+                    <div class="map-field-row">
+                        <label for="map_allowed_origins">Allowed Origins</label>
+                        <input type="text" name="map_allowed_origins" id="map_allowed_origins"
+                            value="<?php echo esc_attr(get_option('map_allowed_origins')); ?>"
+                            placeholder="https://app.example.com, https://crm.example.com" />
+                        <p class="description">Comma-separated list of allowed origins. Leave empty to allow all authenticated
+                            requests.</p>
+                    </div>
+                </div>
+
+                <!-- Tracking & Analytics -->
+                <div class="map-card">
+                    <h2>📊 Tracking & Analytics</h2>
+
+                    <div class="map-field-row">
+                        <label for="map_gtm_id">Google Tag Manager ID</label>
+                        <input type="text" name="map_gtm_id" id="map_gtm_id"
+                            value="<?php echo esc_attr(get_option('map_gtm_id')); ?>" placeholder="GTM-XXXXXXX"
+                            style="max-width: 200px;" />
+                        <p class="description">
+                            Enter your GTM Container ID (e.g., <code>GTM-XXXXXXX</code>).<br>
+                            The GTM code will be automatically injected into all pages.
+                        </p>
+                    </div>
+
+                    <div class="map-field-row">
+                        <label for="map_custom_head_code">Custom Head Code</label>
+                        <textarea name="map_custom_head_code" id="map_custom_head_code" rows="6"
+                            placeholder="<!-- Paste your tracking code here -->"><?php echo esc_textarea(get_option('map_custom_head_code')); ?></textarea>
+                        <p class="description">
+                            Paste any custom tracking code here (e.g., <strong>Microsoft Clarity</strong>, <strong>Facebook
+                                Pixel</strong>, <strong>Hotjar</strong>, etc.).<br>
+                            This code will be injected into the <code>&lt;head&gt;</code> of all pages.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings -->
+                <div class="map-card">
+                    <h2>⚙️ Advanced Settings</h2>
+
+                    <div class="map-field-row">
+                        <label class="map-checkbox-label">
+                            <input type="checkbox" name="map_enable_logging" value="1" <?php checked(get_option('map_enable_logging', '1'), '1'); ?> />
+                            Enable API Logging
+                        </label>
+                        <p class="description">Log all API activity to <code>wp-content/mehrana-app.log</code> for debugging
+                            purposes.</p>
+                    </div>
+                </div>
+
+                <?php submit_button('Save Changes', 'primary', 'submit', true); ?>
+            </form>
+
+            <!-- API Information -->
+            <div class="map-card">
+                <h2>📡 API Information</h2>
+                <table class="map-info-table">
+                    <tr>
+                        <td>Base URL</td>
+                        <td><code><?php echo esc_html(rest_url($this->namespace)); ?></code></td>
+                    </tr>
+                    <tr>
+                        <td>Authentication</td>
+                        <td>
+                            <strong>Option 1 (Recommended):</strong> API Key via <code>X-MAP-API-Key</code> header<br>
+                            <strong>Option 2:</strong> WordPress Application Passwords (Basic Auth)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Endpoints</td>
+                        <td>
+                            <code>GET /pages</code> — Get all content pages<br>
+                            <code>POST /pages/{id}/apply-links</code> — Apply links to a page<br>
+                            <code>POST /pages/{id}/scan</code> — Scan page for keywords<br>
+                            <code>GET /pages/{id}/links</code> — Get existing backlinks<br>
+                            <code>DELETE /pages/{id}/links/{link_id}</code> — Remove a backlink<br>
+                            <code>GET /health</code> — Health check
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Plugin Updates -->
+            <div class="map-card">
+                <h2>🔄 Plugin Updates</h2>
+                <table class="map-info-table">
+                    <tr>
+                        <td>Current Version</td>
+                        <td><strong>
+                                <?php echo esc_html($this->version); ?>
+                            </strong></td>
+                    </tr>
+                    <tr>
+                        <td>Check for Updates</td>
+                        <td>
+                            <form method="post" style="display:inline;">
+                                <?php wp_nonce_field('map_check_update', 'map_update_nonce'); ?>
+                                <button type="submit" name="map_check_update" class="button button-secondary">
+                                    🔄 Check for Updates Now
+                                </button>
+                            </form>
+                            <?php
+                            if (isset($_POST['map_check_update']) && wp_verify_nonce($_POST['map_update_nonce'], 'map_check_update')) {
+                                // Clear cache
+                                delete_transient('mehrana_app_github_release');
+                                delete_site_transient('update_plugins');
+
+                                // Force check
+                                $debug_info = $this->get_github_release_info(true); // Call with debug flag
+                                wp_update_plugins();
+
+                                echo '<div class="map-success-msg" style="margin-top:10px; border-left:4px solid #46b450; padding:10px; background:#fff;">';
+                                echo '<strong>✅ Diagnostics Run:</strong><br>';
+                                if (isset($debug_info['error'])) {
+                                    echo '<span style="color:#d63638">❌ API Error: ' . esc_html($debug_info['error']) . '</span><br>';
+                                    if (isset($debug_info['response_code']))
+                                        echo 'Response Code: ' . $debug_info['response_code'] . '<br>';
+                                    if (isset($debug_info['body']))
+                                        echo 'Response Body (excerpt): ' . esc_html(substr($debug_info['body'], 0, 200)) . '...<br>';
+                                } elseif (isset($debug_info['tag_name'])) {
+                                    echo '<span style="color:#46b450">✅ Found Tag: ' . esc_html($debug_info['tag_name']) . '</span><br>';
+                                    echo 'Latest Version: ' . ltrim($debug_info['tag_name'], 'v') . '<br>';
+                                    echo 'Your Version: ' . $this->version . '<br>';
+                                    if (version_compare($this->version, ltrim($debug_info['tag_name'], 'v'), '<')) {
+                                        echo '<strong>🟢 Update Available!</strong> Refresh this page to see it.';
+                                    } else {
+                                        echo '<strong>⚪ You are on the latest version.</strong>';
+                                    }
                                 } else {
-                                    input.type = 'password';
-                                    btn.textContent = '👁️';
-                                    btn.title = 'Show API Key';
+                                    echo '❓ Unknown Response format.';
                                 }
+                                echo '</div>';
                             }
-                        </script>
-                        <?php
+                            ?>
+                            <p class="description">Click to force check GitHub for plugin updates (bypasses 12-hour cache)</p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            function mapToggleAp                                 iKey() {
+                var input = document.getElementById('map_api_key');
+                var btn = document.getElementById('map_toggle_btn');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    btn.textContent = '🙈';
+                    btn.title = 'Hide API Key';
+                } else {
+                    input.type = 'password';
+                    btn.textContent = '👁️';
+                    btn.title = 'Show API Key';
+                }
+            }
+        </script>
+        <?php
     }
 
     /**

@@ -306,6 +306,29 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         }
     }
 
+    const resumeSync = async () => {
+        try {
+            setSyncing(true)
+            setError('')
+
+            // Call API with resume=true to continue from where it stopped
+            const res = await fetch(`/api/images/sync-job?projectId=${projectId}&resume=true`, {
+                method: 'POST'
+            })
+
+            const data = await res.json()
+            if (data.success) {
+                setSyncJob(data.job)
+            } else {
+                setError(data.error || 'Failed to resume sync')
+                setSyncing(false)
+            }
+        } catch (e: any) {
+            setError(e.message)
+            setSyncing(false)
+        }
+    }
+
     const formatType = (type: string) => {
         const types: Record<string, string> = {
             'post': 'Blog',
@@ -634,7 +657,7 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
 
                     {/* Background Sync Progress Bar */}
                     {(syncJob?.status === 'running' || syncJob?.status === 'pending') && (
-                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 overflow-hidden">
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium text-blue-700">
                                     🔄 Background Sync: Page {syncJob.currentPage}/{syncJob.totalPages || '?'}
@@ -643,10 +666,10 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                     {globalStats.total} images synced
                                 </span>
                             </div>
-                            <div className="w-full bg-blue-200 rounded-full h-2">
+                            <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
                                 <div
                                     className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${syncJob.progress || 0}%` }}
+                                    style={{ width: `${Math.min(syncJob.progress || 0, 100)}%` }}
                                 />
                             </div>
                             <p className="text-xs text-blue-600 mt-2">
@@ -667,15 +690,25 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         </div>
                     )}
 
-                    {/* Sync Error */}
+                    {/* Sync Error - with Resume option */}
                     {syncJob?.status === 'failed' && (
-                        <div className="bg-red-50 p-3 rounded-lg border border-red-200 flex items-center justify-between">
-                            <span className="text-sm text-red-700">
-                                ❌ Sync failed: {syncJob.error}
-                            </span>
-                            <Button variant="ghost" size="sm" onClick={syncContent}>
-                                Retry
-                            </Button>
+                        <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-red-700 truncate max-w-[70%]" title={syncJob.error || undefined}>
+                                    ❌ Sync failed at page {syncJob.currentPage}: {(syncJob.error || '').substring(0, 100)}...
+                                </span>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={resumeSync}>
+                                        Resume
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={syncContent}>
+                                        Restart
+                                    </Button>
+                                </div>
+                            </div>
+                            <p className="text-xs text-red-600">
+                                {globalStats.total} images already synced. Click Resume to continue from page {syncJob.currentPage}.
+                            </p>
                         </div>
                     )}
 

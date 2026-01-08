@@ -6,6 +6,7 @@ export async function POST(request: Request) {
     try {
         const { searchParams } = new URL(request.url)
         const projectId = searchParams.get("projectId")
+        const resume = searchParams.get("resume") === "true"
 
         if (!projectId) {
             return NextResponse.json({ error: "Missing projectId" }, { status: 400 })
@@ -23,16 +24,38 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Project has no CMS URL configured" }, { status: 400 })
         }
 
-        // Check if there's already an active sync job
+        // Check if there's already an existing sync job
         const existingJob = await prisma.imageSyncJob.findUnique({
             where: { projectId: projId }
         })
 
+        // If already running, just return
         if (existingJob && (existingJob.status === "pending" || existingJob.status === "running")) {
             return NextResponse.json({
                 success: true,
                 message: "Sync job already in progress",
                 job: existingJob
+            })
+        }
+
+        // RESUME: If resume=true and there's a failed job, just restart from where it left off
+        if (resume && existingJob && existingJob.status === "failed") {
+            const resumedJob = await prisma.imageSyncJob.update({
+                where: { projectId: projId },
+                data: {
+                    status: "pending",
+                    error: null,
+                    lastRunAt: null,
+                    completedAt: null
+                }
+            })
+
+            console.log(`[ImageSync] Resuming project ${projId} from page ${resumedJob.currentPage}`)
+
+            return NextResponse.json({
+                success: true,
+                message: `Sync job resumed from page ${resumedJob.currentPage}`,
+                job: resumedJob
             })
         }
 

@@ -990,22 +990,22 @@ class Mehrana_App_Plugin
         $as3cf_table = $wpdb->prefix . 'as3cf_items';
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$as3cf_table'") === $as3cf_table;
 
-        error_log("[Mehrana] find_media_by_url - URL: $url");
-        error_log("[Mehrana] find_media_by_url - as3cf_items table exists: " . ($table_exists ? 'yes' : 'no'));
+        $this->log("[find_media] Looking for: $url");
+        $this->log("[find_media] as3cf_items table exists: " . ($table_exists ? 'yes' : 'no'));
 
         if ($table_exists) {
             // Extract path from S3 URL (e.g., wp-content/uploads/2024/08/filename.jpg)
             $parsed = parse_url($url);
             if (!empty($parsed['path'])) {
                 $path = ltrim($parsed['path'], '/');
-                error_log("[Mehrana] find_media_by_url - Extracted path: $path");
+                $this->log("[find_media] Extracted path: $path");
 
                 // Try exact path match
                 $attachment_id = $wpdb->get_var($wpdb->prepare(
                     "SELECT source_id FROM $as3cf_table WHERE path = %s",
                     $path
                 ));
-                error_log("[Mehrana] find_media_by_url - Exact path match result: " . ($attachment_id ?: 'not found'));
+                $this->log("[find_media] Exact path match: " . ($attachment_id ?: 'not found'));
 
                 if ($attachment_id) {
                     return rest_ensure_response([
@@ -1016,13 +1016,13 @@ class Mehrana_App_Plugin
 
                 // Try matching just the filename part (for URLs with different prefixes)
                 $filename = basename($path);
-                error_log("[Mehrana] find_media_by_url - Searching by filename: $filename");
+                $this->log("[find_media] Searching by filename: $filename");
 
                 $attachment_id = $wpdb->get_var($wpdb->prepare(
                     "SELECT source_id FROM $as3cf_table WHERE path LIKE %s",
                     '%' . $wpdb->esc_like($filename)
                 ));
-                error_log("[Mehrana] find_media_by_url - Filename match result: " . ($attachment_id ?: 'not found'));
+                $this->log("[find_media] Filename match: " . ($attachment_id ?: 'not found'));
 
                 if ($attachment_id) {
                     return rest_ensure_response([
@@ -1034,9 +1034,9 @@ class Mehrana_App_Plugin
                 // Debug: Show sample rows from as3cf_items to understand structure
                 $sample = $wpdb->get_row("SELECT * FROM $as3cf_table LIMIT 1");
                 if ($sample) {
-                    error_log("[Mehrana] find_media_by_url - Sample as3cf_items row: " . json_encode($sample));
+                    $this->log("[find_media] Sample as3cf_items: " . json_encode($sample));
                 } else {
-                    error_log("[Mehrana] find_media_by_url - as3cf_items table is empty");
+                    $this->log("[find_media] as3cf_items table is empty");
                 }
             }
         }

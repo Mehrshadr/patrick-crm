@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.2
+ * Version: 3.9.3
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.2';
+    private $version = '3.9.3';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -823,6 +823,26 @@ class Mehrana_App_Plugin
         require_once(ABSPATH . 'wp-admin/includes/image.php');
         $attach_data = wp_generate_attachment_metadata($id, $new_file);
         wp_update_attachment_metadata($id, $attach_data);
+
+        // Trigger WP Offload Media to upload the new file to S3
+        // This handles sites using WP Offload Media plugin
+        if (class_exists('Amazon_S3_And_CloudFront') || class_exists('AS3CF_Plugin_Base')) {
+            // Try to get the WP Offload Media instance and upload the new file
+            global $as3cf;
+            if ($as3cf && method_exists($as3cf, 'upload_attachment')) {
+                // Remove old S3 object first if it exists
+                if (method_exists($as3cf, 'delete_attachment')) {
+                    $as3cf->delete_attachment($id);
+                }
+                // Upload new file to S3
+                $as3cf->upload_attachment($id);
+            } else {
+                // Alternative: Use the action hook that WP Offload Media listens to
+                do_action('add_attachment', $id);
+                // Also try wp_update_attachment_metadata hook
+                do_action('wp_update_attachment_metadata', $attach_data, $id);
+            }
+        }
 
         // Get backup URL
         $backup_url = $upload_dir['baseurl'] . '/mehrana-backups/' . $backup_filename;

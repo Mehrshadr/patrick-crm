@@ -120,8 +120,10 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         imageUrl: string
         imageFilename: string
         altText: string
+        currentAlt: string // Original alt from WordPress
         pages: { id: number; title: string; url: string }[]
         saving: boolean
+        generating: boolean
         error: string
         success: boolean
     }>({
@@ -129,8 +131,10 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         imageUrl: "",
         imageFilename: "",
         altText: "",
+        currentAlt: "",
         pages: [],
         saving: false,
+        generating: false,
         error: "",
         success: false
     })
@@ -556,9 +560,11 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             open: true,
             imageUrl: image.url,
             imageFilename: image.filename,
-            altText: "",
+            altText: image.alt || "",
+            currentAlt: image.alt || "",
             pages: image.pages,
             saving: false,
+            generating: false,
             error: "",
             success: false
         })
@@ -570,11 +576,70 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             imageUrl: "",
             imageFilename: "",
             altText: "",
+            currentAlt: "",
             pages: [],
             saving: false,
+            generating: false,
             error: "",
             success: false
         })
+    }
+
+    // Generate alt text with AI
+    const generateAltText = async () => {
+        setAltModal(prev => ({ ...prev, generating: true, error: "" }))
+        try {
+            const response = await fetch("/api/images/generate-alt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    imageUrl: altModal.imageUrl,
+                    projectId
+                })
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to generate alt text")
+            }
+            setAltModal(prev => ({ ...prev, altText: data.altText, generating: false }))
+        } catch (error) {
+            setAltModal(prev => ({
+                ...prev,
+                generating: false,
+                error: error instanceof Error ? error.message : "Failed to generate alt text"
+            }))
+        }
+    }
+
+    // Apply alt text to WordPress
+    const applyAltText = async () => {
+        setAltModal(prev => ({ ...prev, saving: true, error: "" }))
+        try {
+            const response = await fetch("/api/images/update-alt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    imageUrl: altModal.imageUrl,
+                    altText: altModal.altText,
+                    projectId
+                })
+            })
+            const data = await response.json()
+            if (!response.ok) {
+                throw new Error(data.error || "Failed to update alt text")
+            }
+            setAltModal(prev => ({ ...prev, saving: false, success: true, currentAlt: prev.altText }))
+            // Update the image in the local state
+            setAllImages(prev => prev.map(img =>
+                img.url === altModal.imageUrl ? { ...img, alt: altModal.altText } : img
+            ))
+        } catch (error) {
+            setAltModal(prev => ({
+                ...prev,
+                saving: false,
+                error: error instanceof Error ? error.message : "Failed to update alt text"
+            }))
+        }
     }
 
     if (!scanned) {
@@ -1241,12 +1306,12 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                     </div>
                 )}
 
-            {/* Alt Modal */}
+            {/* Alt Manager Modal */}
             {altModal.open && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                    <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold">Add Alt Text</h3>
+                            <h3 className="text-lg font-semibold">🏷️ Alt Text Manager</h3>
                             <button
                                 onClick={closeAltModal}
                                 className="text-slate-400 hover:text-slate-600"
@@ -1268,6 +1333,18 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             {altModal.imageFilename}
                         </p>
 
+                        {/* Current Alt Badge */}
+                        {altModal.currentAlt ? (
+                            <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                <span className="text-xs text-green-600 font-medium">Current Alt:</span>
+                                <p className="text-sm text-green-800">{altModal.currentAlt}</p>
+                            </div>
+                        ) : (
+                            <div className="mb-4 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                <span className="text-xs text-amber-600 font-medium">⚠️ No alt text set</span>
+                            </div>
+                        )}
+
                         {/* Pages where image is used */}
                         {altModal.pages.length > 0 && (
                             <div className="mb-4 text-xs text-slate-500">
@@ -1275,17 +1352,38 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             </div>
                         )}
 
+                        {/* Generate with AI Button */}
+                        <Button
+                            onClick={generateAltText}
+                            variant="outline"
+                            className="w-full mb-3"
+                            disabled={altModal.generating}
+                        >
+                            {altModal.generating ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <Zap className="h-4 w-4 mr-2" />
+                                    Generate with AI
+                                </>
+                            )}
+                        </Button>
+
                         {/* Alt Text Input */}
                         <div className="mb-4">
                             <label className="block text-sm font-medium mb-1">Alt Text</label>
-                            <Input
+                            <textarea
                                 value={altModal.altText}
                                 onChange={(e) => setAltModal(prev => ({ ...prev, altText: e.target.value }))}
                                 placeholder="Describe this image for accessibility..."
-                                className="w-full"
+                                className="w-full p-2 border rounded-lg text-sm resize-none"
+                                rows={3}
                             />
                             <p className="text-xs text-slate-400 mt-1">
-                                Describe what the image shows for screen readers
+                                {altModal.altText.length}/125 characters • Keep it concise for screen readers
                             </p>
                         </div>
 
@@ -1296,8 +1394,9 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         )}
 
                         {altModal.success && (
-                            <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm">
-                                Alt text suggestion saved! (Manual update in WordPress required)
+                            <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
+                                <Check className="h-4 w-4" />
+                                Alt text updated in WordPress!
                             </div>
                         )}
 
@@ -1311,28 +1410,23 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                 Cancel
                             </Button>
                             <Button
-                                onClick={() => {
-                                    // For now, just show success message
-                                    // In future, this could update a suggestions list
-                                    setAltModal(prev => ({ ...prev, success: true }))
-                                }}
-                                className="flex-1"
-                                disabled={!altModal.altText.trim() || altModal.saving}
+                                onClick={applyAltText}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                disabled={!altModal.altText.trim() || altModal.saving || altModal.altText === altModal.currentAlt}
                             >
                                 {altModal.saving ? (
                                     <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Saving...
+                                        Applying...
                                     </>
                                 ) : (
-                                    'Save Suggestion'
+                                    <>
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Apply to WordPress
+                                    </>
                                 )}
                             </Button>
                         </div>
-
-                        <p className="text-xs text-center text-slate-400 mt-4">
-                            Alt text must be manually updated in WordPress media library
-                        </p>
                     </div>
                 </div>
             )}

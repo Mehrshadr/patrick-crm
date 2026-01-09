@@ -63,7 +63,7 @@ export async function POST(request: Request) {
                 // Call WordPress to get images for current page
                 const pluginBase = job.project.settings.cmsUrl.replace(/\/$/, '')
                 const minSizeKB = 0 // Get all images
-                const limit = 50 // Per page - smaller batches to avoid 524 timeouts
+                const limit = 1000 // Get all images per page (was 50 - caused missing images)
                 const url = `${pluginBase}/wp-json/mehrana/v1/scan-content-images?min_size_kb=${minSizeKB}&limit=${limit}&page=${job.currentPage}&per_page=100`
 
                 console.log(`[ImageSyncProcess] Project ${job.projectId}: Fetching page ${job.currentPage}/${job.totalPages || '?'}`)

@@ -100,11 +100,33 @@ Your alt text should:
             altText,
             imageUrl,
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error generating alt text:", error);
+
+        // Detailed error logging for OpenAI errors
+        let errorMessage = "Failed to generate alt text";
+        let statusCode = 500;
+
+        if (error && typeof error === 'object') {
+            const err = error as { status?: number; code?: string; message?: string };
+            console.error("OpenAI Error Details:", {
+                status: err.status,
+                code: err.code,
+                message: err.message,
+                fullError: JSON.stringify(error, null, 2)
+            });
+
+            if (err.status === 429) {
+                errorMessage = "OpenAI rate limit exceeded. Please wait a moment and try again.";
+                statusCode = 429;
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+        }
+
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to generate alt text" },
-            { status: 500 }
+            { error: errorMessage },
+            { status: statusCode }
         );
     }
 }

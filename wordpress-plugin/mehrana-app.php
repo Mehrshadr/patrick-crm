@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.12
+ * Version: 3.9.13
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.12';
+    private $version = '3.9.13';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1500,9 +1500,9 @@ class Mehrana_App_Plugin
         set_time_limit(300);
 
         $min_size_kb = intval($request->get_param('min_size_kb')) ?: 0;
-        $limit = intval($request->get_param('limit')) ?: 500; // Reduced default
+        $limit = intval($request->get_param('limit')) ?: 500;
         $page_num = intval($request->get_param('page')) ?: 1;
-        $per_page = 50; // Process 50 posts at a time
+        $per_page = intval($request->get_param('per_page')) ?: 100; // Posts per page, configurable
 
         // Get all public post types
         $post_types = get_post_types(['public' => true], 'names');

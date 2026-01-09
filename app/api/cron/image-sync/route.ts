@@ -131,8 +131,10 @@ export async function POST(request: Request) {
 
                 // Update job progress
                 const newProcessedImages = job.processedImages + savedCount
-                const totalPages = data.total_pages || job.totalPages || 1
-                const hasMore = data.has_more || job.currentPage < totalPages
+                // CRITICAL: Only use has_more from WordPress response, not our own calculation
+                const hasMore = data.has_more === true
+
+                console.log(`[ImageSyncProcess] Project ${job.projectId}: Page ${job.currentPage} saved ${savedCount} images, total so far: ${newProcessedImages}, has_more: ${hasMore}`)
 
                 if (hasMore) {
                     // More pages to process
@@ -140,8 +142,8 @@ export async function POST(request: Request) {
                         where: { id: job.id },
                         data: {
                             currentPage: job.currentPage + 1,
-                            totalPages: totalPages,
-                            totalImages: data.total_images || job.totalImages,
+                            totalPages: data.total_posts ? Math.ceil(data.total_posts / 100) : job.totalPages,
+                            totalImages: data.total_posts || job.totalImages,
                             processedImages: newProcessedImages,
                             lastRunAt: new Date()
                         }
@@ -150,7 +152,7 @@ export async function POST(request: Request) {
                         projectId: job.projectId,
                         status: "running",
                         page: job.currentPage,
-                        totalPages: totalPages,
+                        totalPages: data.total_posts ? Math.ceil(data.total_posts / 100) : job.totalPages,
                         imagesThisBatch: savedCount
                     })
                 } else {
@@ -159,8 +161,8 @@ export async function POST(request: Request) {
                         where: { id: job.id },
                         data: {
                             status: "completed",
-                            currentPage: totalPages,
-                            totalPages: totalPages,
+                            currentPage: job.currentPage,
+                            totalPages: job.currentPage,
                             processedImages: newProcessedImages,
                             lastRunAt: new Date(),
                             completedAt: new Date()

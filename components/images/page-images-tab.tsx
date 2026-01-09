@@ -1038,20 +1038,21 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                                     Compress
                                                 </Button>
                                             )}
-                                            {!image.alt && (
-                                                <Button
-                                                    variant="secondary"
-                                                    size="sm"
-                                                    className="flex-1 h-6 text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleAddAlt(image)
-                                                    }}
-                                                >
-                                                    <FileWarning className="h-2.5 w-2.5 mr-0.5" />
-                                                    Add Alt
-                                                </Button>
-                                            )}
+                                        </div>
+                                        {/* Alt Manager - always visible */}
+                                        <div className="flex gap-1 mt-1">
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className={`flex-1 h-6 text-[10px] ${image.alt ? 'bg-green-50 hover:bg-green-100 text-green-700' : 'bg-blue-50 hover:bg-blue-100 text-blue-700'}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleAddAlt(image)
+                                                }}
+                                            >
+                                                <FileWarning className="h-2.5 w-2.5 mr-0.5" />
+                                                {image.alt ? 'Alt' : 'Add Alt'}
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>

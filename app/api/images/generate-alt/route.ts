@@ -9,7 +9,7 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { imageUrl, projectId } = body;
+        const { imageUrl, projectId, pageContext, refinementInstructions } = body;
 
         if (!imageUrl) {
             return NextResponse.json(
@@ -42,6 +42,29 @@ Your alt text should:
             systemPrompt += `\n\nBrand Context:\n${brandStatement}\nIncorporate brand voice and terminology when relevant.`;
         }
 
+        // Add page context if available
+        if (pageContext) {
+            systemPrompt += `\n\nPage Context:`;
+            if (pageContext.title) {
+                systemPrompt += `\nPage Title: ${pageContext.title}`;
+            }
+            if (pageContext.url) {
+                systemPrompt += `\nPage URL: ${pageContext.url}`;
+            }
+            if (pageContext.type) {
+                systemPrompt += `\nPage Type: ${pageContext.type}`;
+            }
+            systemPrompt += `\nMake the alt text relevant to this page's topic.`;
+        }
+
+        // Build user message
+        let userMessage = "Write alt text for this image. Reply with ONLY the alt text, nothing else.";
+
+        // Add refinement instructions if provided
+        if (refinementInstructions) {
+            userMessage = `Write alt text for this image following these instructions: ${refinementInstructions}\n\nReply with ONLY the alt text, nothing else.`;
+        }
+
         // Call OpenAI Vision
         const response = await openai.chat.completions.create({
             model: "gpt-4o",
@@ -55,7 +78,7 @@ Your alt text should:
                     content: [
                         {
                             type: "text",
-                            text: "Write alt text for this image. Reply with ONLY the alt text, nothing else.",
+                            text: userMessage,
                         },
                         {
                             type: "image_url",

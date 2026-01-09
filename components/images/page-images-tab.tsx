@@ -121,11 +121,12 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         imageFilename: string
         altText: string
         currentAlt: string // Original alt from WordPress
-        pages: { id: number; title: string; url: string }[]
+        pages: { id: number; title: string; url: string; type?: string }[]
         saving: boolean
         generating: boolean
         error: string
         success: boolean
+        refinementInput: string
     }>({
         open: false,
         imageUrl: "",
@@ -136,7 +137,8 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
         saving: false,
         generating: false,
         error: "",
-        success: false
+        success: false,
+        refinementInput: ""
     })
 
     // Background sync job status
@@ -566,7 +568,8 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             saving: false,
             generating: false,
             error: "",
-            success: false
+            success: false,
+            refinementInput: ""
         })
     }
 
@@ -581,27 +584,37 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             saving: false,
             generating: false,
             error: "",
-            success: false
+            success: false,
+            refinementInput: ""
         })
     }
 
     // Generate alt text with AI
-    const generateAltText = async () => {
+    const generateAltText = async (withRefinement = false) => {
         setAltModal(prev => ({ ...prev, generating: true, error: "" }))
         try {
+            // Build page context from first page if available
+            const pageContext = altModal.pages[0] ? {
+                title: altModal.pages[0].title,
+                url: altModal.pages[0].url,
+                type: altModal.pages[0].type || "page"
+            } : undefined
+
             const response = await fetch("/api/images/generate-alt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     imageUrl: altModal.imageUrl,
-                    projectId
+                    projectId,
+                    pageContext,
+                    refinementInstructions: withRefinement ? altModal.refinementInput : undefined
                 })
             })
             const data = await response.json()
             if (!response.ok) {
                 throw new Error(data.error || "Failed to generate alt text")
             }
-            setAltModal(prev => ({ ...prev, altText: data.altText, generating: false }))
+            setAltModal(prev => ({ ...prev, altText: data.altText, generating: false, refinementInput: "" }))
         } catch (error) {
             setAltModal(prev => ({
                 ...prev,
@@ -1346,18 +1359,19 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             </div>
                         )}
 
-                        {/* Pages where image is used */}
+                        {/* Pages where image is used - with context info */}
                         {altModal.pages.length > 0 && (
-                            <div className="mb-4 text-xs text-slate-500">
-                                Used in: {altModal.pages.map(p => p.title).join(', ')}
+                            <div className="mb-3 p-2 bg-slate-50 rounded-lg text-xs">
+                                <span className="text-slate-500">📍 Page Context:</span>
+                                <p className="font-medium text-slate-700 truncate">{altModal.pages[0].title}</p>
                             </div>
                         )}
 
                         {/* Generate with AI Button */}
                         <Button
-                            onClick={generateAltText}
+                            onClick={() => generateAltText(false)}
                             variant="outline"
-                            className="w-full mb-3"
+                            className="w-full mb-2"
                             disabled={altModal.generating}
                         >
                             {altModal.generating ? (
@@ -1374,18 +1388,43 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                         </Button>
 
                         {/* Alt Text Input */}
-                        <div className="mb-4">
+                        <div className="mb-3">
                             <label className="block text-sm font-medium mb-1">Alt Text</label>
                             <textarea
                                 value={altModal.altText}
                                 onChange={(e) => setAltModal(prev => ({ ...prev, altText: e.target.value }))}
                                 placeholder="Describe this image for accessibility..."
                                 className="w-full p-2 border rounded-lg text-sm resize-none"
-                                rows={3}
+                                rows={2}
                             />
                             <p className="text-xs text-slate-400 mt-1">
-                                {altModal.altText.length}/125 characters • Keep it concise for screen readers
+                                {altModal.altText.length}/125 characters
                             </p>
+                        </div>
+
+                        {/* Inline Refinement */}
+                        <div className="mb-3 p-2 bg-purple-50 rounded-lg">
+                            <label className="block text-xs font-medium text-purple-700 mb-1">
+                                ✨ Refine with instructions
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={altModal.refinementInput}
+                                    onChange={(e) => setAltModal(prev => ({ ...prev, refinementInput: e.target.value }))}
+                                    placeholder="e.g. focus on the electrical work"
+                                    className="flex-1 p-2 border rounded text-xs"
+                                />
+                                <Button
+                                    onClick={() => generateAltText(true)}
+                                    variant="secondary"
+                                    size="sm"
+                                    className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700"
+                                    disabled={altModal.generating || !altModal.refinementInput.trim()}
+                                >
+                                    Refine
+                                </Button>
+                            </div>
                         </div>
 
                         {altModal.error && (

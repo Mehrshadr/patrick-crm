@@ -65,9 +65,9 @@ Your alt text should:
             userMessage = `Write alt text for this image following these instructions: ${refinementInstructions}\n\nReply with ONLY the alt text, nothing else.`;
         }
 
-        // Call OpenAI Vision
+        // Call OpenAI Vision (using gpt-4o-mini for better tier 1 compatibility)
         const response = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",

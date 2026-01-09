@@ -39,7 +39,9 @@ export async function PUT(
                 cmsApiKey: data.cmsApiKey,
                 shopifyToken: data.shopifyToken,
                 shopifyStore: data.shopifyStore,
-                brandStatement: data.brandStatement
+                brandStatement: data.brandStatement,
+                cloudflareApiToken: data.cloudflareApiToken,
+                cloudflareZoneId: data.cloudflareZoneId
             },
             create: {
                 projectId: parseInt(id),
@@ -50,7 +52,9 @@ export async function PUT(
                 cmsApiKey: data.cmsApiKey,
                 shopifyToken: data.shopifyToken,
                 shopifyStore: data.shopifyStore,
-                brandStatement: data.brandStatement
+                brandStatement: data.brandStatement,
+                cloudflareApiToken: data.cloudflareApiToken,
+                cloudflareZoneId: data.cloudflareZoneId
             }
         })
 

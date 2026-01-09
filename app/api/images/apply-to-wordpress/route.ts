@@ -133,12 +133,41 @@ export async function POST(request: NextRequest) {
             }
         })
 
+        // Step 3: Purge Cloudflare cache for this URL
+        let cfPurged = false
+        if (project.settings.cloudflareApiToken && project.settings.cloudflareZoneId) {
+            try {
+                console.log(`[ApplyToWP] Purging Cloudflare cache for: ${imageUrl}`)
+                const cfResponse = await fetch(
+                    `https://api.cloudflare.com/client/v4/zones/${project.settings.cloudflareZoneId}/purge_cache`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${project.settings.cloudflareApiToken}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ files: [imageUrl] })
+                    }
+                )
+                const cfResult = await cfResponse.json()
+                if (cfResult.success) {
+                    cfPurged = true
+                    console.log(`[ApplyToWP] Cloudflare cache purged for: ${imageUrl}`)
+                } else {
+                    console.warn(`[ApplyToWP] Cloudflare purge failed:`, cfResult.errors)
+                }
+            } catch (cfError: any) {
+                console.warn(`[ApplyToWP] Cloudflare purge error (non-fatal):`, cfError.message)
+            }
+        }
+
         return NextResponse.json({
             success: true,
             mediaId,
             backupPath: replaceData.backup_path,
             newUrl: replaceData.new_url,
-            newSize: replaceData.new_size
+            newSize: replaceData.new_size,
+            cloudflarePurged: cfPurged
         })
 
     } catch (error: any) {

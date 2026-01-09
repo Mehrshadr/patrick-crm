@@ -312,18 +312,20 @@ model ContentGeneratorConfig {
 }
 
 model ProjectSettings {
-  id             Int             @id @default(autoincrement())
-  projectId      Int             @unique
-  brandStatement String?
-  updatedAt      DateTime        @updatedAt
-  cmsAppPassword String?
-  cmsType        String?
-  cmsUrl         String?
-  cmsUsername    String?
-  shopifyStore   String?
-  shopifyToken   String?
-  cmsApiKey      String?
-  project        IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                  Int             @id @default(autoincrement())
+  projectId           Int             @unique
+  brandStatement      String?
+  updatedAt           DateTime        @updatedAt
+  cmsAppPassword      String?
+  cmsType             String?
+  cmsUrl              String?
+  cmsUsername         String?
+  shopifyStore        String?
+  shopifyToken        String?
+  cmsApiKey           String?
+  cloudflareApiToken  String?
+  cloudflareZoneId    String?
+  project             IndexingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model ProjectAppAccess {

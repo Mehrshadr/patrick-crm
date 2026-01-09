@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.13
+ * Version: 3.9.14
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.13';
+    private $version = '3.9.14';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1338,6 +1338,33 @@ class Mehrana_App_Plugin
             if (preg_match($pattern4, $content)) {
                 $content = preg_replace($pattern4, '$1' . esc_attr($sanitized_alt) . '$3', $content);
                 $updated = true;
+            }
+
+            // NEW: Pattern 5 - Handle img tags where alt might have spaces/quotes issues
+            // Match wp-image-ID class and replace alt regardless of position
+            $pattern5 = '/(<img[^>]*class=["\'][^"\']*' . preg_quote($wp_image_class, '/') . '[^"\']*["\'][^>]*)alt=["\'][^"\']*["\']([^>]*>)/i';
+            if (preg_match($pattern5, $content)) {
+                $content = preg_replace($pattern5, '$1alt="' . esc_attr($sanitized_alt) . '"$2', $content);
+                $updated = true;
+            }
+
+            // NEW: Pattern 6 - For Classic Editor: img tags with wp-image-ID but NO alt attribute (add one)
+            $pattern6 = '/(<img[^>]*class=["\'][^"\']*' . preg_quote($wp_image_class, '/') . '[^"\']*["\'][^>]*)(\/?>)/i';
+            if (preg_match($pattern6, $content) && !preg_match('/alt=["\']/', $content)) {
+                // Only add alt if not already present
+                $content = preg_replace($pattern6, '$1 alt="' . esc_attr($sanitized_alt) . '" $2', $content);
+                $updated = true;
+            }
+
+            // NEW: Pattern 7 - Generic img tag with this specific URL (Classic Editor friendly)
+            foreach ($image_urls as $url) {
+                $escaped_url = preg_quote($url, '/');
+                // Replace existing alt in img tag with this src
+                $pattern7 = '/(<img[^>]*src=["\']' . $escaped_url . '["\'][^>]*)alt=["\'][^"\']*["\']([^>]*>)/i';
+                if (preg_match($pattern7, $content)) {
+                    $content = preg_replace($pattern7, '$1alt="' . esc_attr($sanitized_alt) . '"$2', $content);
+                    $updated = true;
+                }
             }
 
             if ($updated && $content !== $post->post_content) {

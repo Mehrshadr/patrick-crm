@@ -1323,8 +1323,9 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
             {/* Alt Manager Modal */}
             {altModal.open && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl p-5 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-3">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col">
+                        {/* Sticky Header */}
+                        <div className="flex justify-between items-center p-5 pb-3 border-b border-slate-100 flex-shrink-0">
                             <h3 className="text-lg font-semibold">🏷️ Alt Text Manager</h3>
                             <button
                                 onClick={closeAltModal}
@@ -1334,142 +1335,145 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             </button>
                         </div>
 
-                        {/* Image Preview - smaller */}
-                        <div className="h-32 bg-slate-100 rounded-lg overflow-hidden mb-3">
-                            <img
-                                src={altModal.imageUrl}
-                                alt="Preview"
-                                className="w-full h-full object-contain"
-                            />
-                        </div>
-
-                        <p className="text-sm text-slate-600 mb-2 truncate">
-                            {altModal.imageFilename}
-                        </p>
-
-                        {/* Current Alt Badge */}
-                        {altModal.currentAlt ? (
-                            <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-lg">
-                                <span className="text-xs text-green-600 font-medium">Current Alt:</span>
-                                <p className="text-sm text-green-800">{altModal.currentAlt}</p>
-                            </div>
-                        ) : (
-                            <div className="mb-4 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                                <span className="text-xs text-amber-600 font-medium">⚠️ No alt text set</span>
-                            </div>
-                        )}
-
-                        {/* Pages where image is used - with context info */}
-                        {altModal.pages.length > 0 && (
-                            <div className="mb-3 p-2 bg-slate-50 rounded-lg text-xs">
-                                <span className="text-slate-500">📍 Page Context:</span>
-                                <p className="font-medium text-slate-700 truncate">{altModal.pages[0].title}</p>
-                            </div>
-                        )}
-
-                        {/* Generate with AI Button */}
-                        <Button
-                            onClick={() => generateAltText(false)}
-                            variant="outline"
-                            className="w-full mb-2"
-                            disabled={altModal.generating}
-                        >
-                            {altModal.generating ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <Zap className="h-4 w-4 mr-2" />
-                                    Generate with AI
-                                </>
-                            )}
-                        </Button>
-
-                        {/* Alt Text Input */}
-                        <div className="mb-3">
-                            <label className="block text-sm font-medium mb-1">Alt Text</label>
-                            <textarea
-                                value={altModal.altText}
-                                onChange={(e) => setAltModal(prev => ({ ...prev, altText: e.target.value }))}
-                                placeholder="Describe this image for accessibility..."
-                                className="w-full p-2 border rounded-lg text-sm resize-none"
-                                rows={2}
-                            />
-                            <p className="text-xs text-slate-400 mt-1">
-                                {altModal.altText.length}/125 characters
-                            </p>
-                        </div>
-
-                        {/* Inline Refinement */}
-                        <div className="mb-3 p-2 bg-purple-50 rounded-lg">
-                            <label className="block text-xs font-medium text-purple-700 mb-1">
-                                ✨ Refine with instructions
-                            </label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={altModal.refinementInput}
-                                    onChange={(e) => setAltModal(prev => ({ ...prev, refinementInput: e.target.value }))}
-                                    placeholder="e.g. focus on the electrical work"
-                                    className="flex-1 p-2 border rounded text-xs"
+                        {/* Scrollable Content */}
+                        <div className="p-5 pt-3 overflow-y-auto flex-1">
+                            {/* Image Preview - smaller */}
+                            <div className="h-32 bg-slate-100 rounded-lg overflow-hidden mb-3">
+                                <img
+                                    src={altModal.imageUrl}
+                                    alt="Preview"
+                                    className="w-full h-full object-contain"
                                 />
-                                <Button
-                                    onClick={() => generateAltText(true)}
-                                    variant="secondary"
-                                    size="sm"
-                                    className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700"
-                                    disabled={altModal.generating || !altModal.refinementInput.trim()}
-                                >
-                                    Refine
-                                </Button>
                             </div>
-                        </div>
 
-                        {altModal.error && (
-                            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
-                                {altModal.error}
-                            </div>
-                        )}
+                            <p className="text-sm text-slate-600 mb-2 truncate">
+                                {altModal.imageFilename}
+                            </p>
 
-                        {altModal.success && (
-                            <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
-                                <Check className="h-4 w-4" />
-                                Alt text updated in WordPress!
-                            </div>
-                        )}
+                            {/* Current Alt Badge */}
+                            {altModal.currentAlt ? (
+                                <div className="mb-4 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                    <span className="text-xs text-green-600 font-medium">Current Alt:</span>
+                                    <p className="text-sm text-green-800">{altModal.currentAlt}</p>
+                                </div>
+                            ) : (
+                                <div className="mb-4 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <span className="text-xs text-amber-600 font-medium">⚠️ No alt text set</span>
+                                </div>
+                            )}
 
-                        {/* Actions */}
-                        <div className="flex gap-2">
+                            {/* Pages where image is used - with context info */}
+                            {altModal.pages.length > 0 && (
+                                <div className="mb-3 p-2 bg-slate-50 rounded-lg text-xs">
+                                    <span className="text-slate-500">📍 Page Context:</span>
+                                    <p className="font-medium text-slate-700 truncate">{altModal.pages[0].title}</p>
+                                </div>
+                            )}
+
+                            {/* Generate with AI Button */}
                             <Button
-                                onClick={closeAltModal}
+                                onClick={() => generateAltText(false)}
                                 variant="outline"
-                                className="flex-1"
+                                className="w-full mb-2"
+                                disabled={altModal.generating}
                             >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={applyAltText}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700"
-                                disabled={!altModal.altText.trim() || altModal.saving || altModal.altText === altModal.currentAlt}
-                            >
-                                {altModal.saving ? (
+                                {altModal.generating ? (
                                     <>
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        Applying...
+                                        Generating...
                                     </>
                                 ) : (
                                     <>
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        Apply to WordPress
+                                        <Zap className="h-4 w-4 mr-2" />
+                                        Generate with AI
                                     </>
                                 )}
                             </Button>
+
+                            {/* Alt Text Input */}
+                            <div className="mb-3">
+                                <label className="block text-sm font-medium mb-1">Alt Text</label>
+                                <textarea
+                                    value={altModal.altText}
+                                    onChange={(e) => setAltModal(prev => ({ ...prev, altText: e.target.value }))}
+                                    placeholder="Describe this image for accessibility..."
+                                    className="w-full p-2 border rounded-lg text-sm resize-none"
+                                    rows={2}
+                                />
+                                <p className="text-xs text-slate-400 mt-1">
+                                    {altModal.altText.length}/125 characters
+                                </p>
+                            </div>
+
+                            {/* Inline Refinement */}
+                            <div className="mb-3 p-2 bg-purple-50 rounded-lg">
+                                <label className="block text-xs font-medium text-purple-700 mb-1">
+                                    ✨ Refine with instructions
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={altModal.refinementInput}
+                                        onChange={(e) => setAltModal(prev => ({ ...prev, refinementInput: e.target.value }))}
+                                        placeholder="e.g. focus on the electrical work"
+                                        className="flex-1 p-2 border rounded text-xs"
+                                    />
+                                    <Button
+                                        onClick={() => generateAltText(true)}
+                                        variant="secondary"
+                                        size="sm"
+                                        className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700"
+                                        disabled={altModal.generating || !altModal.refinementInput.trim()}
+                                    >
+                                        Refine
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {altModal.error && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
+                                    {altModal.error}
+                                </div>
+                            )}
+
+                            {altModal.success && (
+                                <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
+                                    <Check className="h-4 w-4" />
+                                    Alt text updated in WordPress!
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                                <Button
+                                    onClick={closeAltModal}
+                                    variant="outline"
+                                    className="flex-1"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={applyAltText}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                    disabled={!altModal.altText.trim() || altModal.saving || altModal.altText === altModal.currentAlt}
+                                >
+                                    {altModal.saving ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Applying...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload className="h-4 w-4 mr-2" />
+                                            Apply to WordPress
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
         </>
-    )
+    );
 }

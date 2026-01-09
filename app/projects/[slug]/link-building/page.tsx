@@ -159,6 +159,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
     const [cmsUsername, setCmsUsername] = useState('')
     const [cmsAppPassword, setCmsAppPassword] = useState('')
     const [cmsApiKey, setCmsApiKey] = useState('')
+    const [cloudflareApiToken, setCloudflareApiToken] = useState('')
+    const [cloudflareZoneId, setCloudflareZoneId] = useState('')
     const [savingSettings, setSavingSettings] = useState(false)
     const [running, setRunning] = useState(false)
     const [runResult, setRunResult] = useState<{ linked: number; processed: number } | null>(null)
@@ -233,6 +235,8 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                     setCmsUsername(data.settings.cmsUsername || '')
                     setCmsAppPassword(data.settings.cmsAppPassword || '')
                     setCmsApiKey(data.settings.cmsApiKey || '')
+                    setCloudflareApiToken(data.settings.cloudflareApiToken || '')
+                    setCloudflareZoneId(data.settings.cloudflareZoneId || '')
                 }
             }
 
@@ -1366,6 +1370,33 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                         />
                                     </div>
                                 </div>
+
+                                {/* Cloudflare CDN Settings */}
+                                <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <Label className="text-xs font-medium text-orange-800">☁️ Cloudflare CDN (Optional)</Label>
+                                    <p className="text-xs text-orange-600 mb-2">Auto-purge cache after image compression. Get token from Cloudflare Dashboard → My Profile → API Tokens</p>
+                                    <div className="grid grid-cols-2 gap-4 mt-2">
+                                        <div>
+                                            <Label className="text-xs">API Token</Label>
+                                            <Input
+                                                value={cloudflareApiToken}
+                                                onChange={e => setCloudflareApiToken(e.target.value)}
+                                                placeholder="xxxxxxxxxxxxxx"
+                                                type="password"
+                                                className="mt-1 bg-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs">Zone ID</Label>
+                                            <Input
+                                                value={cloudflareZoneId}
+                                                onChange={e => setCloudflareZoneId(e.target.value)}
+                                                placeholder="23d3c70a94b677138cec69b59fa032a2"
+                                                className="mt-1 bg-white"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <Button
                                 size="sm"
@@ -1382,7 +1413,9 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                                                 cmsUrl: project?.domain?.startsWith('http') ? project.domain : `https://${project?.domain}`,
                                                 cmsUsername: cmsApiKey ? '' : cmsUsername,
                                                 cmsAppPassword: cmsApiKey ? '' : cmsAppPassword,
-                                                cmsApiKey
+                                                cmsApiKey,
+                                                cloudflareApiToken,
+                                                cloudflareZoneId
                                             })
                                         })
                                         if (res.ok) {
@@ -1416,6 +1449,6 @@ export default function LinkBuildingPage({ params }: { params: Promise<{ slug: s
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }

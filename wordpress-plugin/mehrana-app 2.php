@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.15
+ * Version: 3.9.14
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.15';
+    private $version = '3.9.14';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -802,8 +802,6 @@ class Mehrana_App_Plugin
         $image_data = $request->get_param('image_data'); // base64 encoded
         $mime_type = $request->get_param('mime_type') ?: 'image/webp';
 
-        $this->log("[REPLACE_MEDIA] Called for attachment ID: $id, mime: $mime_type, data_length: " . strlen($image_data ?? ''));
-
         if (!$image_data) {
             return new WP_Error('missing_data', 'Image data is required', ['status' => 400]);
         }
@@ -924,11 +922,8 @@ class Mehrana_App_Plugin
             if ($backup_created)
                 unlink($backup_path);
             $error_info = error_get_last();
-            $this->log("[REPLACE_MEDIA] FAILED to write image. Path: $new_file, Error: " . ($error_info['message'] ?? 'Unknown'));
             return new WP_Error('write_failed', 'Failed to write new image: ' . ($error_info['message'] ?? 'Unknown error') . ' Path: ' . $new_file, ['status' => 500]);
         }
-
-        $this->log("[REPLACE_MEDIA] SUCCESS! Wrote $bytes_written bytes to: $new_file");
 
         // If extension changed, delete old file and update attachment metadata
         $old_url = wp_get_attachment_url($id);

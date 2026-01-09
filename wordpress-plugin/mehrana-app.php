@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mehrana App Plugin
  * Description: Headless SEO & Optimization Plugin for Mehrana App - Link Building, Image Optimization, GTM, Clarity & More
- * Version: 3.9.11
+ * Version: 3.9.12
  * Author: Mehrana Agency
  * Author URI: https://mehrana.agency
  * Text Domain: mehrana-app
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 class Mehrana_App_Plugin
 {
 
-    private $version = '3.9.11';
+    private $version = '3.9.12';
     private $namespace = 'mehrana/v1';
     private $rate_limit_key = 'map_rate_limit';
     private $max_requests_per_minute = 200;
@@ -1246,6 +1246,7 @@ class Mehrana_App_Plugin
     {
         $id = intval($request['id']);
         $alt = $request->get_param('alt');
+        $sanitized_alt = sanitize_text_field($alt);
 
         // Validate attachment exists
         $attachment = get_post($id);
@@ -1253,15 +1254,113 @@ class Mehrana_App_Plugin
             return new WP_Error('invalid_attachment', 'Attachment not found', ['status' => 404]);
         }
 
-        // Update alt text
-        $result = update_post_meta($id, '_wp_attachment_image_alt', sanitize_text_field($alt));
+        // Update alt text in media library
+        update_post_meta($id, '_wp_attachment_image_alt', $sanitized_alt);
+        $this->log("[update_media_alt] Updated alt text in media library for attachment $id: $alt");
 
-        $this->log("[update_media_alt] Updated alt text for attachment $id: $alt");
+        // Get the image URL
+        $image_url = wp_get_attachment_url($id);
+        if (!$image_url) {
+            return rest_ensure_response([
+                'success' => true,
+                'media_id' => $id,
+                'alt' => $alt,
+                'posts_updated' => 0
+            ]);
+        }
+
+        // Also get any resized versions of this image
+        $metadata = wp_get_attachment_metadata($id);
+        $base_url = dirname($image_url);
+        $image_urls = [$image_url];
+
+        if ($metadata && isset($metadata['sizes'])) {
+            foreach ($metadata['sizes'] as $size => $size_data) {
+                $image_urls[] = $base_url . '/' . $size_data['file'];
+            }
+        }
+
+        // Get the base filename for matching (handles S3 URLs too)
+        $filename = basename($image_url);
+        $filename_without_ext = pathinfo($filename, PATHINFO_FILENAME);
+
+        // Find all posts containing this image
+        global $wpdb;
+        $posts_updated = 0;
+
+        // Search for posts containing the image URL or filename
+        $like_pattern = '%' . $wpdb->esc_like($filename_without_ext) . '%';
+        $posts = $wpdb->get_results($wpdb->prepare(
+            "SELECT ID, post_content FROM {$wpdb->posts} 
+             WHERE post_content LIKE %s 
+             AND post_status IN ('publish', 'draft', 'pending', 'private')
+             AND post_type IN ('post', 'page')",
+            $like_pattern
+        ));
+
+        $this->log("[update_media_alt] Found " . count($posts) . " posts containing image filename: $filename_without_ext");
+
+        foreach ($posts as $post) {
+            $content = $post->post_content;
+            $updated = false;
+
+            // Pattern to match img tags with this image and any alt attribute
+            foreach ($image_urls as $url) {
+                // Escape URL for regex
+                $escaped_url = preg_quote($url, '/');
+
+                // Match img tags containing this URL and update their alt
+                // Pattern: <img ... src="URL" ... alt="anything" ...>
+                $pattern = '/(<img[^>]*src=["\']' . $escaped_url . '["\'][^>]*alt=["\'])([^"\']*)(["\']/i';
+                if (preg_match($pattern, $content)) {
+                    $content = preg_replace($pattern, '$1' . esc_attr($sanitized_alt) . '$3', $content);
+                    $updated = true;
+                }
+
+                // Also handle when alt comes before src
+                $pattern2 = '/(<img[^>]*alt=["\'])([^"\']*)(["\']+[^>]*src=["\']' . $escaped_url . '["\'])/i';
+                if (preg_match($pattern2, $content)) {
+                    $content = preg_replace($pattern2, '$1' . esc_attr($sanitized_alt) . '$3', $content);
+                    $updated = true;
+                }
+            }
+
+            // Also update by wp-image-ID class (more reliable for Gutenberg)
+            $wp_image_class = 'wp-image-' . $id;
+            $pattern3 = '/(<img[^>]*class=["\'][^"\']*' . preg_quote($wp_image_class, '/') . '[^"\']*["\'][^>]*alt=["\'])([^"\']*)(["\']/i';
+            if (preg_match($pattern3, $content)) {
+                $content = preg_replace($pattern3, '$1' . esc_attr($sanitized_alt) . '$3', $content);
+                $updated = true;
+            }
+
+            // Handle alt before class
+            $pattern4 = '/(<img[^>]*alt=["\'])([^"\']*)(["\']+[^>]*class=["\'][^"\']*' . preg_quote($wp_image_class, '/') . '[^"\']*["\'])/i';
+            if (preg_match($pattern4, $content)) {
+                $content = preg_replace($pattern4, '$1' . esc_attr($sanitized_alt) . '$3', $content);
+                $updated = true;
+            }
+
+            if ($updated && $content !== $post->post_content) {
+                $wpdb->update(
+                    $wpdb->posts,
+                    ['post_content' => $content],
+                    ['ID' => $post->ID]
+                );
+                $posts_updated++;
+                $this->log("[update_media_alt] Updated post ID {$post->ID} with new alt text");
+
+                // Clear post cache
+                clean_post_cache($post->ID);
+            }
+        }
+
+        $this->log("[update_media_alt] Finished. Updated $posts_updated posts");
 
         return rest_ensure_response([
             'success' => true,
             'media_id' => $id,
-            'alt' => $alt
+            'alt' => $alt,
+            'posts_updated' => $posts_updated
         ]);
     }
 

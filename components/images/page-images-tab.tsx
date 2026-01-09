@@ -40,6 +40,7 @@ interface PageImage {
     }[]
     page_count: number
     optimized?: boolean
+    recentlyModified?: boolean
 }
 
 interface PageImagesTabProps {
@@ -459,13 +460,16 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                 throw new Error(data.error || "Failed to apply to WordPress")
             }
 
-            // Update local state with new size
+            // Update local state with new size and mark as recently modified
             const newSizeKB = compressModal.result.compressed.sizeBytes / 1024
-            setAllImages(prev => prev.map(img =>
+            const newSizeBytes = compressModal.result.compressed.sizeBytes
+            const updateImage = (img: PageImage) =>
                 img.url === compressModal.imageUrl
-                    ? { ...img, size_kb: newSizeKB, size_bytes: compressModal.result.compressed.sizeBytes }
+                    ? { ...img, size_kb: newSizeKB, size_bytes: newSizeBytes, recentlyModified: true }
                     : img
-            ))
+
+            setAllImages(prev => prev.map(updateImage))
+            setImages(prev => prev.map(updateImage))
 
             setCompressModal(prev => ({
                 ...prev,
@@ -642,10 +646,11 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                 throw new Error(data.error || "Failed to update alt text")
             }
             setAltModal(prev => ({ ...prev, saving: false, success: true, currentAlt: prev.altText }))
-            // Update the image in the local state
-            setAllImages(prev => prev.map(img =>
-                img.url === altModal.imageUrl ? { ...img, alt: altModal.altText } : img
-            ))
+            // Update the image in the local state and mark as recently modified
+            const updateImage = (img: PageImage) =>
+                img.url === altModal.imageUrl ? { ...img, alt: altModal.altText, recentlyModified: true } : img
+            setAllImages(prev => prev.map(updateImage))
+            setImages(prev => prev.map(updateImage))
         } catch (error) {
             setAltModal(prev => ({
                 ...prev,
@@ -960,7 +965,10 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                                                     }
                                                 }}
                                             />
-                                            <p className="text-xs font-medium truncate flex-1" title={image.filename}>
+                                            <p className="text-xs font-medium truncate flex-1 flex items-center gap-1" title={image.filename}>
+                                                {image.recentlyModified && (
+                                                    <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" title="Recently modified" />
+                                                )}
                                                 {image.filename}
                                             </p>
                                         </div>

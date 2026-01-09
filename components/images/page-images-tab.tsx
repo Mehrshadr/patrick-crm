@@ -1308,9 +1308,9 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
 
             {/* Alt Manager Modal */}
             {altModal.open && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
-                        <div className="flex justify-between items-center mb-4">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl p-5 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-3">
                             <h3 className="text-lg font-semibold">🏷️ Alt Text Manager</h3>
                             <button
                                 onClick={closeAltModal}
@@ -1320,8 +1320,8 @@ export function PageImagesTab({ projectId, onSelectImage }: PageImagesTabProps) 
                             </button>
                         </div>
 
-                        {/* Image Preview */}
-                        <div className="aspect-video bg-slate-100 rounded-lg overflow-hidden mb-4">
+                        {/* Image Preview - smaller */}
+                        <div className="h-32 bg-slate-100 rounded-lg overflow-hidden mb-3">
                             <img
                                 src={altModal.imageUrl}
                                 alt="Preview"

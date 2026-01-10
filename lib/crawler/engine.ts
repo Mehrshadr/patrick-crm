@@ -249,6 +249,16 @@ export async function startCrawl(targetUrl: string, options: CrawlOptions = {}):
         let pagesCrawled = 0
 
         while (urlQueue.length > 0 && pagesCrawled < maxPages) {
+            // Check if job was cancelled
+            const currentJob = await prisma.crawlJob.findUnique({
+                where: { id: job.id },
+                select: { status: true }
+            })
+            if (currentJob?.status === 'cancelled') {
+                await log(job.id, 'warn', 'Crawl cancelled by user')
+                return job.id
+            }
+
             const url = urlQueue.shift()!
 
             // Skip if already crawled

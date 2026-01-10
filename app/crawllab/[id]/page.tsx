@@ -388,8 +388,8 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
 
     return (
         <div className="p-6">
-            {/* Compact Header - like Link Building */}
-            <div className="flex items-center justify-between mb-4 pb-4 border-b">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-20 bg-background pb-4 mb-4 border-b flex items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Link href="/crawllab" className="hover:text-foreground flex items-center gap-1">
@@ -914,32 +914,36 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
 
                         {pageSpeed ? (
                             <>
-                                {/* Scores */}
-                                <div className="grid grid-cols-4 gap-4 mb-8">
-                                    <div className={`rounded-lg p-4 ${getScoreBg(pageSpeed.performanceScore)}`}>
-                                        <div className={`text-3xl font-bold ${getScoreColor(pageSpeed.performanceScore)}`}>
-                                            {pageSpeed.performanceScore}
+                                {/* Scores with Circular Progress */}
+                                <div className="grid grid-cols-4 gap-6 mb-8">
+                                    {[
+                                        { score: pageSpeed.performanceScore, label: 'Performance', desc: 'Page load speed and responsiveness' },
+                                        { score: pageSpeed.accessibilityScore, label: 'Accessibility', desc: 'Screen readers & keyboard nav' },
+                                        { score: pageSpeed.seoScore, label: 'SEO', desc: 'Search engine optimization' },
+                                        { score: pageSpeed.bestPracticesScore, label: 'Best Practices', desc: 'Security & code quality' }
+                                    ].map((item, i) => (
+                                        <div key={i} className="text-center">
+                                            <div className="relative w-24 h-24 mx-auto mb-2">
+                                                {/* Background circle */}
+                                                <svg className="w-24 h-24 transform -rotate-90">
+                                                    <circle cx="48" cy="48" r="40" stroke="#e5e5e5" strokeWidth="8" fill="none" />
+                                                    <circle
+                                                        cx="48" cy="48" r="40"
+                                                        stroke={item.score >= 90 ? '#22c55e' : item.score >= 50 ? '#f97316' : '#ef4444'}
+                                                        strokeWidth="8"
+                                                        fill="none"
+                                                        strokeDasharray={`${item.score * 2.51} 251`}
+                                                        strokeLinecap="round"
+                                                    />
+                                                </svg>
+                                                <div className={`absolute inset-0 flex items-center justify-center text-2xl font-bold ${getScoreColor(item.score)}`}>
+                                                    {item.score}
+                                                </div>
+                                            </div>
+                                            <div className="font-medium">{item.label}</div>
+                                            <div className="text-xs text-muted-foreground">{item.desc}</div>
                                         </div>
-                                        <div className="text-sm text-muted-foreground">Performance</div>
-                                    </div>
-                                    <div className={`rounded-lg p-4 ${getScoreBg(pageSpeed.accessibilityScore)}`}>
-                                        <div className={`text-3xl font-bold ${getScoreColor(pageSpeed.accessibilityScore)}`}>
-                                            {pageSpeed.accessibilityScore}
-                                        </div>
-                                        <div className="text-sm text-muted-foreground">Accessibility</div>
-                                    </div>
-                                    <div className={`rounded-lg p-4 ${getScoreBg(pageSpeed.seoScore)}`}>
-                                        <div className={`text-3xl font-bold ${getScoreColor(pageSpeed.seoScore)}`}>
-                                            {pageSpeed.seoScore}
-                                        </div>
-                                        <div className="text-sm text-muted-foreground">SEO</div>
-                                    </div>
-                                    <div className={`rounded-lg p-4 ${getScoreBg(pageSpeed.bestPracticesScore)}`}>
-                                        <div className={`text-3xl font-bold ${getScoreColor(pageSpeed.bestPracticesScore)}`}>
-                                            {pageSpeed.bestPracticesScore}
-                                        </div>
-                                        <div className="text-sm text-muted-foreground">Best Practices</div>
-                                    </div>
+                                    ))}
                                 </div>
 
                                 {/* Core Web Vitals */}

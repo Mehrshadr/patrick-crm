@@ -26,7 +26,9 @@ import {
     ClipboardCheck,
     Download,
     ChevronDown,
-    Trash2
+    Trash2,
+    ArrowUp,
+    ArrowDown
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
@@ -244,7 +246,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
         }
     }
 
-    const fetchPages = async (page = 1, status = statusFilter, urlType = urlTypeFilter) => {
+    const fetchPages = async (page = 1, status = statusFilter, urlType = urlTypeFilter, sortCol = sortColumn, sortDir = sortDirection) => {
         setPagesLoading(true)
         try {
             const params = new URLSearchParams({
@@ -253,6 +255,10 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
             })
             if (status !== 'all') params.set('statusCode', status)
             if (urlType !== 'all') params.set('urlType', urlType)
+            if (sortCol && sortDir) {
+                params.set('sortColumn', sortCol)
+                params.set('sortDirection', sortDir)
+            }
 
             const res = await fetch(`/api/crawl/${jobId}/pages?${params}`)
             const data = await res.json()
@@ -265,6 +271,25 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
             console.error('Failed to fetch pages', e)
         } finally {
             setPagesLoading(false)
+        }
+    }
+
+    const toggleSort = (column: string) => {
+        let newDir: "asc" | "desc" | null = "asc"
+
+        if (sortColumn === column) {
+            if (sortDirection === 'asc') newDir = 'desc'
+            else newDir = null
+        }
+
+        if (newDir) {
+            setSortColumn(column)
+            setSortDirection(newDir)
+            fetchPages(pagesCurrentPage, statusFilter, urlTypeFilter, column, newDir)
+        } else {
+            setSortColumn("crawledAt") // Default or reset
+            setSortDirection("desc")
+            fetchPages(pagesCurrentPage, statusFilter, urlTypeFilter, "crawledAt", "desc")
         }
     }
 
@@ -390,34 +415,13 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
         return 'page'
     }
 
-    // Export to Screaming Frog CSV format
-    const exportToScreamingFrog = () => {
-        const filteredPages = pages.filter(p => {
-            if (urlTypeFilter !== 'all' && getUrlType(p.url) !== urlTypeFilter) return false
-            if (applyRobotsFilter && isPathBlocked(p.url)) return false
-            return true
-        })
+    // Export to CSV using server API
+    const handleExport = () => {
+        const params = new URLSearchParams()
+        if (statusFilter !== 'all') params.set('statusCode', statusFilter)
+        if (urlTypeFilter !== 'all') params.set('urlType', urlTypeFilter)
 
-        const headers = ['Address', 'Status Code', 'Status', 'Title 1', 'Meta Description 1', 'H1-1', 'Word Count', 'Indexability', 'Indexability Status']
-        const rows = filteredPages.map(p => [
-            p.url,
-            p.statusCode,
-            p.statusCode === 200 ? 'OK' : 'Error',
-            p.title || '',
-            p.metaDescription || '',
-            p.h1 || '',
-            p.wordCount || 0,
-            p.statusCode === 200 ? 'Indexable' : 'Non-Indexable',
-            p.statusCode === 200 ? '' : `${p.statusCode} Response`
-        ])
-
-        const csv = [headers.join(','), ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n')
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `crawl-${job?.url?.replace(/[^a-z0-9]/gi, '-') || 'export'}.csv`
-        a.click()
+        window.location.href = `/api/crawl/${jobId}/export?${params.toString()}`
     }
 
     const getScoreColor = (score: number) => {
@@ -520,32 +524,34 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-hidden flex flex-col">
                 {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList>
-                        <TabsTrigger value="audit" className="flex items-center gap-2">
-                            <ClipboardCheck className="h-4 w-4" /> Audit
-                        </TabsTrigger>
-                        <TabsTrigger value="pages" className="flex items-center gap-2">
-                            <FileText className="h-4 w-4" /> Pages
-                        </TabsTrigger>
-                        <TabsTrigger value="images" className="flex items-center gap-2">
-                            <ImageIcon className="h-4 w-4" /> Images
-                            {imageStats.missingAlt > 0 && (
-                                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
-                                    {imageStats.missingAlt}
-                                </Badge>
-                            )}
-                        </TabsTrigger>
-                        {/* Logs tab hidden per user request */}
-                        <TabsTrigger value="speed" className="flex items-center gap-2">
-                            <Gauge className="h-4 w-4" /> PageSpeed
-                        </TabsTrigger>
-                    </TabsList>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+                    <div className="px-4 pt-4 shrink-0">
+                        <TabsList>
+                            <TabsTrigger value="audit" className="flex items-center gap-2">
+                                <ClipboardCheck className="h-4 w-4" /> Audit
+                            </TabsTrigger>
+                            <TabsTrigger value="pages" className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" /> Pages
+                            </TabsTrigger>
+                            <TabsTrigger value="images" className="flex items-center gap-2">
+                                <ImageIcon className="h-4 w-4" /> Images
+                                {imageStats.missingAlt > 0 && (
+                                    <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                                        {imageStats.missingAlt}
+                                    </Badge>
+                                )}
+                            </TabsTrigger>
+                            {/* Logs tab hidden per user request */}
+                            <TabsTrigger value="speed" className="flex items-center gap-2">
+                                <Gauge className="h-4 w-4" /> PageSpeed
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     {/* Audit Tab */}
-                    <TabsContent value="audit" className="mt-4">
+                    <TabsContent value="audit" className="flex-1 overflow-auto p-4">
                         {audit ? (
                             <div className="space-y-6">
                                 {/* SEO Score Card */}
@@ -757,10 +763,12 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                         )}
                     </TabsContent>
 
+
+
                     {/* Pages Tab */}
-                    <TabsContent value="pages" className="mt-4">
+                    <TabsContent value="pages" className="flex-1 overflow-hidden flex flex-col">
                         {/* Filter Toolbar */}
-                        <div className="flex flex-wrap items-center gap-2 mb-4 px-1">
+                        <div className="flex flex-wrap items-center gap-2 p-4 pb-2 shrink-0">
                             {/* Status Group */}
                             {['all', '200', '404', 'error'].map((key) => {
                                 const count = key === 'all' ? pageCounts.all : key === '200' ? pageCounts.ok : key === '404' ? pageCounts.notFound : pageCounts.errors
@@ -819,156 +827,161 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                             ))}
 
                             <div className="ml-auto">
-                                <Button onClick={exportToScreamingFrog} variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground">
+                                <Button onClick={handleExport} variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground">
                                     <Download className="h-3 w-3 mr-1.5" /> Export
                                 </Button>
                             </div>
                         </div>
 
-                        {/* Loading Message or Table */}
-                        {pagesLoading ? (
-                            <div className="flex items-center justify-center py-16 text-muted-foreground">
-                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                                <span>Loading from database...</span>
-                            </div>
-                        ) : (
-                            <div className="bg-white rounded-xl border overflow-hidden">
-                                <div className="max-h-[600px] overflow-auto">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-slate-50 border-b sticky top-0 z-10">
-                                            <tr>
-                                                <th className="text-left p-3 font-medium">URL</th>
-                                                <th
-                                                    className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
-                                                    onClick={() => {
-                                                        if (sortColumn === 'status') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                        else { setSortColumn('status'); setSortDirection('asc') }
-                                                    }}
-                                                >
-                                                    Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                                </th>
-                                                <th
-                                                    className="text-left p-3 font-medium w-24 cursor-pointer hover:bg-slate-100"
-                                                    onClick={() => {
-                                                        if (sortColumn === 'loadTime') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                        else { setSortColumn('loadTime'); setSortDirection('desc') }
-                                                    }}
-                                                >
-                                                    Load Time {sortColumn === 'loadTime' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                                </th>
-                                                <th
-                                                    className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
-                                                    onClick={() => {
-                                                        if (sortColumn === 'words') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                        else { setSortColumn('words'); setSortDirection('desc') }
-                                                    }}
-                                                >
-                                                    Words {sortColumn === 'words' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                                </th>
-                                                <th
-                                                    className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
-                                                    onClick={() => {
-                                                        if (sortColumn === 'images') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                        else { setSortColumn('images'); setSortDirection('desc') }
-                                                    }}
-                                                >
-                                                    Images {sortColumn === 'images' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y">
-                                            {[...pages]
-                                                .sort((a, b) => {
-                                                    const dir = sortDirection === 'asc' ? 1 : -1
-                                                    if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir
-                                                    if (sortColumn === 'loadTime') return ((a.loadTimeMs || 0) - (b.loadTimeMs || 0)) * dir
-                                                    if (sortColumn === 'words') return ((a.wordCount || 0) - (b.wordCount || 0)) * dir
-                                                    if (sortColumn === 'images') return (a._count.images - b._count.images) * dir
-                                                    return a.url.localeCompare(b.url) * dir
-                                                })
-                                                .map((page) => {
-                                                    const blocked = applyRobotsFilter && isPathBlocked(page.url)
-                                                    return (
-                                                        <tr key={page.id} className={`hover:bg-slate-50 ${blocked ? 'opacity-50' : ''}`}>
-                                                            <td className="p-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <a
-                                                                        href={page.url}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className={`text-blue-600 hover:underline truncate block max-w-md ${blocked ? 'line-through' : ''}`}
-                                                                        title={page.url}
-                                                                    >
-                                                                        {page.url.replace(job?.url || '', '')}
-                                                                    </a>
-                                                                    {blocked && <Badge variant="outline" className="text-xs">robots.txt</Badge>}
-                                                                </div>
-                                                                {page.title && (
-                                                                    <div className="text-xs text-muted-foreground truncate max-w-md">
-                                                                        {page.title}
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                            <td className="p-3">
-                                                                <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
-                                                                    {page.statusCode}
-                                                                </Badge>
-                                                            </td>
-                                                            <td className="p-3 text-muted-foreground">
-                                                                {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
-                                                            </td>
-                                                            <td className="p-3 text-muted-foreground">
-                                                                {page.wordCount || '-'}
-                                                            </td>
-                                                            <td className="p-3 text-muted-foreground">
-                                                                {page._count.images}
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })}
-                                        </tbody>
-                                    </table>
+                        {/* Table */}
+                        <div className="flex-1 overflow-auto border-t bg-white">
+                            {pagesLoading ? (
+                                <div className="flex items-center justify-center py-16 text-muted-foreground">
+                                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                    <span>Loading from database...</span>
                                 </div>
-                                {/* Pagination */}
-                                {pagesTotalPages > 1 && (
-                                    <div className="flex items-center justify-between p-3 border-t bg-slate-50">
-                                        <span className="text-sm text-muted-foreground">
-                                            Page {pagesCurrentPage} of {pagesTotalPages}
-                                        </span>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                    const newPage = Math.max(1, pagesCurrentPage - 1)
-                                                    setPagesCurrentPage(newPage)
-                                                    fetchPages(newPage, statusFilter, urlTypeFilter)
-                                                }}
-                                                disabled={pagesCurrentPage === 1 || pagesLoading}
+                            ) : (
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 border-b sticky top-0 z-10">
+                                        <tr>
+                                            <th
+                                                className="text-left p-3 font-medium cursor-pointer hover:bg-slate-100/80 transition-colors group"
+                                                onClick={() => toggleSort('url')}
                                             >
-                                                Previous
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                    const newPage = Math.min(pagesTotalPages, pagesCurrentPage + 1)
-                                                    setPagesCurrentPage(newPage)
-                                                    fetchPages(newPage, statusFilter, urlTypeFilter)
-                                                }}
-                                                disabled={pagesCurrentPage >= pagesTotalPages || pagesLoading}
+                                                <div className="flex items-center gap-1">
+                                                    URL
+                                                    {sortColumn === 'url' && (
+                                                        sortDirection === 'asc' ? <ArrowUp className="h-3 w-3 text-slate-500" /> : <ArrowDown className="h-3 w-3 text-slate-500" />
+                                                    )}
+                                                </div>
+                                            </th>
+                                            <th
+                                                className="text-left p-3 font-medium w-32 cursor-pointer hover:bg-slate-100/80 transition-colors group"
+                                                onClick={() => toggleSort('status')}
                                             >
-                                                Next
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
+                                                <div className="flex items-center gap-1">
+                                                    Status
+                                                    {sortColumn === 'status' && (
+                                                        sortDirection === 'asc' ? <ArrowUp className="h-3 w-3 text-slate-500" /> : <ArrowDown className="h-3 w-3 text-slate-500" />
+                                                    )}
+                                                </div>
+                                            </th>
+                                            <th
+                                                className="text-left p-3 font-medium w-36 cursor-pointer hover:bg-slate-100/80 transition-colors group"
+                                                onClick={() => toggleSort('loadTime')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Load Time
+                                                    {sortColumn === 'loadTime' && (
+                                                        sortDirection === 'asc' ? <ArrowUp className="h-3 w-3 text-slate-500" /> : <ArrowDown className="h-3 w-3 text-slate-500" />
+                                                    )}
+                                                </div>
+                                            </th>
+                                            <th
+                                                className="text-left p-3 font-medium w-28 cursor-pointer hover:bg-slate-100/80 transition-colors group"
+                                                onClick={() => toggleSort('words')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Words
+                                                    {sortColumn === 'words' && (
+                                                        sortDirection === 'asc' ? <ArrowUp className="h-3 w-3 text-slate-500" /> : <ArrowDown className="h-3 w-3 text-slate-500" />
+                                                    )}
+                                                </div>
+                                            </th>
+                                            <th
+                                                className="text-left p-3 font-medium w-24 cursor-pointer hover:bg-slate-100/80 transition-colors group"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Images
+                                                    {/* Images not sortable server-side efficiently yet */}
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {[...pages].map((page) => {
+                                            const blocked = applyRobotsFilter && isPathBlocked(page.url)
+                                            return (
+                                                <tr key={page.id} className={`hover:bg-slate-50 ${blocked ? 'opacity-50' : ''}`}>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <a
+                                                                href={page.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`text-blue-600 hover:underline truncate block max-w-xl ${blocked ? 'line-through' : ''}`}
+                                                                title={page.url}
+                                                            >
+                                                                {page.url.replace(job?.url || '', '') || '/'}
+                                                            </a>
+                                                            {blocked && <Badge variant="outline" className="text-xs">robots.txt</Badge>}
+                                                        </div>
+                                                        {page.title && (
+                                                            <div className="text-xs text-muted-foreground truncate max-w-xl mt-0.5">
+                                                                {page.title}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs h-6">
+                                                            {page.statusCode}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-3 text-muted-foreground tabular-nums">
+                                                        {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
+                                                    </td>
+                                                    <td className="p-3 text-muted-foreground tabular-nums">
+                                                        {page.wordCount || '-'}
+                                                    </td>
+                                                    <td className="p-3 text-muted-foreground tabular-nums">
+                                                        {page._count.images}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Pagination - Fixed at bottom */}
+                        {pagesTotalPages > 1 && (
+                            <div className="flex items-center justify-between p-3 border-t bg-slate-50 shrink-0">
+                                <span className="text-sm text-muted-foreground">
+                                    Page {pagesCurrentPage} of {pagesTotalPages}
+                                </span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const newPage = Math.max(1, pagesCurrentPage - 1)
+                                            setPagesCurrentPage(newPage)
+                                            fetchPages(newPage, statusFilter, urlTypeFilter)
+                                        }}
+                                        disabled={pagesCurrentPage === 1 || pagesLoading}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const newPage = Math.min(pagesTotalPages, pagesCurrentPage + 1)
+                                            setPagesCurrentPage(newPage)
+                                            fetchPages(newPage, statusFilter, urlTypeFilter)
+                                        }}
+                                        disabled={pagesCurrentPage >= pagesTotalPages || pagesLoading}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </TabsContent>
 
                     {/* Images Tab */}
-                    <TabsContent value="images" className="mt-4">
+                    <TabsContent value="images" className="flex-1 overflow-auto p-4">
                         <div className="space-y-4">
                             {/* Image Filter */}
                             <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
@@ -1111,7 +1124,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                     </TabsContent>
 
                     {/* Speed Tab */}
-                    <TabsContent value="speed" className="mt-4">
+                    <TabsContent value="speed" className="flex-1 overflow-auto p-4">
                         <div className="bg-white rounded-xl border p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="font-semibold text-lg">PageSpeed Insights</h3>

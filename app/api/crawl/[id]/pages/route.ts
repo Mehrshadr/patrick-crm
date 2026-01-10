@@ -25,8 +25,10 @@ export async function GET(
         const skip = (page - 1) * limit
 
         // Filters
-        const statusCode = searchParams.get('statusCode') // e.g., '200', '404', 'error' (4xx/5xx)
-        const urlType = searchParams.get('urlType') // e.g., 'product', 'blog', 'category', 'page'
+        const statusCode = searchParams.get('statusCode')
+        const urlType = searchParams.get('urlType')
+        const sortColumn = searchParams.get('sortColumn')
+        const sortDirection = searchParams.get('sortDirection')
 
         // Build where clause
         const where: any = { jobId }
@@ -44,7 +46,6 @@ export async function GET(
         }
 
         if (urlType && urlType !== 'all') {
-            // URL type filtering using database patterns
             if (urlType === 'product') {
                 where.url = { contains: '/product' }
             } else if (urlType === 'blog') {
@@ -67,10 +68,19 @@ export async function GET(
             }
         }
 
+        // Build orderBy
+        let orderBy: any = { crawledAt: 'desc' }
+        if (sortColumn && (sortDirection === 'asc' || sortDirection === 'desc')) {
+            if (sortColumn === 'status') orderBy = { statusCode: sortDirection }
+            else if (sortColumn === 'loadTime') orderBy = { loadTime: sortDirection }
+            else if (sortColumn === 'words') orderBy = { wordCount: sortDirection }
+            else if (sortColumn === 'url') orderBy = { url: sortDirection }
+        }
+
         const [pages, total] = await Promise.all([
             prisma.crawledPage.findMany({
                 where,
-                orderBy: { crawledAt: 'desc' },
+                orderBy,
                 skip,
                 take: limit,
                 include: {

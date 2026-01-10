@@ -21,7 +21,7 @@ export async function GET(
 
         const { searchParams } = new URL(request.url)
         const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '1000')
+        const limit = parseInt(searchParams.get('limit') || '100000')
         const skip = (page - 1) * limit
 
         const [pages, total] = await Promise.all([

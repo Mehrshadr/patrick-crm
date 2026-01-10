@@ -159,6 +159,9 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     // Image filter state
     const [imageFilter, setImageFilter] = useState<"all" | "missing-alt" | "duplicates">("all")
 
+    // URL type filter state for Pages tab
+    const [urlTypeFilter, setUrlTypeFilter] = useState<"all" | "product" | "blog" | "category" | "page">("all")
+
     // Robots.txt filter state - persisted in localStorage
     const [robotsData, setRobotsData] = useState<{
         userAgents: { [agent: string]: { type: string; path: string }[] }
@@ -344,6 +347,45 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
         } catch {
             return false
         }
+    }
+
+    // Detect URL type based on URL patterns
+    const getUrlType = (url: string): "product" | "blog" | "category" | "page" => {
+        const path = new URL(url).pathname.toLowerCase()
+        if (path.includes('/product') || path.includes('/shop/') || path.includes('/p/')) return 'product'
+        if (path.includes('/blog') || path.includes('/post') || path.includes('/article') || path.includes('/news')) return 'blog'
+        if (path.includes('/category') || path.includes('/cat/') || path.includes('/collection')) return 'category'
+        return 'page'
+    }
+
+    // Export to Screaming Frog CSV format
+    const exportToScreamingFrog = () => {
+        const filteredPages = pages.filter(p => {
+            if (urlTypeFilter !== 'all' && getUrlType(p.url) !== urlTypeFilter) return false
+            if (applyRobotsFilter && isPathBlocked(p.url)) return false
+            return true
+        })
+
+        const headers = ['Address', 'Status Code', 'Status', 'Title 1', 'Meta Description 1', 'H1-1', 'Word Count', 'Indexability', 'Indexability Status']
+        const rows = filteredPages.map(p => [
+            p.url,
+            p.statusCode,
+            p.statusCode === 200 ? 'OK' : 'Error',
+            p.title || '',
+            p.metaDescription || '',
+            p.h1 || '',
+            p.wordCount || 0,
+            p.statusCode === 200 ? 'Indexable' : 'Non-Indexable',
+            p.statusCode === 200 ? '' : `${p.statusCode} Response`
+        ])
+
+        const csv = [headers.join(','), ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n')
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `crawl-${job?.url?.replace(/[^a-z0-9]/gi, '-') || 'export'}.csv`
+        a.click()
     }
 
     const getScoreColor = (score: number) => {
@@ -702,6 +744,33 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
 
                 {/* Pages Tab */}
                 <TabsContent value="pages" className="mt-4">
+                    {/* Filter Toolbar */}
+                    <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">Type:</span>
+                            <div className="flex gap-1">
+                                {[
+                                    { key: 'all', label: 'All' },
+                                    { key: 'product', label: 'Products' },
+                                    { key: 'blog', label: 'Blog' },
+                                    { key: 'category', label: 'Categories' },
+                                    { key: 'page', label: 'Pages' }
+                                ].map(({ key, label }) => (
+                                    <Button
+                                        key={key}
+                                        variant={urlTypeFilter === key ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setUrlTypeFilter(key as any)}
+                                    >
+                                        {label} ({key === 'all' ? pages.length : pages.filter(p => getUrlType(p.url) === key).length})
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                        <Button onClick={exportToScreamingFrog} variant="outline" size="sm">
+                            <Download className="h-4 w-4 mr-2" /> Export CSV
+                        </Button>
+                    </div>
                     <div className="bg-white rounded-xl border overflow-hidden">
                         <div className="max-h-[600px] overflow-auto">
                             <table className="w-full text-sm">
@@ -749,6 +818,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                 <tbody className="divide-y">
                                     {[...pages]
                                         .filter(page => !applyRobotsFilter || !isPathBlocked(page.url))
+                                        .filter(page => urlTypeFilter === 'all' || getUrlType(page.url) === urlTypeFilter)
                                         .sort((a, b) => {
                                             const dir = sortDirection === 'asc' ? 1 : -1
                                             if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir

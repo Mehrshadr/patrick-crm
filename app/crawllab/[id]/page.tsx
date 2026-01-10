@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
     ArrowLeft,
     Globe,
@@ -22,7 +23,8 @@ import {
     Gauge,
     Play,
     ClipboardCheck,
-    Download
+    Download,
+    ChevronDown
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
@@ -118,6 +120,14 @@ interface AuditData {
         brokenPages: number
         thinContent: number
     }
+    issueDetails?: {
+        pagesWithMissingTitle: { url: string }[]
+        pagesWithMissingMeta: { url: string }[]
+        pagesWithMissingH1: { url: string }[]
+        slowPages: { url: string; loadTime: number }[]
+        brokenPages: { url: string; statusCode: number }[]
+        imagesWithMissingAlt: { imageUrl: string; pageUrl: string }[]
+    }
 }
 
 export default function CrawlJobPage({ params }: { params: Promise<{ id: string }> }) {
@@ -134,6 +144,15 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     const [imageStats, setImageStats] = useState({ total: 0, missingAlt: 0 })
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState("audit")
+
+    // Pagination state
+    const [pagesCurrentPage, setPagesCurrentPage] = useState(1)
+    const [imagesCurrentPage, setImagesCurrentPage] = useState(1)
+    const ITEMS_PER_PAGE = 25
+
+    // Sorting state for Pages tab
+    const [sortColumn, setSortColumn] = useState<string>("url")
+    const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
     useEffect(() => {
         fetchJob()
@@ -374,9 +393,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                             </Badge>
                         )}
                     </TabsTrigger>
-                    <TabsTrigger value="logs" className="flex items-center gap-2">
-                        <ScrollText className="h-4 w-4" /> Logs
-                    </TabsTrigger>
+                    {/* Logs tab hidden per user request */}
                     <TabsTrigger value="speed" className="flex items-center gap-2">
                         <Gauge className="h-4 w-4" /> Speed
                     </TabsTrigger>
@@ -457,42 +474,117 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                             {/* Issues Breakdown */}
                             <div className="bg-white rounded-xl border p-6">
                                 <h3 className="font-semibold text-lg mb-4">Issues Found</h3>
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {audit.issues.brokenPages > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                                            <span className="font-medium text-red-700">Broken Pages (4xx/5xx)</span>
-                                            <Badge variant="destructive">{audit.issues.brokenPages}</Badge>
-                                        </div>
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-red-50 rounded-lg w-full hover:bg-red-100 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className="h-4 w-4 text-red-600" />
+                                                    <span className="font-medium text-red-700">Broken Pages (4xx/5xx)</span>
+                                                </div>
+                                                <Badge variant="destructive">{audit.issues.brokenPages}</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                {audit.issueDetails?.brokenPages.slice(0, 15).map((p, i) => (
+                                                    <div key={i} className="flex items-center justify-between text-sm py-1 px-2 bg-red-25 rounded">
+                                                        <a href={p.url} target="_blank" rel="noopener" className="text-red-700 hover:underline truncate max-w-md">{p.url}</a>
+                                                        <Badge variant="outline" className="text-red-600">{p.statusCode}</Badge>
+                                                    </div>
+                                                ))}
+                                                {audit.issues.brokenPages > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.brokenPages - 15} more</p>}
+                                            </CollapsibleContent>
+                                        </Collapsible>
                                     )}
                                     {audit.issues.missingTitle > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                                            <span className="font-medium text-orange-700">Missing Title Tags</span>
-                                            <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingTitle}</Badge>
-                                        </div>
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-orange-50 rounded-lg w-full hover:bg-orange-100 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className="h-4 w-4 text-orange-600" />
+                                                    <span className="font-medium text-orange-700">Missing Title Tags</span>
+                                                </div>
+                                                <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingTitle}</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                {audit.issueDetails?.pagesWithMissingTitle.slice(0, 15).map((p, i) => (
+                                                    <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
+                                                ))}
+                                                {audit.issues.missingTitle > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingTitle - 15} more</p>}
+                                            </CollapsibleContent>
+                                        </Collapsible>
                                     )}
                                     {audit.issues.missingMetaDescription > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                                            <span className="font-medium text-orange-700">Missing Meta Descriptions</span>
-                                            <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingMetaDescription}</Badge>
-                                        </div>
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-orange-50 rounded-lg w-full hover:bg-orange-100 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className="h-4 w-4 text-orange-600" />
+                                                    <span className="font-medium text-orange-700">Missing Meta Descriptions</span>
+                                                </div>
+                                                <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingMetaDescription}</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                {audit.issueDetails?.pagesWithMissingMeta.slice(0, 15).map((p, i) => (
+                                                    <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
+                                                ))}
+                                                {audit.issues.missingMetaDescription > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingMetaDescription - 15} more</p>}
+                                            </CollapsibleContent>
+                                        </Collapsible>
                                     )}
                                     {audit.issues.missingH1 > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                                            <span className="font-medium text-yellow-700">Missing H1 Tags</span>
-                                            <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingH1}</Badge>
-                                        </div>
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg w-full hover:bg-yellow-100 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className="h-4 w-4 text-yellow-600" />
+                                                    <span className="font-medium text-yellow-700">Missing H1 Tags</span>
+                                                </div>
+                                                <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingH1}</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                {audit.issueDetails?.pagesWithMissingH1.slice(0, 15).map((p, i) => (
+                                                    <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-yellow-700 hover:underline truncate py-1">{p.url}</a>
+                                                ))}
+                                                {audit.issues.missingH1 > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingH1 - 15} more</p>}
+                                            </CollapsibleContent>
+                                        </Collapsible>
                                     )}
                                     {audit.issues.missingAltImages > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                                            <span className="font-medium text-yellow-700">Images Missing Alt Text</span>
-                                            <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingAltImages}</Badge>
-                                        </div>
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg w-full hover:bg-yellow-100 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className="h-4 w-4 text-yellow-600" />
+                                                    <span className="font-medium text-yellow-700">Images Missing Alt Text</span>
+                                                </div>
+                                                <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingAltImages}</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                {audit.issueDetails?.imagesWithMissingAlt.slice(0, 15).map((img, i) => (
+                                                    <div key={i} className="text-sm py-1">
+                                                        <a href={img.imageUrl} target="_blank" rel="noopener" className="text-yellow-700 hover:underline truncate block">{img.imageUrl.split('/').pop()}</a>
+                                                        <span className="text-xs text-muted-foreground">on {img.pageUrl}</span>
+                                                    </div>
+                                                ))}
+                                                {audit.issues.missingAltImages > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingAltImages - 15} more</p>}
+                                            </CollapsibleContent>
+                                        </Collapsible>
                                     )}
                                     {audit.issues.slowPages > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                            <span className="font-medium text-blue-700">Slow Pages (&gt;3s)</span>
-                                            <Badge className="bg-blue-100 text-blue-700">{audit.issues.slowPages}</Badge>
-                                        </div>
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-blue-50 rounded-lg w-full hover:bg-blue-100 transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronDown className="h-4 w-4 text-blue-600" />
+                                                    <span className="font-medium text-blue-700">Slow Pages (&gt;3s)</span>
+                                                </div>
+                                                <Badge className="bg-blue-100 text-blue-700">{audit.issues.slowPages}</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                {audit.issueDetails?.slowPages.slice(0, 15).map((p, i) => (
+                                                    <div key={i} className="flex items-center justify-between text-sm py-1">
+                                                        <a href={p.url} target="_blank" rel="noopener" className="text-blue-700 hover:underline truncate max-w-md">{p.url}</a>
+                                                        <span className="text-blue-600 text-xs">{(p.loadTime / 1000).toFixed(1)}s</span>
+                                                    </div>
+                                                ))}
+                                                {audit.issues.slowPages > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.slowPages - 15} more</p>}
+                                            </CollapsibleContent>
+                                        </Collapsible>
                                     )}
                                     {audit.issues.thinContent > 0 && (
                                         <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -520,80 +612,186 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                 {/* Pages Tab */}
                 <TabsContent value="pages" className="mt-4">
                     <div className="bg-white rounded-xl border overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b">
-                                <tr>
-                                    <th className="text-left p-3 font-medium">URL</th>
-                                    <th className="text-left p-3 font-medium w-20">Status</th>
-                                    <th className="text-left p-3 font-medium w-24">Load Time</th>
-                                    <th className="text-left p-3 font-medium w-20">Words</th>
-                                    <th className="text-left p-3 font-medium w-20">Images</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {pages.map((page) => (
-                                    <tr key={page.id} className="hover:bg-slate-50">
-                                        <td className="p-3">
-                                            <div className="truncate max-w-md" title={page.url}>
-                                                {page.url.replace(job.url, '')}
-                                            </div>
-                                            {page.title && (
-                                                <div className="text-xs text-muted-foreground truncate max-w-md">
-                                                    {page.title}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-3">
-                                            <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
-                                                {page.statusCode}
-                                            </Badge>
-                                        </td>
-                                        <td className="p-3 text-muted-foreground">
-                                            {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
-                                        </td>
-                                        <td className="p-3 text-muted-foreground">
-                                            {page.wordCount || '-'}
-                                        </td>
-                                        <td className="p-3 text-muted-foreground">
-                                            {page._count.images}
-                                        </td>
+                        <div className="max-h-[600px] overflow-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-50 border-b sticky top-0 z-10">
+                                    <tr>
+                                        <th className="text-left p-3 font-medium">URL</th>
+                                        <th
+                                            className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
+                                            onClick={() => {
+                                                if (sortColumn === 'status') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                else { setSortColumn('status'); setSortDirection('asc') }
+                                            }}
+                                        >
+                                            Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th
+                                            className="text-left p-3 font-medium w-24 cursor-pointer hover:bg-slate-100"
+                                            onClick={() => {
+                                                if (sortColumn === 'loadTime') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                else { setSortColumn('loadTime'); setSortDirection('desc') }
+                                            }}
+                                        >
+                                            Load Time {sortColumn === 'loadTime' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th
+                                            className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
+                                            onClick={() => {
+                                                if (sortColumn === 'words') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                else { setSortColumn('words'); setSortDirection('desc') }
+                                            }}
+                                        >
+                                            Words {sortColumn === 'words' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
+                                        <th
+                                            className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
+                                            onClick={() => {
+                                                if (sortColumn === 'images') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                else { setSortColumn('images'); setSortDirection('desc') }
+                                            }}
+                                        >
+                                            Images {sortColumn === 'images' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {[...pages]
+                                        .sort((a, b) => {
+                                            const dir = sortDirection === 'asc' ? 1 : -1
+                                            if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir
+                                            if (sortColumn === 'loadTime') return ((a.loadTimeMs || 0) - (b.loadTimeMs || 0)) * dir
+                                            if (sortColumn === 'words') return ((a.wordCount || 0) - (b.wordCount || 0)) * dir
+                                            if (sortColumn === 'images') return (a._count.images - b._count.images) * dir
+                                            return a.url.localeCompare(b.url) * dir
+                                        })
+                                        .slice((pagesCurrentPage - 1) * ITEMS_PER_PAGE, pagesCurrentPage * ITEMS_PER_PAGE)
+                                        .map((page) => (
+                                            <tr key={page.id} className="hover:bg-slate-50">
+                                                <td className="p-3">
+                                                    <a
+                                                        href={page.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:underline truncate block max-w-md"
+                                                        title={page.url}
+                                                    >
+                                                        {page.url.replace(job?.url || '', '')}
+                                                    </a>
+                                                    {page.title && (
+                                                        <div className="text-xs text-muted-foreground truncate max-w-md">
+                                                            {page.title}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-3">
+                                                    <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
+                                                        {page.statusCode}
+                                                    </Badge>
+                                                </td>
+                                                <td className="p-3 text-muted-foreground">
+                                                    {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
+                                                </td>
+                                                <td className="p-3 text-muted-foreground">
+                                                    {page.wordCount || '-'}
+                                                </td>
+                                                <td className="p-3 text-muted-foreground">
+                                                    {page._count.images}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* Pagination */}
+                        {pages.length > ITEMS_PER_PAGE && (
+                            <div className="flex items-center justify-between p-3 border-t bg-slate-50">
+                                <span className="text-sm text-muted-foreground">
+                                    Showing {(pagesCurrentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(pagesCurrentPage * ITEMS_PER_PAGE, pages.length)} of {pages.length}
+                                </span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPagesCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={pagesCurrentPage === 1}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPagesCurrentPage(p => Math.min(Math.ceil(pages.length / ITEMS_PER_PAGE), p + 1))}
+                                        disabled={pagesCurrentPage >= Math.ceil(pages.length / ITEMS_PER_PAGE)}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </TabsContent>
 
                 {/* Images Tab */}
                 <TabsContent value="images" className="mt-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {images.map((img) => (
-                            <div key={img.id} className="bg-white rounded-lg border overflow-hidden">
-                                <div className="aspect-video bg-slate-100 relative">
-                                    <img
-                                        src={img.url}
-                                        alt={img.alt || ''}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                    />
-                                </div>
-                                <div className="p-3">
-                                    {!img.alt && (
-                                        <Badge variant="destructive" className="mb-2 text-xs">
-                                            Missing Alt
-                                        </Badge>
-                                    )}
-                                    <p className="text-xs text-muted-foreground truncate" title={img.url}>
-                                        {img.url.split('/').pop()}
-                                    </p>
-                                    {img.alt && (
-                                        <p className="text-xs mt-1 truncate" title={img.alt}>
-                                            Alt: {img.alt}
-                                        </p>
-                                    )}
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {images
+                                .slice((imagesCurrentPage - 1) * 24, imagesCurrentPage * 24)
+                                .map((img) => (
+                                    <div key={img.id} className="bg-white rounded-lg border overflow-hidden">
+                                        <div className="aspect-video bg-slate-100 relative">
+                                            <img
+                                                src={img.url}
+                                                alt={img.alt || ''}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                        <div className="p-3">
+                                            {!img.alt && (
+                                                <Badge variant="destructive" className="mb-2 text-xs">
+                                                    Missing Alt
+                                                </Badge>
+                                            )}
+                                            <p className="text-xs text-muted-foreground truncate" title={img.url}>
+                                                {img.url.split('/').pop()}
+                                            </p>
+                                            {img.alt && (
+                                                <p className="text-xs mt-1 truncate" title={img.alt}>
+                                                    Alt: {img.alt}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                        {/* Pagination */}
+                        {images.length > 24 && (
+                            <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                                <span className="text-sm text-muted-foreground">
+                                    Showing {(imagesCurrentPage - 1) * 24 + 1}-{Math.min(imagesCurrentPage * 24, images.length)} of {images.length}
+                                </span>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setImagesCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={imagesCurrentPage === 1}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setImagesCurrentPage(p => Math.min(Math.ceil(images.length / 24), p + 1))}
+                                        disabled={imagesCurrentPage >= Math.ceil(images.length / 24)}
+                                    >
+                                        Next
+                                    </Button>
                                 </div>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </TabsContent>
 

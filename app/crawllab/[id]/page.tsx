@@ -465,775 +465,760 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     }
 
     return (
-        <div className="p-6 pt-0">
-            {/* Sticky Header */}
-            <div className="sticky top-0 z-20 bg-background pt-6 pb-4 mb-4 border-b flex items-center justify-between -mx-6 px-6">
-                <div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Link href="/crawllab" className="hover:text-foreground flex items-center gap-1">
-                            CrawlLab
-                        </Link>
-                        <span>/</span>
-                        <span className="text-foreground font-medium">{new URL(job.url).hostname}</span>
-                        {getStatusBadge(job.status)}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{job.url}</p>
-                </div>
-                {/* Inline Stats */}
-                <div className="flex items-center gap-6 text-sm">
-                    <div className="flex items-center gap-1.5">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold">{job.crawledPages}</span>
-                        <span className="text-muted-foreground">pages</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold">{job.imageCount}</span>
-                        <span className="text-muted-foreground">images</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Link2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold">{job.linkCount}</span>
-                        <span className="text-muted-foreground">links</span>
-                    </div>
-                    {imageStats.missingAlt > 0 && (
-                        <div className="flex items-center gap-1.5 text-orange-600">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span className="font-semibold">{imageStats.missingAlt}</span>
-                            <span>missing alt</span>
+        <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+            {/* Header - Fixed */}
+            <div className="shrink-0 p-4 border-b">
+                <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                        {/* Breadcrumb */}
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Link href="/crawllab" className="hover:text-foreground">
+                                CrawlLab
+                            </Link>
+                            <span>/</span>
+                            <span className="text-foreground font-semibold">{new URL(job.url).hostname}</span>
+                            {getStatusBadge(job.status)}
                         </div>
-                    )}
-                    {/* Progress */}
-                    {job.status === 'running' && job.totalPages && (
-                        <div className="flex items-center gap-2 ml-auto">
-                            <div className="bg-blue-100 rounded-full h-2 w-32 overflow-hidden">
-                                <div
-                                    className="bg-blue-600 h-2 transition-all"
-                                    style={{ width: `${(job.crawledPages / job.totalPages) * 100}%` }}
-                                />
-                            </div>
-                            <span className="text-xs text-muted-foreground">{Math.round((job.crawledPages / job.totalPages) * 100)}%</span>
+                        <p className="text-xs text-muted-foreground">{job.url}</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1.5">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-semibold">{job.crawledPages}</span>
+                            <span className="text-muted-foreground">pages</span>
                         </div>
-                    )}
-                    {/* Delete Button */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={async () => {
-                            if (confirm('Are you sure you want to delete this crawl job? This will remove all pages, images and data.')) {
-                                try {
-                                    const res = await fetch(`/api/crawl/${jobId}/delete`, { method: 'DELETE' })
-                                    if (res.ok) {
-                                        window.location.href = '/crawllab'
+                        <div className="flex items-center gap-1.5">
+                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-semibold">{job.imageCount}</span>
+                            <span className="text-muted-foreground">images</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <Link2 className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-semibold">{job.linkCount}</span>
+                            <span className="text-muted-foreground">links</span>
+                        </div>
+                        {/* Delete Button */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={async () => {
+                                if (confirm('Delete this crawl job? All data will be removed.')) {
+                                    try {
+                                        const res = await fetch(`/api/crawl/${jobId}/delete`, { method: 'DELETE' })
+                                        if (res.ok) window.location.href = '/crawllab'
+                                    } catch (e) {
+                                        console.error('Delete failed', e)
                                     }
-                                } catch (e) {
-                                    console.error('Delete failed', e)
                                 }
-                            }
-                        }}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="audit" className="flex items-center gap-2">
-                        <ClipboardCheck className="h-4 w-4" /> Audit
-                    </TabsTrigger>
-                    <TabsTrigger value="pages" className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" /> Pages
-                    </TabsTrigger>
-                    <TabsTrigger value="images" className="flex items-center gap-2">
-                        <ImageIcon className="h-4 w-4" /> Images
-                        {imageStats.missingAlt > 0 && (
-                            <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
-                                {imageStats.missingAlt}
-                            </Badge>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-auto p-4">
+                {/* Tabs */}
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList>
+                        <TabsTrigger value="audit" className="flex items-center gap-2">
+                            <ClipboardCheck className="h-4 w-4" /> Audit
+                        </TabsTrigger>
+                        <TabsTrigger value="pages" className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" /> Pages
+                        </TabsTrigger>
+                        <TabsTrigger value="images" className="flex items-center gap-2">
+                            <ImageIcon className="h-4 w-4" /> Images
+                            {imageStats.missingAlt > 0 && (
+                                <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-xs">
+                                    {imageStats.missingAlt}
+                                </Badge>
+                            )}
+                        </TabsTrigger>
+                        {/* Logs tab hidden per user request */}
+                        <TabsTrigger value="speed" className="flex items-center gap-2">
+                            <Gauge className="h-4 w-4" /> PageSpeed
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* Audit Tab */}
+                    <TabsContent value="audit" className="mt-4">
+                        {audit ? (
+                            <div className="space-y-6">
+                                {/* SEO Score Card */}
+                                <div className="bg-white rounded-xl border p-6">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="font-semibold text-lg">SEO Audit Summary</h3>
+                                        <div className="flex items-center gap-4">
+                                            {/* robots.txt toggle */}
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <Switch
+                                                    checked={applyRobotsFilter}
+                                                    onCheckedChange={setApplyRobotsFilter}
+                                                    disabled={robotsLoading}
+                                                />
+                                                <span className="text-muted-foreground">robots.txt</span>
+                                                {robotsLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+                                                {applyRobotsFilter && robotsData && (
+                                                    <Badge variant="outline" className="text-xs">{robotsData.disallowedPaths.length} blocked</Badge>
+                                                )}
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => {
+                                                const blob = new Blob([JSON.stringify(audit, null, 2)], { type: 'application/json' })
+                                                const url = URL.createObjectURL(blob)
+                                                const a = document.createElement('a')
+                                                a.href = url
+                                                a.download = `audit-${job.url.replace(/[^a-z0-9]/gi, '-')}.json`
+                                                a.click()
+                                            }}>
+                                                <Download className="h-4 w-4 mr-2" /> Export JSON
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Main Score */}
+                                    <div className="grid grid-cols-4 gap-4 mb-8">
+                                        <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.seo)}`}>
+                                            <div className={`text-4xl font-bold ${getScoreColor(audit.scores.seo)}`}>
+                                                {audit.scores.seo}
+                                            </div>
+                                            <div className="text-sm font-medium mt-1">SEO Score</div>
+                                        </div>
+                                        {audit.scores.performance !== null && (
+                                            <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.performance)}`}>
+                                                <div className={`text-4xl font-bold ${getScoreColor(audit.scores.performance)}`}>
+                                                    {audit.scores.performance}
+                                                </div>
+                                                <div className="text-sm font-medium mt-1">Performance</div>
+                                            </div>
+                                        )}
+                                        {audit.scores.accessibility !== null && (
+                                            <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.accessibility)}`}>
+                                                <div className={`text-4xl font-bold ${getScoreColor(audit.scores.accessibility)}`}>
+                                                    {audit.scores.accessibility}
+                                                </div>
+                                                <div className="text-sm font-medium mt-1">Accessibility</div>
+                                            </div>
+                                        )}
+                                        {audit.scores.bestPractices !== null && (
+                                            <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.bestPractices)}`}>
+                                                <div className={`text-4xl font-bold ${getScoreColor(audit.scores.bestPractices)}`}>
+                                                    {audit.scores.bestPractices}
+                                                </div>
+                                                <div className="text-sm font-medium mt-1">Best Practices</div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Totals */}
+                                    <h4 className="font-medium mb-3">Overview</h4>
+                                    <div className="grid grid-cols-3 gap-4 mb-6">
+                                        <div className="border rounded-lg p-4 text-center">
+                                            <div className="text-2xl font-bold">{audit.totals.pages}</div>
+                                            <div className="text-sm text-muted-foreground">Pages Crawled</div>
+                                        </div>
+                                        <div className="border rounded-lg p-4 text-center">
+                                            <div className="text-2xl font-bold">{audit.totals.images}</div>
+                                            <div className="text-sm text-muted-foreground">Images Found</div>
+                                        </div>
+                                        <div className="border rounded-lg p-4 text-center">
+                                            <div className="text-2xl font-bold">{audit.totals.links}</div>
+                                            <div className="text-sm text-muted-foreground">Links Found</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Issues Breakdown */}
+                                <div className="bg-white rounded-xl border p-6">
+                                    <h3 className="font-semibold text-lg mb-4">Issues Found</h3>
+                                    <div className="space-y-2">
+                                        {audit.issues.brokenPages > 0 && (
+                                            <Collapsible>
+                                                <CollapsibleTrigger className="flex items-center justify-between p-3 bg-red-50 rounded-lg w-full hover:bg-red-100 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <ChevronDown className="h-4 w-4 text-red-600" />
+                                                        <span className="font-medium text-red-700">Broken Pages (4xx/5xx)</span>
+                                                    </div>
+                                                    <Badge variant="destructive">{audit.issues.brokenPages}</Badge>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                    {audit.issueDetails?.brokenPages.map((p, i) => (
+                                                        <div key={i} className="flex items-center justify-between text-sm py-1 px-2 bg-red-25 rounded">
+                                                            <a href={p.url} target="_blank" rel="noopener" className="text-red-700 hover:underline truncate max-w-md">{p.url}</a>
+                                                            <Badge variant="outline" className="text-red-600">{p.statusCode}</Badge>
+                                                        </div>
+                                                    ))}
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        )}
+                                        {audit.issues.missingTitle > 0 && (
+                                            <Collapsible>
+                                                <CollapsibleTrigger className="flex items-center justify-between p-3 bg-orange-50 rounded-lg w-full hover:bg-orange-100 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <ChevronDown className="h-4 w-4 text-orange-600" />
+                                                        <span className="font-medium text-orange-700">Missing Title Tags</span>
+                                                    </div>
+                                                    <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingTitle}</Badge>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                    {audit.issueDetails?.pagesWithMissingTitle.map((p, i) => (
+                                                        <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
+                                                    ))}
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        )}
+                                        {audit.issues.missingMetaDescription > 0 && (
+                                            <Collapsible>
+                                                <CollapsibleTrigger className="flex items-center justify-between p-3 bg-orange-50 rounded-lg w-full hover:bg-orange-100 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <ChevronDown className="h-4 w-4 text-orange-600" />
+                                                        <span className="font-medium text-orange-700">Missing Meta Descriptions</span>
+                                                    </div>
+                                                    <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingMetaDescription}</Badge>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                    {audit.issueDetails?.pagesWithMissingMeta.map((p, i) => (
+                                                        <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
+                                                    ))}
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        )}
+                                        {audit.issues.missingH1 > 0 && (
+                                            <Collapsible>
+                                                <CollapsibleTrigger className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg w-full hover:bg-yellow-100 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <ChevronDown className="h-4 w-4 text-yellow-600" />
+                                                        <span className="font-medium text-yellow-700">Missing H1 Tags</span>
+                                                    </div>
+                                                    <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingH1}</Badge>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                    {audit.issueDetails?.pagesWithMissingH1.map((p, i) => (
+                                                        <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-yellow-700 hover:underline truncate py-1">{p.url}</a>
+                                                    ))}
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        )}
+                                        {audit.issues.missingAltImages > 0 && (
+                                            <div
+                                                className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
+                                                onClick={() => setActiveTab('images')}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <ImageIcon className="h-4 w-4 text-yellow-600" />
+                                                    <span className="font-medium text-yellow-700">Images Missing Alt Text</span>
+                                                    <span className="text-xs text-yellow-600">→ View in Images tab</span>
+                                                </div>
+                                                <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingAltImages}</Badge>
+                                            </div>
+                                        )}
+                                        {audit.issues.slowPages > 0 && (
+                                            <Collapsible>
+                                                <CollapsibleTrigger className="flex items-center justify-between p-3 bg-blue-50 rounded-lg w-full hover:bg-blue-100 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <ChevronDown className="h-4 w-4 text-blue-600" />
+                                                        <span className="font-medium text-blue-700">Slow Pages (&gt;3s)</span>
+                                                    </div>
+                                                    <Badge className="bg-blue-100 text-blue-700">{audit.issues.slowPages}</Badge>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
+                                                    {audit.issueDetails?.slowPages.map((p, i) => (
+                                                        <div key={i} className="flex items-center justify-between text-sm py-1">
+                                                            <a href={p.url} target="_blank" rel="noopener" className="text-blue-700 hover:underline truncate max-w-md">{p.url}</a>
+                                                            <span className="text-blue-600 text-xs">{(p.loadTime / 1000).toFixed(1)}s</span>
+                                                        </div>
+                                                    ))}
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        )}
+                                        {audit.issues.thinContent > 0 && (
+                                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                                <span className="font-medium text-slate-700">Thin Content (&lt;300 words)</span>
+                                                <Badge variant="secondary">{audit.issues.thinContent}</Badge>
+                                            </div>
+                                        )}
+                                        {Object.values(audit.issues).every(v => v === 0) && (
+                                            <div className="p-4 bg-green-50 rounded-lg text-center text-green-700">
+                                                <CheckCircle2 className="h-8 w-8 mx-auto mb-2" />
+                                                <p className="font-medium">No issues found!</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-xl border p-12 text-center">
+                                <ClipboardCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
+                                <p className="text-muted-foreground">Loading audit data...</p>
+                            </div>
                         )}
-                    </TabsTrigger>
-                    {/* Logs tab hidden per user request */}
-                    <TabsTrigger value="speed" className="flex items-center gap-2">
-                        <Gauge className="h-4 w-4" /> PageSpeed
-                    </TabsTrigger>
-                </TabsList>
+                    </TabsContent>
 
-                {/* Audit Tab */}
-                <TabsContent value="audit" className="mt-4">
-                    {audit ? (
-                        <div className="space-y-6">
-                            {/* SEO Score Card */}
-                            <div className="bg-white rounded-xl border p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h3 className="font-semibold text-lg">SEO Audit Summary</h3>
-                                    <div className="flex items-center gap-4">
-                                        {/* robots.txt toggle */}
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Switch
-                                                checked={applyRobotsFilter}
-                                                onCheckedChange={setApplyRobotsFilter}
-                                                disabled={robotsLoading}
-                                            />
-                                            <span className="text-muted-foreground">robots.txt</span>
-                                            {robotsLoading && <Loader2 className="h-3 w-3 animate-spin" />}
-                                            {applyRobotsFilter && robotsData && (
-                                                <Badge variant="outline" className="text-xs">{robotsData.disallowedPaths.length} blocked</Badge>
-                                            )}
-                                        </div>
-                                        <Button variant="outline" size="sm" onClick={() => {
-                                            const blob = new Blob([JSON.stringify(audit, null, 2)], { type: 'application/json' })
-                                            const url = URL.createObjectURL(blob)
-                                            const a = document.createElement('a')
-                                            a.href = url
-                                            a.download = `audit-${job.url.replace(/[^a-z0-9]/gi, '-')}.json`
-                                            a.click()
-                                        }}>
-                                            <Download className="h-4 w-4 mr-2" /> Export JSON
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                {/* Main Score */}
-                                <div className="grid grid-cols-4 gap-4 mb-8">
-                                    <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.seo)}`}>
-                                        <div className={`text-4xl font-bold ${getScoreColor(audit.scores.seo)}`}>
-                                            {audit.scores.seo}
-                                        </div>
-                                        <div className="text-sm font-medium mt-1">SEO Score</div>
-                                    </div>
-                                    {audit.scores.performance !== null && (
-                                        <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.performance)}`}>
-                                            <div className={`text-4xl font-bold ${getScoreColor(audit.scores.performance)}`}>
-                                                {audit.scores.performance}
-                                            </div>
-                                            <div className="text-sm font-medium mt-1">Performance</div>
-                                        </div>
-                                    )}
-                                    {audit.scores.accessibility !== null && (
-                                        <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.accessibility)}`}>
-                                            <div className={`text-4xl font-bold ${getScoreColor(audit.scores.accessibility)}`}>
-                                                {audit.scores.accessibility}
-                                            </div>
-                                            <div className="text-sm font-medium mt-1">Accessibility</div>
-                                        </div>
-                                    )}
-                                    {audit.scores.bestPractices !== null && (
-                                        <div className={`rounded-xl p-6 ${getScoreBg(audit.scores.bestPractices)}`}>
-                                            <div className={`text-4xl font-bold ${getScoreColor(audit.scores.bestPractices)}`}>
-                                                {audit.scores.bestPractices}
-                                            </div>
-                                            <div className="text-sm font-medium mt-1">Best Practices</div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Totals */}
-                                <h4 className="font-medium mb-3">Overview</h4>
-                                <div className="grid grid-cols-3 gap-4 mb-6">
-                                    <div className="border rounded-lg p-4 text-center">
-                                        <div className="text-2xl font-bold">{audit.totals.pages}</div>
-                                        <div className="text-sm text-muted-foreground">Pages Crawled</div>
-                                    </div>
-                                    <div className="border rounded-lg p-4 text-center">
-                                        <div className="text-2xl font-bold">{audit.totals.images}</div>
-                                        <div className="text-sm text-muted-foreground">Images Found</div>
-                                    </div>
-                                    <div className="border rounded-lg p-4 text-center">
-                                        <div className="text-2xl font-bold">{audit.totals.links}</div>
-                                        <div className="text-sm text-muted-foreground">Links Found</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Issues Breakdown */}
-                            <div className="bg-white rounded-xl border p-6">
-                                <h3 className="font-semibold text-lg mb-4">Issues Found</h3>
-                                <div className="space-y-2">
-                                    {audit.issues.brokenPages > 0 && (
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-red-50 rounded-lg w-full hover:bg-red-100 transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <ChevronDown className="h-4 w-4 text-red-600" />
-                                                    <span className="font-medium text-red-700">Broken Pages (4xx/5xx)</span>
-                                                </div>
-                                                <Badge variant="destructive">{audit.issues.brokenPages}</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.brokenPages.map((p, i) => (
-                                                    <div key={i} className="flex items-center justify-between text-sm py-1 px-2 bg-red-25 rounded">
-                                                        <a href={p.url} target="_blank" rel="noopener" className="text-red-700 hover:underline truncate max-w-md">{p.url}</a>
-                                                        <Badge variant="outline" className="text-red-600">{p.statusCode}</Badge>
-                                                    </div>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-                                    )}
-                                    {audit.issues.missingTitle > 0 && (
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-orange-50 rounded-lg w-full hover:bg-orange-100 transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <ChevronDown className="h-4 w-4 text-orange-600" />
-                                                    <span className="font-medium text-orange-700">Missing Title Tags</span>
-                                                </div>
-                                                <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingTitle}</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.pagesWithMissingTitle.map((p, i) => (
-                                                    <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-                                    )}
-                                    {audit.issues.missingMetaDescription > 0 && (
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-orange-50 rounded-lg w-full hover:bg-orange-100 transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <ChevronDown className="h-4 w-4 text-orange-600" />
-                                                    <span className="font-medium text-orange-700">Missing Meta Descriptions</span>
-                                                </div>
-                                                <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingMetaDescription}</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.pagesWithMissingMeta.map((p, i) => (
-                                                    <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-                                    )}
-                                    {audit.issues.missingH1 > 0 && (
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg w-full hover:bg-yellow-100 transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <ChevronDown className="h-4 w-4 text-yellow-600" />
-                                                    <span className="font-medium text-yellow-700">Missing H1 Tags</span>
-                                                </div>
-                                                <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingH1}</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.pagesWithMissingH1.map((p, i) => (
-                                                    <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-yellow-700 hover:underline truncate py-1">{p.url}</a>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-                                    )}
-                                    {audit.issues.missingAltImages > 0 && (
-                                        <div
-                                            className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
-                                            onClick={() => setActiveTab('images')}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <ImageIcon className="h-4 w-4 text-yellow-600" />
-                                                <span className="font-medium text-yellow-700">Images Missing Alt Text</span>
-                                                <span className="text-xs text-yellow-600">→ View in Images tab</span>
-                                            </div>
-                                            <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingAltImages}</Badge>
-                                        </div>
-                                    )}
-                                    {audit.issues.slowPages > 0 && (
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-blue-50 rounded-lg w-full hover:bg-blue-100 transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <ChevronDown className="h-4 w-4 text-blue-600" />
-                                                    <span className="font-medium text-blue-700">Slow Pages (&gt;3s)</span>
-                                                </div>
-                                                <Badge className="bg-blue-100 text-blue-700">{audit.issues.slowPages}</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.slowPages.map((p, i) => (
-                                                    <div key={i} className="flex items-center justify-between text-sm py-1">
-                                                        <a href={p.url} target="_blank" rel="noopener" className="text-blue-700 hover:underline truncate max-w-md">{p.url}</a>
-                                                        <span className="text-blue-600 text-xs">{(p.loadTime / 1000).toFixed(1)}s</span>
-                                                    </div>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-                                    )}
-                                    {audit.issues.thinContent > 0 && (
-                                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                                            <span className="font-medium text-slate-700">Thin Content (&lt;300 words)</span>
-                                            <Badge variant="secondary">{audit.issues.thinContent}</Badge>
-                                        </div>
-                                    )}
-                                    {Object.values(audit.issues).every(v => v === 0) && (
-                                        <div className="p-4 bg-green-50 rounded-lg text-center text-green-700">
-                                            <CheckCircle2 className="h-8 w-8 mx-auto mb-2" />
-                                            <p className="font-medium">No issues found!</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-white rounded-xl border p-12 text-center">
-                            <ClipboardCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-                            <p className="text-muted-foreground">Loading audit data...</p>
-                        </div>
-                    )}
-                </TabsContent>
-
-                {/* Pages Tab */}
-                <TabsContent value="pages" className="mt-4">
-                    {/* Filter Toolbar */}
-                    <div className="flex flex-col gap-3 mb-4 p-3 bg-slate-50 rounded-lg">
-                        {/* Status Filter Row */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground w-16">Status:</span>
-                            <div className="flex gap-1">
-                                {[
-                                    { key: 'all', label: 'All', count: pageCounts.all },
-                                    { key: '200', label: '200 OK', count: pageCounts.ok },
-                                    { key: '404', label: '404', count: pageCounts.notFound },
-                                    { key: 'error', label: 'Errors', count: pageCounts.errors }
-                                ].map(({ key, label, count }) => (
-                                    <Button
-                                        key={key}
-                                        variant={statusFilter === key ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => {
-                                            setStatusFilter(key as any)
-                                            setPagesCurrentPage(1)
-                                            fetchPages(1, key as any, urlTypeFilter)
-                                        }}
-                                    >
-                                        {label} ({count})
-                                    </Button>
-                                ))}
-                            </div>
-                            {pagesLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                        </div>
-                        {/* Type Filter Row */}
-                        <div className="flex items-center justify-between">
+                    {/* Pages Tab */}
+                    <TabsContent value="pages" className="mt-4">
+                        {/* Filter Toolbar */}
+                        <div className="flex flex-col gap-3 mb-4 p-3 bg-slate-50 rounded-lg">
+                            {/* Status Filter Row */}
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground w-16">Type:</span>
+                                <span className="text-sm text-muted-foreground w-16">Status:</span>
                                 <div className="flex gap-1">
-                                    {[
-                                        { key: 'all', label: 'All', count: pageCounts.all },
-                                        { key: 'product', label: 'Products', count: pageCounts.products },
-                                        { key: 'blog', label: 'Blog', count: pageCounts.blog },
-                                        { key: 'category', label: 'Categories', count: pageCounts.categories }
-                                    ].map(({ key, label, count }) => (
+                                    {['all', '200', '404', 'error'].map((key) => (
                                         <Button
                                             key={key}
-                                            variant={urlTypeFilter === key ? 'default' : 'outline'}
+                                            variant={statusFilter === key ? 'default' : 'outline'}
                                             size="sm"
+                                            disabled={pagesLoading}
                                             onClick={() => {
-                                                setUrlTypeFilter(key as any)
+                                                setStatusFilter(key as any)
                                                 setPagesCurrentPage(1)
-                                                fetchPages(1, statusFilter, key as any)
+                                                fetchPages(1, key as any, urlTypeFilter)
                                             }}
                                         >
-                                            {label} ({count})
+                                            {key === 'all' ? 'All' : key === '200' ? '200 OK' : key === '404' ? '404' : 'Errors'}
                                         </Button>
                                     ))}
                                 </div>
                             </div>
-                            <Button onClick={exportToScreamingFrog} variant="outline" size="sm">
-                                <Download className="h-4 w-4 mr-2" /> Export CSV
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl border overflow-hidden">
-                        <div className="max-h-[600px] overflow-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b sticky top-0 z-10">
-                                    <tr>
-                                        <th className="text-left p-3 font-medium">URL</th>
-                                        <th
-                                            className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
-                                            onClick={() => {
-                                                if (sortColumn === 'status') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                else { setSortColumn('status'); setSortDirection('asc') }
-                                            }}
-                                        >
-                                            Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th
-                                            className="text-left p-3 font-medium w-24 cursor-pointer hover:bg-slate-100"
-                                            onClick={() => {
-                                                if (sortColumn === 'loadTime') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                else { setSortColumn('loadTime'); setSortDirection('desc') }
-                                            }}
-                                        >
-                                            Load Time {sortColumn === 'loadTime' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th
-                                            className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
-                                            onClick={() => {
-                                                if (sortColumn === 'words') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                else { setSortColumn('words'); setSortDirection('desc') }
-                                            }}
-                                        >
-                                            Words {sortColumn === 'words' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th
-                                            className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
-                                            onClick={() => {
-                                                if (sortColumn === 'images') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-                                                else { setSortColumn('images'); setSortDirection('desc') }
-                                            }}
-                                        >
-                                            Images {sortColumn === 'images' && (sortDirection === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {[...pages]
-                                        .sort((a, b) => {
-                                            const dir = sortDirection === 'asc' ? 1 : -1
-                                            if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir
-                                            if (sortColumn === 'loadTime') return ((a.loadTimeMs || 0) - (b.loadTimeMs || 0)) * dir
-                                            if (sortColumn === 'words') return ((a.wordCount || 0) - (b.wordCount || 0)) * dir
-                                            if (sortColumn === 'images') return (a._count.images - b._count.images) * dir
-                                            return a.url.localeCompare(b.url) * dir
-                                        })
-                                        .map((page) => {
-                                            const blocked = applyRobotsFilter && isPathBlocked(page.url)
-                                            return (
-                                                <tr key={page.id} className={`hover:bg-slate-50 ${blocked ? 'opacity-50' : ''}`}>
-                                                    <td className="p-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <a
-                                                                href={page.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className={`text-blue-600 hover:underline truncate block max-w-md ${blocked ? 'line-through' : ''}`}
-                                                                title={page.url}
-                                                            >
-                                                                {page.url.replace(job?.url || '', '')}
-                                                            </a>
-                                                            {blocked && <Badge variant="outline" className="text-xs">robots.txt</Badge>}
-                                                        </div>
-                                                        {page.title && (
-                                                            <div className="text-xs text-muted-foreground truncate max-w-md">
-                                                                {page.title}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="p-3">
-                                                        <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
-                                                            {page.statusCode}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="p-3 text-muted-foreground">
-                                                        {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
-                                                    </td>
-                                                    <td className="p-3 text-muted-foreground">
-                                                        {page.wordCount || '-'}
-                                                    </td>
-                                                    <td className="p-3 text-muted-foreground">
-                                                        {page._count.images}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                </tbody>
-                            </table>
-                        </div>
-                        {/* Pagination */}
-                        {pagesTotalPages > 1 && (
-                            <div className="flex items-center justify-between p-3 border-t bg-slate-50">
-                                <span className="text-sm text-muted-foreground">
-                                    Page {pagesCurrentPage} of {pagesTotalPages}
-                                </span>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            const newPage = Math.max(1, pagesCurrentPage - 1)
-                                            setPagesCurrentPage(newPage)
-                                            fetchPages(newPage, statusFilter, urlTypeFilter)
-                                        }}
-                                        disabled={pagesCurrentPage === 1 || pagesLoading}
-                                    >
-                                        Previous
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            const newPage = Math.min(pagesTotalPages, pagesCurrentPage + 1)
-                                            setPagesCurrentPage(newPage)
-                                            fetchPages(newPage, statusFilter, urlTypeFilter)
-                                        }}
-                                        disabled={pagesCurrentPage >= pagesTotalPages || pagesLoading}
-                                    >
-                                        Next
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </TabsContent>
-
-                {/* Images Tab */}
-                <TabsContent value="images" className="mt-4">
-                    <div className="space-y-4">
-                        {/* Image Filter + Stats */}
-                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div className="flex items-center gap-4">
+                            {/* Type Filter Row */}
+                            <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground">Filter:</span>
+                                    <span className="text-sm text-muted-foreground w-16">Type:</span>
                                     <div className="flex gap-1">
                                         {[
-                                            { key: 'all', label: 'All', count: imageStats.uniqueImages },
-                                            { key: 'missing-alt', label: 'Missing Alt', count: imageStats.missingAlt },
-                                            { key: 'duplicates', label: 'Duplicates', count: imageStats.duplicates }
-                                        ].map(({ key, label, count }) => (
+                                            { key: 'all', label: 'All' },
+                                            { key: 'product', label: 'Products' },
+                                            { key: 'blog', label: 'Blog' },
+                                            { key: 'category', label: 'Categories' }
+                                        ].map(({ key, label }) => (
                                             <Button
                                                 key={key}
-                                                variant={imageFilter === key ? 'default' : 'outline'}
+                                                variant={urlTypeFilter === key ? 'default' : 'outline'}
                                                 size="sm"
+                                                disabled={pagesLoading}
                                                 onClick={() => {
-                                                    setImageFilter(key as any)
-                                                    setImagesCurrentPage(1)
-                                                    fetchImages(1, key as any)
+                                                    setUrlTypeFilter(key as any)
+                                                    setPagesCurrentPage(1)
+                                                    fetchPages(1, statusFilter, key as any)
                                                 }}
                                             >
-                                                {label} ({count})
+                                                {label}
                                             </Button>
                                         ))}
                                     </div>
-                                    {imagesLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                                 </div>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                                {imageStats.uniqueImages} unique / {imageStats.totalUsage} uses
+                                <Button onClick={exportToScreamingFrog} variant="outline" size="sm">
+                                    <Download className="h-4 w-4 mr-2" /> Export CSV
+                                </Button>
                             </div>
                         </div>
 
-                        {/* Images Table */}
-                        <div className="bg-white rounded-xl border overflow-hidden">
-                            <div className="max-h-[600px] overflow-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-slate-50 border-b sticky top-0">
-                                        <tr>
-                                            <th className="text-left p-3 font-medium w-16">Preview</th>
-                                            <th className="text-left p-3 font-medium">URL</th>
-                                            <th className="text-left p-3 font-medium w-32">Alt Text</th>
-                                            <th className="text-left p-3 font-medium w-48">Found on Page</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {images.map((img) => (
-                                            <tr key={img.id} className="hover:bg-slate-50">
-                                                <td className="p-3">
-                                                    <img
-                                                        src={img.url}
-                                                        alt={img.alt || ''}
-                                                        className="w-12 h-12 object-cover rounded"
-                                                        loading="lazy"
-                                                    />
-                                                </td>
-                                                <td className="p-3">
-                                                    <a
-                                                        href={img.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-blue-600 hover:underline truncate block max-w-xs"
-                                                        title={img.url}
-                                                    >
-                                                        {img.url.split('/').pop()}
-                                                    </a>
-                                                </td>
-                                                <td className="p-3">
-                                                    {img.alt ? (
-                                                        <span className="text-xs truncate block max-w-32" title={img.alt}>{img.alt}</span>
-                                                    ) : (
-                                                        <Badge variant="destructive" className="text-xs">Missing</Badge>
-                                                    )}
-                                                </td>
-                                                <td className="p-3 text-xs text-muted-foreground truncate max-w-48" title={img.page?.url}>
-                                                    {img.page?.url?.replace(/^https?:\/\/[^/]+/, '')}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                        {/* Loading Message or Table */}
+                        {pagesLoading ? (
+                            <div className="flex items-center justify-center py-16 text-muted-foreground">
+                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                <span>Loading from database...</span>
                             </div>
-                            {/* Pagination */}
-                            {imagesTotalPages > 1 && (
-                                <div className="flex items-center justify-between p-3 border-t bg-slate-50">
-                                    <span className="text-sm text-muted-foreground">
-                                        Page {imagesCurrentPage} of {imagesTotalPages}
-                                    </span>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const newPage = Math.max(1, imagesCurrentPage - 1)
-                                                setImagesCurrentPage(newPage)
-                                                fetchImages(newPage, imageFilter)
-                                            }}
-                                            disabled={imagesCurrentPage === 1 || imagesLoading}
-                                        >
-                                            Previous
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const newPage = Math.min(imagesTotalPages, imagesCurrentPage + 1)
-                                                setImagesCurrentPage(newPage)
-                                                fetchImages(newPage, imageFilter)
-                                            }}
-                                            disabled={imagesCurrentPage >= imagesTotalPages || imagesLoading}
-                                        >
-                                            Next
-                                        </Button>
+                        ) : (
+                            <div className="bg-white rounded-xl border overflow-hidden">
+                                <div className="max-h-[600px] overflow-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50 border-b sticky top-0 z-10">
+                                            <tr>
+                                                <th className="text-left p-3 font-medium">URL</th>
+                                                <th
+                                                    className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => {
+                                                        if (sortColumn === 'status') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                        else { setSortColumn('status'); setSortDirection('asc') }
+                                                    }}
+                                                >
+                                                    Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                    className="text-left p-3 font-medium w-24 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => {
+                                                        if (sortColumn === 'loadTime') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                        else { setSortColumn('loadTime'); setSortDirection('desc') }
+                                                    }}
+                                                >
+                                                    Load Time {sortColumn === 'loadTime' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                    className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => {
+                                                        if (sortColumn === 'words') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                        else { setSortColumn('words'); setSortDirection('desc') }
+                                                    }}
+                                                >
+                                                    Words {sortColumn === 'words' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                                <th
+                                                    className="text-left p-3 font-medium w-20 cursor-pointer hover:bg-slate-100"
+                                                    onClick={() => {
+                                                        if (sortColumn === 'images') setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                                                        else { setSortColumn('images'); setSortDirection('desc') }
+                                                    }}
+                                                >
+                                                    Images {sortColumn === 'images' && (sortDirection === 'asc' ? '↑' : '↓')}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {[...pages]
+                                                .sort((a, b) => {
+                                                    const dir = sortDirection === 'asc' ? 1 : -1
+                                                    if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir
+                                                    if (sortColumn === 'loadTime') return ((a.loadTimeMs || 0) - (b.loadTimeMs || 0)) * dir
+                                                    if (sortColumn === 'words') return ((a.wordCount || 0) - (b.wordCount || 0)) * dir
+                                                    if (sortColumn === 'images') return (a._count.images - b._count.images) * dir
+                                                    return a.url.localeCompare(b.url) * dir
+                                                })
+                                                .map((page) => {
+                                                    const blocked = applyRobotsFilter && isPathBlocked(page.url)
+                                                    return (
+                                                        <tr key={page.id} className={`hover:bg-slate-50 ${blocked ? 'opacity-50' : ''}`}>
+                                                            <td className="p-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <a
+                                                                        href={page.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className={`text-blue-600 hover:underline truncate block max-w-md ${blocked ? 'line-through' : ''}`}
+                                                                        title={page.url}
+                                                                    >
+                                                                        {page.url.replace(job?.url || '', '')}
+                                                                    </a>
+                                                                    {blocked && <Badge variant="outline" className="text-xs">robots.txt</Badge>}
+                                                                </div>
+                                                                {page.title && (
+                                                                    <div className="text-xs text-muted-foreground truncate max-w-md">
+                                                                        {page.title}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-3">
+                                                                <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
+                                                                    {page.statusCode}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="p-3 text-muted-foreground">
+                                                                {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
+                                                            </td>
+                                                            <td className="p-3 text-muted-foreground">
+                                                                {page.wordCount || '-'}
+                                                            </td>
+                                                            <td className="p-3 text-muted-foreground">
+                                                                {page._count.images}
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {/* Pagination */}
+                                {pagesTotalPages > 1 && (
+                                    <div className="flex items-center justify-between p-3 border-t bg-slate-50">
+                                        <span className="text-sm text-muted-foreground">
+                                            Page {pagesCurrentPage} of {pagesTotalPages}
+                                        </span>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    const newPage = Math.max(1, pagesCurrentPage - 1)
+                                                    setPagesCurrentPage(newPage)
+                                                    fetchPages(newPage, statusFilter, urlTypeFilter)
+                                                }}
+                                                disabled={pagesCurrentPage === 1 || pagesLoading}
+                                            >
+                                                Previous
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    const newPage = Math.min(pagesTotalPages, pagesCurrentPage + 1)
+                                                    setPagesCurrentPage(newPage)
+                                                    fetchPages(newPage, statusFilter, urlTypeFilter)
+                                                }}
+                                                disabled={pagesCurrentPage >= pagesTotalPages || pagesLoading}
+                                            >
+                                                Next
+                                            </Button>
+                                        </div>
                                     </div>
+                                )}
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    {/* Images Tab */}
+                    <TabsContent value="images" className="mt-4">
+                        <div className="space-y-4">
+                            {/* Image Filter */}
+                            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
+                                <span className="text-sm text-muted-foreground">Filter:</span>
+                                <div className="flex gap-1">
+                                    {['all', 'missing-alt', 'duplicates'].map((key) => (
+                                        <Button
+                                            key={key}
+                                            variant={imageFilter === key ? 'default' : 'outline'}
+                                            size="sm"
+                                            disabled={imagesLoading}
+                                            onClick={() => {
+                                                setImageFilter(key as any)
+                                                setImagesCurrentPage(1)
+                                                fetchImages(1, key as any)
+                                            }}
+                                        >
+                                            {key === 'all' ? 'All' : key === 'missing-alt' ? 'Missing Alt' : 'Duplicates'}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Loading Message or Table */}
+                            {imagesLoading ? (
+                                <div className="flex items-center justify-center py-16 text-muted-foreground">
+                                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                    <span>Loading from database...</span>
+                                </div>
+                            ) : (
+                                <div className="bg-white rounded-xl border overflow-hidden">
+                                    <div className="max-h-[600px] overflow-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-50 border-b sticky top-0">
+                                                <tr>
+                                                    <th className="text-left p-3 font-medium w-16">Preview</th>
+                                                    <th className="text-left p-3 font-medium">URL</th>
+                                                    <th className="text-left p-3 font-medium w-32">Alt Text</th>
+                                                    <th className="text-left p-3 font-medium w-48">Found on Page</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {images.map((img) => (
+                                                    <tr key={img.id} className="hover:bg-slate-50">
+                                                        <td className="p-3">
+                                                            <img
+                                                                src={img.url}
+                                                                alt={img.alt || ''}
+                                                                className="w-12 h-12 object-cover rounded"
+                                                                loading="lazy"
+                                                            />
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <a
+                                                                href={img.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-blue-600 hover:underline truncate block max-w-xs"
+                                                                title={img.url}
+                                                            >
+                                                                {img.url.split('/').pop()}
+                                                            </a>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {img.alt ? (
+                                                                <span className="text-xs truncate block max-w-32" title={img.alt}>{img.alt}</span>
+                                                            ) : (
+                                                                <Badge variant="destructive" className="text-xs">Missing</Badge>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3 text-xs text-muted-foreground truncate max-w-48" title={img.page?.url}>
+                                                            {img.page?.url?.replace(/^https?:\/\/[^/]+/, '')}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {/* Pagination */}
+                                    {imagesTotalPages > 1 && (
+                                        <div className="flex items-center justify-between p-3 border-t bg-slate-50">
+                                            <span className="text-sm text-muted-foreground">
+                                                Page {imagesCurrentPage} of {imagesTotalPages}
+                                            </span>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const newPage = Math.max(1, imagesCurrentPage - 1)
+                                                        setImagesCurrentPage(newPage)
+                                                        fetchImages(newPage, imageFilter)
+                                                    }}
+                                                    disabled={imagesCurrentPage === 1 || imagesLoading}
+                                                >
+                                                    Previous
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const newPage = Math.min(imagesTotalPages, imagesCurrentPage + 1)
+                                                        setImagesCurrentPage(newPage)
+                                                        fetchImages(newPage, imageFilter)
+                                                    }}
+                                                    disabled={imagesCurrentPage >= imagesTotalPages || imagesLoading}
+                                                >
+                                                    Next
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
-                    </div>
-                </TabsContent>
+                    </TabsContent>
 
-                {/* Logs Tab */}
-                <TabsContent value="logs" className="mt-4">
-                    <div className="bg-white rounded-xl border overflow-hidden">
-                        <div className="divide-y max-h-[500px] overflow-auto">
-                            {logs.map((log) => (
-                                <div key={log.id} className="p-3 text-sm font-mono">
-                                    <div className="flex items-center gap-2">
-                                        <Badge
-                                            variant={log.level === 'error' ? 'destructive' : log.level === 'warn' ? 'secondary' : 'outline'}
-                                            className="text-xs uppercase"
-                                        >
-                                            {log.level}
-                                        </Badge>
-                                        <span className="text-muted-foreground text-xs">
-                                            {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
-                                        </span>
-                                    </div>
-                                    <p className="mt-1">{log.message}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </TabsContent>
-
-                {/* Speed Tab */}
-                <TabsContent value="speed" className="mt-4">
-                    <div className="bg-white rounded-xl border p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="font-semibold text-lg">PageSpeed Insights</h3>
-                            <Button onClick={runPageSpeedTest} disabled={runningPageSpeed}>
-                                {runningPageSpeed ? (
-                                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Running...</>
-                                ) : (
-                                    <><Play className="h-4 w-4 mr-2" /> Run Test</>
-                                )}
-                            </Button>
-                        </div>
-
-                        {pageSpeed ? (
-                            <>
-                                {/* Scores with Circular Progress */}
-                                <div className="grid grid-cols-4 gap-6 mb-8">
-                                    {[
-                                        { score: pageSpeed.performanceScore, label: 'Performance', desc: 'Page load speed and responsiveness' },
-                                        { score: pageSpeed.accessibilityScore, label: 'Accessibility', desc: 'Screen readers & keyboard nav' },
-                                        { score: pageSpeed.seoScore, label: 'SEO', desc: 'Search engine optimization' },
-                                        { score: pageSpeed.bestPracticesScore, label: 'Best Practices', desc: 'Security & code quality' }
-                                    ].map((item, i) => (
-                                        <div key={i} className="text-center">
-                                            <div className="relative w-24 h-24 mx-auto mb-2">
-                                                {/* Background circle */}
-                                                <svg className="w-24 h-24 transform -rotate-90">
-                                                    <circle cx="48" cy="48" r="40" stroke="#e5e5e5" strokeWidth="8" fill="none" />
-                                                    <circle
-                                                        cx="48" cy="48" r="40"
-                                                        stroke={item.score >= 90 ? '#22c55e' : item.score >= 50 ? '#f97316' : '#ef4444'}
-                                                        strokeWidth="8"
-                                                        fill="none"
-                                                        strokeDasharray={`${item.score * 2.51} 251`}
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                                <div className={`absolute inset-0 flex items-center justify-center text-2xl font-bold ${getScoreColor(item.score)}`}>
-                                                    {item.score}
-                                                </div>
-                                            </div>
-                                            <div className="font-medium">{item.label}</div>
-                                            <div className="text-xs text-muted-foreground">{item.desc}</div>
+                    {/* Logs Tab */}
+                    <TabsContent value="logs" className="mt-4">
+                        <div className="bg-white rounded-xl border overflow-hidden">
+                            <div className="divide-y max-h-[500px] overflow-auto">
+                                {logs.map((log) => (
+                                    <div key={log.id} className="p-3 text-sm font-mono">
+                                        <div className="flex items-center gap-2">
+                                            <Badge
+                                                variant={log.level === 'error' ? 'destructive' : log.level === 'warn' ? 'secondary' : 'outline'}
+                                                className="text-xs uppercase"
+                                            >
+                                                {log.level}
+                                            </Badge>
+                                            <span className="text-muted-foreground text-xs">
+                                                {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
-
-                                {/* Core Web Vitals */}
-                                <h4 className="font-medium mb-4">Core Web Vitals</h4>
-                                <div className="grid grid-cols-3 gap-4 mb-6">
-                                    <div className="border rounded-lg p-4">
-                                        <div className={`text-2xl font-bold ${pageSpeed.lcp <= 2500 ? 'text-green-600' : pageSpeed.lcp <= 4000 ? 'text-orange-500' : 'text-red-600'}`}>
-                                            {(pageSpeed.lcp / 1000).toFixed(2)}s
-                                        </div>
-                                        <div className="text-sm font-medium">LCP (Largest Contentful Paint)</div>
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            {pageSpeed.lcp <= 2500 ? '✓ Good' : pageSpeed.lcp <= 4000 ? '⚠ Needs Improvement' : '✗ Poor'}
-                                            <span className="ml-1 opacity-75">(&lt;2.5s is good)</span>
-                                        </div>
+                                        <p className="mt-1">{log.message}</p>
                                     </div>
-                                    <div className="border rounded-lg p-4">
-                                        <div className={`text-2xl font-bold ${pageSpeed.fid <= 100 ? 'text-green-600' : pageSpeed.fid <= 300 ? 'text-orange-500' : 'text-red-600'}`}>
-                                            {pageSpeed.fid.toFixed(0)}ms
-                                        </div>
-                                        <div className="text-sm font-medium">FID (First Input Delay)</div>
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            {pageSpeed.fid <= 100 ? '✓ Good' : pageSpeed.fid <= 300 ? '⚠ Needs Improvement' : '✗ Poor'}
-                                            <span className="ml-1 opacity-75">(&lt;100ms is good)</span>
-                                        </div>
-                                    </div>
-                                    <div className="border rounded-lg p-4">
-                                        <div className={`text-2xl font-bold ${pageSpeed.cls <= 0.1 ? 'text-green-600' : pageSpeed.cls <= 0.25 ? 'text-orange-500' : 'text-red-600'}`}>
-                                            {pageSpeed.cls.toFixed(3)}
-                                        </div>
-                                        <div className="text-sm font-medium">CLS (Cumulative Layout Shift)</div>
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            {pageSpeed.cls <= 0.1 ? '✓ Good' : pageSpeed.cls <= 0.25 ? '⚠ Needs Improvement' : '✗ Poor'}
-                                            <span className="ml-1 opacity-75">(&lt;0.1 is good)</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Other Metrics */}
-                                <h4 className="font-medium mb-4">Other Metrics</h4>
-                                <div className="grid grid-cols-4 gap-4">
-                                    <div className="border rounded-lg p-3 text-center">
-                                        <div className="font-semibold">{(pageSpeed.fcp / 1000).toFixed(2)}s</div>
-                                        <div className="text-xs text-muted-foreground">First Contentful Paint</div>
-                                    </div>
-                                    <div className="border rounded-lg p-3 text-center">
-                                        <div className="font-semibold">{pageSpeed.tbt.toFixed(0)}ms</div>
-                                        <div className="text-xs text-muted-foreground">Total Blocking Time</div>
-                                    </div>
-                                    <div className="border rounded-lg p-3 text-center">
-                                        <div className="font-semibold">{(pageSpeed.tti / 1000).toFixed(2)}s</div>
-                                        <div className="text-xs text-muted-foreground">Time to Interactive</div>
-                                    </div>
-                                    <div className="border rounded-lg p-3 text-center">
-                                        <div className="font-semibold">{(pageSpeed.speedIndex / 1000).toFixed(2)}s</div>
-                                        <div className="text-xs text-muted-foreground">Speed Index</div>
-                                    </div>
-                                </div>
-
-                                <p className="text-xs text-muted-foreground mt-6">
-                                    Last tested: {formatDistanceToNow(new Date(pageSpeed.fetchedAt), { addSuffix: true })}
-                                </p>
-                            </>
-                        ) : (
-                            <div className="text-center py-12">
-                                <Gauge className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-                                <p className="text-muted-foreground">No PageSpeed data yet</p>
-                                <p className="text-sm text-muted-foreground mt-1">Click "Run Test" to analyze this site&apos;s performance</p>
+                                ))}
                             </div>
-                        )}
-                    </div>
-                </TabsContent>
-            </Tabs>
-        </div>
+                        </div>
+                    </TabsContent>
+
+                    {/* Speed Tab */}
+                    <TabsContent value="speed" className="mt-4">
+                        <div className="bg-white rounded-xl border p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="font-semibold text-lg">PageSpeed Insights</h3>
+                                <Button onClick={runPageSpeedTest} disabled={runningPageSpeed}>
+                                    {runningPageSpeed ? (
+                                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Running...</>
+                                    ) : (
+                                        <><Play className="h-4 w-4 mr-2" /> Run Test</>
+                                    )}
+                                </Button>
+                            </div>
+
+                            {pageSpeed ? (
+                                <>
+                                    {/* Scores with Circular Progress */}
+                                    <div className="grid grid-cols-4 gap-6 mb-8">
+                                        {[
+                                            { score: pageSpeed.performanceScore, label: 'Performance', desc: 'Page load speed and responsiveness' },
+                                            { score: pageSpeed.accessibilityScore, label: 'Accessibility', desc: 'Screen readers & keyboard nav' },
+                                            { score: pageSpeed.seoScore, label: 'SEO', desc: 'Search engine optimization' },
+                                            { score: pageSpeed.bestPracticesScore, label: 'Best Practices', desc: 'Security & code quality' }
+                                        ].map((item, i) => (
+                                            <div key={i} className="text-center">
+                                                <div className="relative w-24 h-24 mx-auto mb-2">
+                                                    {/* Background circle */}
+                                                    <svg className="w-24 h-24 transform -rotate-90">
+                                                        <circle cx="48" cy="48" r="40" stroke="#e5e5e5" strokeWidth="8" fill="none" />
+                                                        <circle
+                                                            cx="48" cy="48" r="40"
+                                                            stroke={item.score >= 90 ? '#22c55e' : item.score >= 50 ? '#f97316' : '#ef4444'}
+                                                            strokeWidth="8"
+                                                            fill="none"
+                                                            strokeDasharray={`${item.score * 2.51} 251`}
+                                                            strokeLinecap="round"
+                                                        />
+                                                    </svg>
+                                                    <div className={`absolute inset-0 flex items-center justify-center text-2xl font-bold ${getScoreColor(item.score)}`}>
+                                                        {item.score}
+                                                    </div>
+                                                </div>
+                                                <div className="font-medium">{item.label}</div>
+                                                <div className="text-xs text-muted-foreground">{item.desc}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Core Web Vitals */}
+                                    <h4 className="font-medium mb-4">Core Web Vitals</h4>
+                                    <div className="grid grid-cols-3 gap-4 mb-6">
+                                        <div className="border rounded-lg p-4">
+                                            <div className={`text-2xl font-bold ${pageSpeed.lcp <= 2500 ? 'text-green-600' : pageSpeed.lcp <= 4000 ? 'text-orange-500' : 'text-red-600'}`}>
+                                                {(pageSpeed.lcp / 1000).toFixed(2)}s
+                                            </div>
+                                            <div className="text-sm font-medium">LCP (Largest Contentful Paint)</div>
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                                {pageSpeed.lcp <= 2500 ? '✓ Good' : pageSpeed.lcp <= 4000 ? '⚠ Needs Improvement' : '✗ Poor'}
+                                                <span className="ml-1 opacity-75">(&lt;2.5s is good)</span>
+                                            </div>
+                                        </div>
+                                        <div className="border rounded-lg p-4">
+                                            <div className={`text-2xl font-bold ${pageSpeed.fid <= 100 ? 'text-green-600' : pageSpeed.fid <= 300 ? 'text-orange-500' : 'text-red-600'}`}>
+                                                {pageSpeed.fid.toFixed(0)}ms
+                                            </div>
+                                            <div className="text-sm font-medium">FID (First Input Delay)</div>
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                                {pageSpeed.fid <= 100 ? '✓ Good' : pageSpeed.fid <= 300 ? '⚠ Needs Improvement' : '✗ Poor'}
+                                                <span className="ml-1 opacity-75">(&lt;100ms is good)</span>
+                                            </div>
+                                        </div>
+                                        <div className="border rounded-lg p-4">
+                                            <div className={`text-2xl font-bold ${pageSpeed.cls <= 0.1 ? 'text-green-600' : pageSpeed.cls <= 0.25 ? 'text-orange-500' : 'text-red-600'}`}>
+                                                {pageSpeed.cls.toFixed(3)}
+                                            </div>
+                                            <div className="text-sm font-medium">CLS (Cumulative Layout Shift)</div>
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                                {pageSpeed.cls <= 0.1 ? '✓ Good' : pageSpeed.cls <= 0.25 ? '⚠ Needs Improvement' : '✗ Poor'}
+                                                <span className="ml-1 opacity-75">(&lt;0.1 is good)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Other Metrics */}
+                                    <h4 className="font-medium mb-4">Other Metrics</h4>
+                                    <div className="grid grid-cols-4 gap-4">
+                                        <div className="border rounded-lg p-3 text-center">
+                                            <div className="font-semibold">{(pageSpeed.fcp / 1000).toFixed(2)}s</div>
+                                            <div className="text-xs text-muted-foreground">First Contentful Paint</div>
+                                        </div>
+                                        <div className="border rounded-lg p-3 text-center">
+                                            <div className="font-semibold">{pageSpeed.tbt.toFixed(0)}ms</div>
+                                            <div className="text-xs text-muted-foreground">Total Blocking Time</div>
+                                        </div>
+                                        <div className="border rounded-lg p-3 text-center">
+                                            <div className="font-semibold">{(pageSpeed.tti / 1000).toFixed(2)}s</div>
+                                            <div className="text-xs text-muted-foreground">Time to Interactive</div>
+                                        </div>
+                                        <div className="border rounded-lg p-3 text-center">
+                                            <div className="font-semibold">{(pageSpeed.speedIndex / 1000).toFixed(2)}s</div>
+                                            <div className="text-xs text-muted-foreground">Speed Index</div>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-xs text-muted-foreground mt-6">
+                                        Last tested: {formatDistanceToNow(new Date(pageSpeed.fetchedAt), { addSuffix: true })}
+                                    </p>
+                                </>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <Gauge className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
+                                    <p className="text-muted-foreground">No PageSpeed data yet</p>
+                                    <p className="text-sm text-muted-foreground mt-1">Click "Run Test" to analyze this site&apos;s performance</p>
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </div>
+        </div >
     )
 }

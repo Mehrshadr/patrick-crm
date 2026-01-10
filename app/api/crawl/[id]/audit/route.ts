@@ -129,11 +129,8 @@ export async function GET(
                 slowPages: pages.filter(p => p.loadTimeMs && p.loadTimeMs > 3000)
                     .map(p => ({ url: p.url, loadTime: p.loadTimeMs })),
                 brokenPages: pages.filter(p => p.statusCode >= 400)
-                    .map(p => ({ url: p.url, statusCode: p.statusCode })),
-                imagesWithMissingAlt: pages.flatMap(p =>
-                    p.images.filter(img => !img.alt)
-                        .map(img => ({ imageUrl: img.url, pageUrl: p.url }))
-                ).slice(0, 50) // Limit to 50
+                    .map(p => ({ url: p.url, statusCode: p.statusCode }))
+                // imagesWithMissingAlt removed - UI now links to Images tab
             }
         }
 

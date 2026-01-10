@@ -312,68 +312,57 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     }
 
     return (
-        <div className="p-6 max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="mb-6">
-                <Link href="/crawllab" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
-                    <ArrowLeft className="h-4 w-4 mr-1" />
-                    Back to CrawlLab
-                </Link>
-
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-3">
-                            <Globe className="h-6 w-6 text-blue-600" />
-                            {new URL(job.url).hostname}
-                        </h1>
-                        <p className="text-muted-foreground text-sm mt-1">{job.url}</p>
+        <div className="p-6">
+            {/* Compact Header - like Link Building */}
+            <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                <div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Link href="/crawllab" className="hover:text-foreground flex items-center gap-1">
+                            CrawlLab
+                        </Link>
+                        <span>/</span>
+                        <span className="text-foreground font-medium">{new URL(job.url).hostname}</span>
+                        {getStatusBadge(job.status)}
                     </div>
-                    {getStatusBadge(job.status)}
+                    <p className="text-xs text-muted-foreground mt-1">{job.url}</p>
                 </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-4 mt-6">
-                    <div className="bg-white rounded-lg border p-4">
-                        <div className="text-2xl font-bold">{job.crawledPages}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <FileText className="h-3.5 w-3.5" /> Pages
-                        </div>
+                {/* Inline Stats */}
+                <div className="flex items-center gap-6 text-sm">
+                    <div className="flex items-center gap-1.5">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold">{job.crawledPages}</span>
+                        <span className="text-muted-foreground">pages</span>
                     </div>
-                    <div className="bg-white rounded-lg border p-4">
-                        <div className="text-2xl font-bold">{job.imageCount}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <ImageIcon className="h-3.5 w-3.5" /> Images
-                        </div>
+                    <div className="flex items-center gap-1.5">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold">{job.imageCount}</span>
+                        <span className="text-muted-foreground">images</span>
                     </div>
-                    <div className="bg-white rounded-lg border p-4">
-                        <div className="text-2xl font-bold">{job.linkCount}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Link2 className="h-3.5 w-3.5" /> Links
-                        </div>
+                    <div className="flex items-center gap-1.5">
+                        <Link2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold">{job.linkCount}</span>
+                        <span className="text-muted-foreground">links</span>
                     </div>
-                    <div className="bg-white rounded-lg border p-4">
-                        <div className="text-2xl font-bold text-orange-600">{imageStats.missingAlt}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <AlertTriangle className="h-3.5 w-3.5" /> Missing Alt
+                    {imageStats.missingAlt > 0 && (
+                        <div className="flex items-center gap-1.5 text-orange-600">
+                            <AlertTriangle className="h-4 w-4" />
+                            <span className="font-semibold">{imageStats.missingAlt}</span>
+                            <span>missing alt</span>
                         </div>
-                    </div>
+                    )}
+                    {/* Progress */}
+                    {job.status === 'running' && job.totalPages && (
+                        <div className="flex items-center gap-2 ml-auto">
+                            <div className="bg-blue-100 rounded-full h-2 w-32 overflow-hidden">
+                                <div
+                                    className="bg-blue-600 h-2 transition-all"
+                                    style={{ width: `${(job.crawledPages / job.totalPages) * 100}%` }}
+                                />
+                            </div>
+                            <span className="text-xs text-muted-foreground">{Math.round((job.crawledPages / job.totalPages) * 100)}%</span>
+                        </div>
+                    )}
                 </div>
-
-                {/* Progress */}
-                {job.status === 'running' && job.totalPages && (
-                    <div className="mt-4">
-                        <div className="flex items-center justify-between text-sm mb-1">
-                            <span>Progress</span>
-                            <span>{Math.round((job.crawledPages / job.totalPages) * 100)}%</span>
-                        </div>
-                        <div className="bg-blue-100 rounded-full h-3 overflow-hidden">
-                            <div
-                                className="bg-blue-600 h-3 transition-all"
-                                style={{ width: `${(job.crawledPages / job.totalPages) * 100}%` }}
-                            />
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Tabs */}
@@ -485,13 +474,12 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                                 <Badge variant="destructive">{audit.issues.brokenPages}</Badge>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.brokenPages.slice(0, 15).map((p, i) => (
+                                                {audit.issueDetails?.brokenPages.map((p, i) => (
                                                     <div key={i} className="flex items-center justify-between text-sm py-1 px-2 bg-red-25 rounded">
                                                         <a href={p.url} target="_blank" rel="noopener" className="text-red-700 hover:underline truncate max-w-md">{p.url}</a>
                                                         <Badge variant="outline" className="text-red-600">{p.statusCode}</Badge>
                                                     </div>
                                                 ))}
-                                                {audit.issues.brokenPages > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.brokenPages - 15} more</p>}
                                             </CollapsibleContent>
                                         </Collapsible>
                                     )}
@@ -505,10 +493,9 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                                 <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingTitle}</Badge>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.pagesWithMissingTitle.slice(0, 15).map((p, i) => (
+                                                {audit.issueDetails?.pagesWithMissingTitle.map((p, i) => (
                                                     <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
                                                 ))}
-                                                {audit.issues.missingTitle > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingTitle - 15} more</p>}
                                             </CollapsibleContent>
                                         </Collapsible>
                                     )}
@@ -522,10 +509,9 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                                 <Badge className="bg-orange-100 text-orange-700">{audit.issues.missingMetaDescription}</Badge>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.pagesWithMissingMeta.slice(0, 15).map((p, i) => (
+                                                {audit.issueDetails?.pagesWithMissingMeta.map((p, i) => (
                                                     <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-orange-700 hover:underline truncate py-1">{p.url}</a>
                                                 ))}
-                                                {audit.issues.missingMetaDescription > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingMetaDescription - 15} more</p>}
                                             </CollapsibleContent>
                                         </Collapsible>
                                     )}
@@ -539,32 +525,24 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                                 <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingH1}</Badge>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.pagesWithMissingH1.slice(0, 15).map((p, i) => (
+                                                {audit.issueDetails?.pagesWithMissingH1.map((p, i) => (
                                                     <a key={i} href={p.url} target="_blank" rel="noopener" className="block text-sm text-yellow-700 hover:underline truncate py-1">{p.url}</a>
                                                 ))}
-                                                {audit.issues.missingH1 > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingH1 - 15} more</p>}
                                             </CollapsibleContent>
                                         </Collapsible>
                                     )}
                                     {audit.issues.missingAltImages > 0 && (
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg w-full hover:bg-yellow-100 transition-colors">
-                                                <div className="flex items-center gap-2">
-                                                    <ChevronDown className="h-4 w-4 text-yellow-600" />
-                                                    <span className="font-medium text-yellow-700">Images Missing Alt Text</span>
-                                                </div>
-                                                <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingAltImages}</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.imagesWithMissingAlt.slice(0, 15).map((img, i) => (
-                                                    <div key={i} className="text-sm py-1">
-                                                        <a href={img.imageUrl} target="_blank" rel="noopener" className="text-yellow-700 hover:underline truncate block">{img.imageUrl.split('/').pop()}</a>
-                                                        <span className="text-xs text-muted-foreground">on {img.pageUrl}</span>
-                                                    </div>
-                                                ))}
-                                                {audit.issues.missingAltImages > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.missingAltImages - 15} more</p>}
-                                            </CollapsibleContent>
-                                        </Collapsible>
+                                        <div
+                                            className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
+                                            onClick={() => setActiveTab('images')}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <ImageIcon className="h-4 w-4 text-yellow-600" />
+                                                <span className="font-medium text-yellow-700">Images Missing Alt Text</span>
+                                                <span className="text-xs text-yellow-600">→ View in Images tab</span>
+                                            </div>
+                                            <Badge className="bg-yellow-100 text-yellow-700">{audit.issues.missingAltImages}</Badge>
+                                        </div>
                                     )}
                                     {audit.issues.slowPages > 0 && (
                                         <Collapsible>
@@ -576,13 +554,12 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                                 <Badge className="bg-blue-100 text-blue-700">{audit.issues.slowPages}</Badge>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent className="mt-2 ml-6 space-y-1 max-h-60 overflow-y-auto">
-                                                {audit.issueDetails?.slowPages.slice(0, 15).map((p, i) => (
+                                                {audit.issueDetails?.slowPages.map((p, i) => (
                                                     <div key={i} className="flex items-center justify-between text-sm py-1">
                                                         <a href={p.url} target="_blank" rel="noopener" className="text-blue-700 hover:underline truncate max-w-md">{p.url}</a>
                                                         <span className="text-blue-600 text-xs">{(p.loadTime / 1000).toFixed(1)}s</span>
                                                     </div>
                                                 ))}
-                                                {audit.issues.slowPages > 15 && <p className="text-xs text-muted-foreground pt-2">+{audit.issues.slowPages - 15} more</p>}
                                             </CollapsibleContent>
                                         </Collapsible>
                                     )}

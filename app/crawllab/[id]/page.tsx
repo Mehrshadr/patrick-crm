@@ -940,16 +940,34 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                 <h4 className="font-medium mb-4">Core Web Vitals</h4>
                                 <div className="grid grid-cols-3 gap-4 mb-6">
                                     <div className="border rounded-lg p-4">
-                                        <div className="text-2xl font-bold">{(pageSpeed.lcp / 1000).toFixed(2)}s</div>
-                                        <div className="text-sm text-muted-foreground">LCP (Largest Contentful Paint)</div>
+                                        <div className={`text-2xl font-bold ${pageSpeed.lcp <= 2500 ? 'text-green-600' : pageSpeed.lcp <= 4000 ? 'text-orange-500' : 'text-red-600'}`}>
+                                            {(pageSpeed.lcp / 1000).toFixed(2)}s
+                                        </div>
+                                        <div className="text-sm font-medium">LCP (Largest Contentful Paint)</div>
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                            {pageSpeed.lcp <= 2500 ? '✓ Good' : pageSpeed.lcp <= 4000 ? '⚠ Needs Improvement' : '✗ Poor'}
+                                            <span className="ml-1 opacity-75">(&lt;2.5s is good)</span>
+                                        </div>
                                     </div>
                                     <div className="border rounded-lg p-4">
-                                        <div className="text-2xl font-bold">{pageSpeed.fid.toFixed(0)}ms</div>
-                                        <div className="text-sm text-muted-foreground">FID (First Input Delay)</div>
+                                        <div className={`text-2xl font-bold ${pageSpeed.fid <= 100 ? 'text-green-600' : pageSpeed.fid <= 300 ? 'text-orange-500' : 'text-red-600'}`}>
+                                            {pageSpeed.fid.toFixed(0)}ms
+                                        </div>
+                                        <div className="text-sm font-medium">FID (First Input Delay)</div>
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                            {pageSpeed.fid <= 100 ? '✓ Good' : pageSpeed.fid <= 300 ? '⚠ Needs Improvement' : '✗ Poor'}
+                                            <span className="ml-1 opacity-75">(&lt;100ms is good)</span>
+                                        </div>
                                     </div>
                                     <div className="border rounded-lg p-4">
-                                        <div className="text-2xl font-bold">{pageSpeed.cls.toFixed(3)}</div>
-                                        <div className="text-sm text-muted-foreground">CLS (Cumulative Layout Shift)</div>
+                                        <div className={`text-2xl font-bold ${pageSpeed.cls <= 0.1 ? 'text-green-600' : pageSpeed.cls <= 0.25 ? 'text-orange-500' : 'text-red-600'}`}>
+                                            {pageSpeed.cls.toFixed(3)}
+                                        </div>
+                                        <div className="text-sm font-medium">CLS (Cumulative Layout Shift)</div>
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                            {pageSpeed.cls <= 0.1 ? '✓ Good' : pageSpeed.cls <= 0.25 ? '⚠ Needs Improvement' : '✗ Poor'}
+                                            <span className="ml-1 opacity-75">(&lt;0.1 is good)</span>
+                                        </div>
                                     </div>
                                 </div>
 

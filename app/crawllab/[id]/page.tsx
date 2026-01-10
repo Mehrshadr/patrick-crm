@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -190,6 +190,16 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
         if (activeTab === 'logs') fetchLogs()
         if (activeTab === 'speed') fetchPageSpeed()
     }, [activeTab, jobId])
+
+    // Compute duplicate filenames for image duplicate detection
+    const duplicateFilenames = useMemo(() => {
+        const filenameCount = new Map<string, number>()
+        images.forEach(img => {
+            const filename = img.url.split('/').pop() || ''
+            filenameCount.set(filename, (filenameCount.get(filename) || 0) + 1)
+        })
+        return filenameCount
+    }, [images])
 
     const fetchJob = async () => {
         try {
@@ -808,8 +818,13 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                         </div>
                                         <div className="p-3">
                                             {!img.alt && (
-                                                <Badge variant="destructive" className="mb-2 text-xs">
+                                                <Badge variant="destructive" className="mb-2 text-xs mr-1">
                                                     Missing Alt
+                                                </Badge>
+                                            )}
+                                            {duplicateFilenames.get(img.url.split('/').pop() || '') && (duplicateFilenames.get(img.url.split('/').pop() || '') || 0) > 1 && (
+                                                <Badge variant="outline" className="mb-2 text-xs text-purple-600">
+                                                    Duplicate
                                                 </Badge>
                                             )}
                                             <p className="text-xs text-muted-foreground truncate" title={img.url}>

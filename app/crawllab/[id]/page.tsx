@@ -155,15 +155,27 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     const [sortColumn, setSortColumn] = useState<string>("url")
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
-    // Robots.txt filter state
+    // Robots.txt filter state - persisted in localStorage
     const [robotsData, setRobotsData] = useState<{
         userAgents: { [agent: string]: { type: string; path: string }[] }
         sitemaps: string[]
         disallowedPaths: string[]
         error?: string
     } | null>(null)
-    const [applyRobotsFilter, setApplyRobotsFilter] = useState(false)
+    const [applyRobotsFilter, setApplyRobotsFilter] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(`robotsFilter-${jobId}`) === 'true'
+        }
+        return false
+    })
     const [robotsLoading, setRobotsLoading] = useState(false)
+
+    // Persist robots filter state
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(`robotsFilter-${jobId}`, applyRobotsFilter.toString())
+        }
+    }, [applyRobotsFilter, jobId])
 
     useEffect(() => {
         fetchJob()
@@ -428,27 +440,6 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                 </div>
             </div>
 
-            {/* Robots.txt Filter Toggle */}
-            <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                    <Switch
-                        checked={applyRobotsFilter}
-                        onCheckedChange={setApplyRobotsFilter}
-                        disabled={robotsLoading}
-                    />
-                    <span className="text-sm font-medium">Apply robots.txt rules</span>
-                    {robotsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                </div>
-                {applyRobotsFilter && robotsData && (
-                    <div className="text-xs text-muted-foreground">
-                        {robotsData.disallowedPaths.length} disallowed paths found
-                    </div>
-                )}
-                {robotsData?.error && (
-                    <span className="text-xs text-orange-600">{robotsData.error}</span>
-                )}
-            </div>
-
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
@@ -480,16 +471,31 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                             <div className="bg-white rounded-xl border p-6">
                                 <div className="flex items-center justify-between mb-6">
                                     <h3 className="font-semibold text-lg">SEO Audit Summary</h3>
-                                    <Button variant="outline" size="sm" onClick={() => {
-                                        const blob = new Blob([JSON.stringify(audit, null, 2)], { type: 'application/json' })
-                                        const url = URL.createObjectURL(blob)
-                                        const a = document.createElement('a')
-                                        a.href = url
-                                        a.download = `audit-${job.url.replace(/[^a-z0-9]/gi, '-')}.json`
-                                        a.click()
-                                    }}>
-                                        <Download className="h-4 w-4 mr-2" /> Export JSON
-                                    </Button>
+                                    <div className="flex items-center gap-4">
+                                        {/* robots.txt toggle */}
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Switch
+                                                checked={applyRobotsFilter}
+                                                onCheckedChange={setApplyRobotsFilter}
+                                                disabled={robotsLoading}
+                                            />
+                                            <span className="text-muted-foreground">robots.txt</span>
+                                            {robotsLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+                                            {applyRobotsFilter && robotsData && (
+                                                <Badge variant="outline" className="text-xs">{robotsData.disallowedPaths.length} blocked</Badge>
+                                            )}
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={() => {
+                                            const blob = new Blob([JSON.stringify(audit, null, 2)], { type: 'application/json' })
+                                            const url = URL.createObjectURL(blob)
+                                            const a = document.createElement('a')
+                                            a.href = url
+                                            a.download = `audit-${job.url.replace(/[^a-z0-9]/gi, '-')}.json`
+                                            a.click()
+                                        }}>
+                                            <Download className="h-4 w-4 mr-2" /> Export JSON
+                                        </Button>
+                                    </div>
                                 </div>
 
                                 {/* Main Score */}

@@ -143,13 +143,17 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     const [pageSpeed, setPageSpeed] = useState<PageSpeedData | null>(null)
     const [audit, setAudit] = useState<AuditData | null>(null)
     const [runningPageSpeed, setRunningPageSpeed] = useState(false)
-    const [imageStats, setImageStats] = useState({ total: 0, missingAlt: 0 })
+    const [imageStats, setImageStats] = useState({ totalUsage: 0, uniqueImages: 0, missingAlt: 0, duplicates: 0 })
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState("audit")
 
     // Pagination state
     const [pagesCurrentPage, setPagesCurrentPage] = useState(1)
     const [imagesCurrentPage, setImagesCurrentPage] = useState(1)
+    const [pagesTotalPages, setPagesTotalPages] = useState(1)
+    const [imagesTotalPages, setImagesTotalPages] = useState(1)
+    const [pagesLoading, setPagesLoading] = useState(false)
+    const [imagesLoading, setImagesLoading] = useState(false)
     const ITEMS_PER_PAGE = 25
 
     // Sorting state for Pages tab
@@ -161,6 +165,12 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
 
     // URL type filter state for Pages tab
     const [urlTypeFilter, setUrlTypeFilter] = useState<"all" | "product" | "blog" | "category" | "page">("all")
+
+    // Status code filter state
+    const [statusFilter, setStatusFilter] = useState<"all" | "200" | "404" | "error">("all")
+
+    // Server-side counts for filter badges
+    const [pageCounts, setPageCounts] = useState({ all: 0, ok: 0, notFound: 0, errors: 0, products: 0, blog: 0, categories: 0 })
 
     // Robots.txt filter state - persisted in localStorage
     const [robotsData, setRobotsData] = useState<{
@@ -234,28 +244,50 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
         }
     }
 
-    const fetchPages = async () => {
+    const fetchPages = async (page = 1, status = statusFilter, urlType = urlTypeFilter) => {
+        setPagesLoading(true)
         try {
-            const res = await fetch(`/api/crawl/${jobId}/pages`)
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: ITEMS_PER_PAGE.toString()
+            })
+            if (status !== 'all') params.set('statusCode', status)
+            if (urlType !== 'all') params.set('urlType', urlType)
+
+            const res = await fetch(`/api/crawl/${jobId}/pages?${params}`)
             const data = await res.json()
             if (data.success) {
                 setPages(data.pages)
+                setPagesTotalPages(data.totalPages)
+                if (data.counts) setPageCounts(data.counts)
             }
         } catch (e) {
             console.error('Failed to fetch pages', e)
+        } finally {
+            setPagesLoading(false)
         }
     }
 
-    const fetchImages = async () => {
+    const fetchImages = async (page = 1, filter = imageFilter) => {
+        setImagesLoading(true)
         try {
-            const res = await fetch(`/api/crawl/${jobId}/images`)
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: ITEMS_PER_PAGE.toString(),
+                filter: filter
+            })
+
+            const res = await fetch(`/api/crawl/${jobId}/images?${params}`)
             const data = await res.json()
             if (data.success) {
                 setImages(data.images)
-                setImageStats(data.stats)
+                setImagesTotalPages(data.totalPages)
+                if (data.stats) setImageStats(data.stats)
             }
         } catch (e) {
             console.error('Failed to fetch images', e)
+        } finally {
+            setImagesLoading(false)
         }
     }
 

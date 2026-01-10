@@ -25,7 +25,8 @@ import {
     Play,
     ClipboardCheck,
     Download,
-    ChevronDown
+    ChevronDown,
+    Trash2
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
@@ -155,6 +156,9 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     const [sortColumn, setSortColumn] = useState<string>("url")
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
+    // Image filter state
+    const [imageFilter, setImageFilter] = useState<"all" | "missing-alt" | "duplicates">("all")
+
     // Robots.txt filter state - persisted in localStorage
     const [robotsData, setRobotsData] = useState<{
         userAgents: { [agent: string]: { type: string; path: string }[] }
@@ -229,7 +233,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
 
     const fetchPages = async () => {
         try {
-            const res = await fetch(`/api/crawl/${jobId}/pages?limit=100`)
+            const res = await fetch(`/api/crawl/${jobId}/pages`)
             const data = await res.json()
             if (data.success) {
                 setPages(data.pages)
@@ -241,7 +245,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
 
     const fetchImages = async () => {
         try {
-            const res = await fetch(`/api/crawl/${jobId}/images?limit=100`)
+            const res = await fetch(`/api/crawl/${jobId}/images`)
             const data = await res.json()
             if (data.success) {
                 setImages(data.images)
@@ -437,6 +441,26 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                             <span className="text-xs text-muted-foreground">{Math.round((job.crawledPages / job.totalPages) * 100)}%</span>
                         </div>
                     )}
+                    {/* Delete Button */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={async () => {
+                            if (confirm('Are you sure you want to delete this crawl job? This will remove all pages, images and data.')) {
+                                try {
+                                    const res = await fetch(`/api/crawl/${jobId}/delete`, { method: 'DELETE' })
+                                    if (res.ok) {
+                                        window.location.href = '/crawllab'
+                                    }
+                                } catch (e) {
+                                    console.error('Delete failed', e)
+                                }
+                            }
+                        }}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             </div>
 
@@ -459,7 +483,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                     </TabsTrigger>
                     {/* Logs tab hidden per user request */}
                     <TabsTrigger value="speed" className="flex items-center gap-2">
-                        <Gauge className="h-4 w-4" /> Speed
+                        <Gauge className="h-4 w-4" /> PageSpeed
                     </TabsTrigger>
                 </TabsList>
 
@@ -809,8 +833,40 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                 {/* Images Tab */}
                 <TabsContent value="images" className="mt-4">
                     <div className="space-y-4">
+                        {/* Image Filter */}
+                        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                            <span className="text-sm text-muted-foreground">Filter:</span>
+                            <div className="flex gap-1">
+                                <Button
+                                    variant={imageFilter === 'all' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setImageFilter('all')}
+                                >
+                                    All ({images.length})
+                                </Button>
+                                <Button
+                                    variant={imageFilter === 'missing-alt' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setImageFilter('missing-alt')}
+                                >
+                                    Missing Alt ({imageStats.missingAlt})
+                                </Button>
+                                <Button
+                                    variant={imageFilter === 'duplicates' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setImageFilter('duplicates')}
+                                >
+                                    Duplicates ({images.filter(img => (duplicateFilenames.get(img.url.split('/').pop() || '') || 0) > 1).length})
+                                </Button>
+                            </div>
+                        </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {images
+                                .filter(img => {
+                                    if (imageFilter === 'missing-alt') return !img.alt
+                                    if (imageFilter === 'duplicates') return (duplicateFilenames.get(img.url.split('/').pop() || '') || 0) > 1
+                                    return true
+                                })
                                 .slice((imagesCurrentPage - 1) * 24, imagesCurrentPage * 24)
                                 .map((img) => (
                                     <div key={img.id} className="bg-white rounded-lg border overflow-hidden">

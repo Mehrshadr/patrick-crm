@@ -21,7 +21,7 @@ export async function GET(
 
         const { searchParams } = new URL(request.url)
         const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '100')
+        const limit = parseInt(searchParams.get('limit') || '10000')
         const missingAlt = searchParams.get('missingAlt') === 'true'
         const skip = (page - 1) * limit
 

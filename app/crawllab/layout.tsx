@@ -18,7 +18,7 @@ export default function CrawlLabLayout({
                         <div className="flex-1" />
                         <UserMenuWrapper />
                     </header>
-                    <main className="flex-1 overflow-auto bg-slate-50">
+                    <main className="flex-1 overflow-hidden flex flex-col bg-slate-50">
                         {children}
                     </main>
                 </SidebarInset>

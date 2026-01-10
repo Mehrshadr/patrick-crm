@@ -469,7 +469,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     }
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden">
             {/* Header - Fixed */}
             <div className="shrink-0 p-4 border-b">
                 <div className="flex items-center justify-between">

@@ -56,7 +56,9 @@ export async function GET(
                     { url: { contains: '/post' } },
                     { url: { contains: '/Post' } },
                     { url: { contains: '/article' } },
-                    { url: { contains: '/news' } }
+                    { url: { contains: '/news' } },
+                    { url: { contains: '/guide' } },
+                    { url: { contains: '/Guide' } }
                 ]
             } else if (urlType === 'category') {
                 where.OR = [
@@ -111,7 +113,9 @@ export async function GET(
                         { url: { contains: '/post' } },
                         { url: { contains: '/Post' } },
                         { url: { contains: '/article' } },
-                        { url: { contains: '/news' } }
+                        { url: { contains: '/news' } },
+                        { url: { contains: '/guide' } },
+                        { url: { contains: '/Guide' } }
                     ]
                 }
             }),

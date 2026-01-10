@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Switch } from "@/components/ui/switch"
 import {
     ArrowLeft,
     Globe,
@@ -154,6 +155,16 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     const [sortColumn, setSortColumn] = useState<string>("url")
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
+    // Robots.txt filter state
+    const [robotsData, setRobotsData] = useState<{
+        userAgents: { [agent: string]: { type: string; path: string }[] }
+        sitemaps: string[]
+        disallowedPaths: string[]
+        error?: string
+    } | null>(null)
+    const [applyRobotsFilter, setApplyRobotsFilter] = useState(false)
+    const [robotsLoading, setRobotsLoading] = useState(false)
+
     useEffect(() => {
         fetchJob()
     }, [jobId])
@@ -164,6 +175,13 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
             return () => clearInterval(interval)
         }
     }, [job?.status])
+
+    // Fetch robots.txt when job is loaded and toggle is enabled
+    useEffect(() => {
+        if (job?.url && applyRobotsFilter && !robotsData) {
+            fetchRobots()
+        }
+    }, [job?.url, applyRobotsFilter])
 
     useEffect(() => {
         if (activeTab === 'audit') fetchAudit()
@@ -267,6 +285,41 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
         }
     }
 
+    const fetchRobots = async () => {
+        if (!job?.url || robotsData) return
+        setRobotsLoading(true)
+        try {
+            const res = await fetch(`/api/robots?url=${encodeURIComponent(job.url)}`)
+            const data = await res.json()
+            if (data.success) {
+                // Extract disallowed paths for easy filtering
+                const allRules = data.data.userAgents['*'] || []
+                const disallowedPaths = allRules
+                    .filter((r: any) => r.type === 'disallow')
+                    .map((r: any) => r.path)
+                setRobotsData({ ...data.data, disallowedPaths })
+            }
+        } catch (e) {
+            console.error('Failed to fetch robots.txt', e)
+        } finally {
+            setRobotsLoading(false)
+        }
+    }
+
+    // Check if a URL path is blocked by robots.txt
+    const isPathBlocked = (url: string): boolean => {
+        if (!robotsData || !applyRobotsFilter) return false
+        try {
+            const path = new URL(url).pathname
+            return robotsData.disallowedPaths.some(disallowed =>
+                path.startsWith(disallowed) ||
+                (disallowed.endsWith('*') && path.startsWith(disallowed.slice(0, -1)))
+            )
+        } catch {
+            return false
+        }
+    }
+
     const getScoreColor = (score: number) => {
         if (score >= 90) return 'text-green-600'
         if (score >= 50) return 'text-orange-500'
@@ -363,6 +416,27 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Robots.txt Filter Toggle */}
+            <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                    <Switch
+                        checked={applyRobotsFilter}
+                        onCheckedChange={setApplyRobotsFilter}
+                        disabled={robotsLoading}
+                    />
+                    <span className="text-sm font-medium">Apply robots.txt rules</span>
+                    {robotsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
+                {applyRobotsFilter && robotsData && (
+                    <div className="text-xs text-muted-foreground">
+                        {robotsData.disallowedPaths.length} disallowed paths found
+                    </div>
+                )}
+                {robotsData?.error && (
+                    <span className="text-xs text-orange-600">{robotsData.error}</span>
+                )}
             </div>
 
             {/* Tabs */}
@@ -634,6 +708,7 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                 </thead>
                                 <tbody className="divide-y">
                                     {[...pages]
+                                        .filter(page => !applyRobotsFilter || !isPathBlocked(page.url))
                                         .sort((a, b) => {
                                             const dir = sortDirection === 'asc' ? 1 : -1
                                             if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir
@@ -643,40 +718,46 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                             return a.url.localeCompare(b.url) * dir
                                         })
                                         .slice((pagesCurrentPage - 1) * ITEMS_PER_PAGE, pagesCurrentPage * ITEMS_PER_PAGE)
-                                        .map((page) => (
-                                            <tr key={page.id} className="hover:bg-slate-50">
-                                                <td className="p-3">
-                                                    <a
-                                                        href={page.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-blue-600 hover:underline truncate block max-w-md"
-                                                        title={page.url}
-                                                    >
-                                                        {page.url.replace(job?.url || '', '')}
-                                                    </a>
-                                                    {page.title && (
-                                                        <div className="text-xs text-muted-foreground truncate max-w-md">
-                                                            {page.title}
+                                        .map((page) => {
+                                            const blocked = isPathBlocked(page.url)
+                                            return (
+                                                <tr key={page.id} className={`hover:bg-slate-50 ${blocked ? 'opacity-50' : ''}`}>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <a
+                                                                href={page.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`text-blue-600 hover:underline truncate block max-w-md ${blocked ? 'line-through' : ''}`}
+                                                                title={page.url}
+                                                            >
+                                                                {page.url.replace(job?.url || '', '')}
+                                                            </a>
+                                                            {blocked && <Badge variant="outline" className="text-xs">robots.txt</Badge>}
                                                         </div>
-                                                    )}
-                                                </td>
-                                                <td className="p-3">
-                                                    <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
-                                                        {page.statusCode}
-                                                    </Badge>
-                                                </td>
-                                                <td className="p-3 text-muted-foreground">
-                                                    {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
-                                                </td>
-                                                <td className="p-3 text-muted-foreground">
-                                                    {page.wordCount || '-'}
-                                                </td>
-                                                <td className="p-3 text-muted-foreground">
-                                                    {page._count.images}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                        {page.title && (
+                                                            <div className="text-xs text-muted-foreground truncate max-w-md">
+                                                                {page.title}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <Badge variant={page.statusCode === 200 ? 'secondary' : 'destructive'} className="text-xs">
+                                                            {page.statusCode}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-3 text-muted-foreground">
+                                                        {page.loadTimeMs ? `${page.loadTimeMs}ms` : '-'}
+                                                    </td>
+                                                    <td className="p-3 text-muted-foreground">
+                                                        {page.wordCount || '-'}
+                                                    </td>
+                                                    <td className="p-3 text-muted-foreground">
+                                                        {page._count.images}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
                                 </tbody>
                             </table>
                         </div>

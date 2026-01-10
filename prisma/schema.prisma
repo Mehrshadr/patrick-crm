@@ -600,3 +600,113 @@ model ImageSyncJob {
 
   @@index([status])
 }
+
+// ========== CRAWLLAB MODELS ==========
+
+model CrawlJob {
+  id          Int       @id @default(autoincrement())
+  url         String    // Target domain URL
+  status      String    @default("pending") // pending, running, completed, failed
+  totalPages  Int?
+  crawledPages Int      @default(0)
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+  
+  pages            CrawledPage[]
+  logs             CrawlLog[]
+  pageSpeedResults PageSpeedResult[]
+  
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CrawledPage {
+  id              Int      @id @default(autoincrement())
+  jobId           Int
+  url             String
+  statusCode      Int
+  title           String?
+  metaDescription String?
+  h1              String?
+  wordCount       Int?
+  loadTimeMs      Int?
+  
+  job             CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  images          CrawledImage[]
+  links           CrawledLink[]
+  
+  crawledAt       DateTime @default(now())
+  
+  @@unique([jobId, url])
+  @@index([jobId])
+}
+
+model CrawledImage {
+  id        Int      @id @default(autoincrement())
+  pageId    Int
+  url       String
+  alt       String?
+  sizeBytes Int?
+  
+  page      CrawledPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  @@index([pageId])
+}
+
+model CrawledLink {
+  id         Int      @id @default(autoincrement())
+  pageId     Int
+  targetUrl  String
+  anchorText String?
+  isInternal Boolean
+  
+  page       CrawledPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  
+  @@index([pageId])
+  @@index([targetUrl])
+}
+
+model CrawlLog {
+  id        Int      @id @default(autoincrement())
+  jobId     Int
+  level     String   // info, warn, error
+  message   String
+  details   String?  // JSON
+  createdAt DateTime @default(now())
+  
+  job       CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  @@index([jobId, createdAt])
+}
+
+model PageSpeedResult {
+  id                  Int      @id @default(autoincrement())
+  jobId               Int
+  url                 String
+  strategy            String   // mobile, desktop
+  
+  // Scores (0-100)
+  performanceScore    Int
+  accessibilityScore  Int
+  seoScore            Int
+  bestPracticesScore  Int
+  
+  // Core Web Vitals (ms or score)
+  lcp                 Float    // Largest Contentful Paint
+  fid                 Float    // First Input Delay
+  cls                 Float    // Cumulative Layout Shift
+  fcp                 Float    // First Contentful Paint
+  tbt                 Float    // Total Blocking Time
+  tti                 Float    // Time to Interactive
+  speedIndex          Float
+  serverResponseTime  Float
+  
+  fetchedAt           DateTime @default(now())
+  
+  job                 CrawlJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  @@unique([jobId, url, strategy])
+  @@index([jobId])
+}

@@ -40,6 +40,11 @@ const INTEGRATION_LABELS: Record<string, { label: string; description: string; p
         label: "API Key",
         description: "Instantly.ai API Key (encrypted)",
         placeholder: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    pagespeed_api_key: {
+        label: "API Key",
+        description: "Google PageSpeed Insights API Key (for CrawlLab)",
+        placeholder: "AIza..."
     }
 }
 
@@ -195,6 +200,30 @@ export function IntegrationsSettings() {
                         showValue={showValues.instantly_api_key || false}
                         onToggleShow={() => setShowValues(prev => ({ ...prev, instantly_api_key: !prev.instantly_api_key }))}
                         onChange={(val) => handleInputChange("instantly_api_key", val)}
+                    />
+                </CardContent>
+            </Card>
+
+            {/* PageSpeed Insights Settings */}
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg">Google PageSpeed Insights</CardTitle>
+                            <CardDescription>API Key for CrawlLab speed analysis</CardDescription>
+                        </div>
+                        <StatusBadge configured={data.integrations.pagespeed_api_key?.configured} />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <IntegrationInput
+                        settingKey="pagespeed_api_key"
+                        config={INTEGRATION_LABELS.pagespeed_api_key}
+                        status={data.integrations.pagespeed_api_key}
+                        value={formValues.pagespeed_api_key || ""}
+                        showValue={showValues.pagespeed_api_key || false}
+                        onToggleShow={() => setShowValues(prev => ({ ...prev, pagespeed_api_key: !prev.pagespeed_api_key }))}
+                        onChange={(val) => handleInputChange("pagespeed_api_key", val)}
                     />
                 </CardContent>
             </Card>

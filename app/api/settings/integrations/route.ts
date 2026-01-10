@@ -9,6 +9,7 @@ const INTEGRATION_KEYS = {
     TWILIO_AUTH_TOKEN: 'twilio_auth_token',
     TWILIO_PHONE_NUMBER: 'twilio_phone_number',
     INSTANTLY_API_KEY: 'instantly_api_key',
+    PAGESPEED_API_KEY: 'pagespeed_api_key',
 } as const
 
 type IntegrationKey = typeof INTEGRATION_KEYS[keyof typeof INTEGRATION_KEYS]
@@ -17,6 +18,7 @@ type IntegrationKey = typeof INTEGRATION_KEYS[keyof typeof INTEGRATION_KEYS]
 const ENCRYPTED_KEYS: IntegrationKey[] = [
     INTEGRATION_KEYS.TWILIO_AUTH_TOKEN,
     INTEGRATION_KEYS.INSTANTLY_API_KEY,
+    INTEGRATION_KEYS.PAGESPEED_API_KEY,
 ]
 
 /**

@@ -40,6 +40,7 @@ import {
     Sparkles,
     Anchor,
     ImageIcon,
+    Globe,
 } from "lucide-react"
 import { useUserAccess } from "@/lib/user-access"
 
@@ -194,6 +195,20 @@ export function AppSidebar() {
                                 </SidebarMenuItem>
                             </Collapsible>
                         )}
+
+                        {/* CrawlLab - Standalone Link */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                asChild
+                                isActive={pathname.startsWith('/crawllab')}
+                                className="font-medium"
+                            >
+                                <Link href="/crawllab">
+                                    <Globe className="h-4 w-4" />
+                                    <span>CrawlLab</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
 
                         {/* Projects Section */}
                         <Collapsible defaultOpen={isProjectsActive} className="group/projects">

@@ -465,9 +465,9 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
     }
 
     return (
-        <div className="p-6">
+        <div className="p-6 pt-0">
             {/* Sticky Header */}
-            <div className="sticky top-0 z-20 bg-background pb-4 mb-4 border-b flex items-center justify-between">
+            <div className="sticky top-0 z-20 bg-background pt-6 pb-4 mb-4 border-b flex items-center justify-between -mx-6 px-6">
                 <div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Link href="/crawllab" className="hover:text-foreground flex items-center gap-1">
@@ -777,31 +777,63 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                 {/* Pages Tab */}
                 <TabsContent value="pages" className="mt-4">
                     {/* Filter Toolbar */}
-                    <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-lg">
+                    <div className="flex flex-col gap-3 mb-4 p-3 bg-slate-50 rounded-lg">
+                        {/* Status Filter Row */}
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">Type:</span>
+                            <span className="text-sm text-muted-foreground w-16">Status:</span>
                             <div className="flex gap-1">
                                 {[
-                                    { key: 'all', label: 'All' },
-                                    { key: 'product', label: 'Products' },
-                                    { key: 'blog', label: 'Blog' },
-                                    { key: 'category', label: 'Categories' },
-                                    { key: 'page', label: 'Pages' }
-                                ].map(({ key, label }) => (
+                                    { key: 'all', label: 'All', count: pageCounts.all },
+                                    { key: '200', label: '200 OK', count: pageCounts.ok },
+                                    { key: '404', label: '404', count: pageCounts.notFound },
+                                    { key: 'error', label: 'Errors', count: pageCounts.errors }
+                                ].map(({ key, label, count }) => (
                                     <Button
                                         key={key}
-                                        variant={urlTypeFilter === key ? 'default' : 'outline'}
+                                        variant={statusFilter === key ? 'default' : 'outline'}
                                         size="sm"
-                                        onClick={() => setUrlTypeFilter(key as any)}
+                                        onClick={() => {
+                                            setStatusFilter(key as any)
+                                            setPagesCurrentPage(1)
+                                            fetchPages(1, key as any, urlTypeFilter)
+                                        }}
                                     >
-                                        {label} ({key === 'all' ? pages.length : pages.filter(p => getUrlType(p.url) === key).length})
+                                        {label} ({count})
                                     </Button>
                                 ))}
                             </div>
+                            {pagesLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                         </div>
-                        <Button onClick={exportToScreamingFrog} variant="outline" size="sm">
-                            <Download className="h-4 w-4 mr-2" /> Export CSV
-                        </Button>
+                        {/* Type Filter Row */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground w-16">Type:</span>
+                                <div className="flex gap-1">
+                                    {[
+                                        { key: 'all', label: 'All', count: pageCounts.all },
+                                        { key: 'product', label: 'Products', count: pageCounts.products },
+                                        { key: 'blog', label: 'Blog', count: pageCounts.blog },
+                                        { key: 'category', label: 'Categories', count: pageCounts.categories }
+                                    ].map(({ key, label, count }) => (
+                                        <Button
+                                            key={key}
+                                            variant={urlTypeFilter === key ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => {
+                                                setUrlTypeFilter(key as any)
+                                                setPagesCurrentPage(1)
+                                                fetchPages(1, statusFilter, key as any)
+                                            }}
+                                        >
+                                            {label} ({count})
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+                            <Button onClick={exportToScreamingFrog} variant="outline" size="sm">
+                                <Download className="h-4 w-4 mr-2" /> Export CSV
+                            </Button>
+                        </div>
                     </div>
                     <div className="bg-white rounded-xl border overflow-hidden">
                         <div className="max-h-[600px] overflow-auto">
@@ -849,8 +881,6 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                 </thead>
                                 <tbody className="divide-y">
                                     {[...pages]
-                                        .filter(page => !applyRobotsFilter || !isPathBlocked(page.url))
-                                        .filter(page => urlTypeFilter === 'all' || getUrlType(page.url) === urlTypeFilter)
                                         .sort((a, b) => {
                                             const dir = sortDirection === 'asc' ? 1 : -1
                                             if (sortColumn === 'status') return (a.statusCode - b.statusCode) * dir
@@ -859,9 +889,8 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                                             if (sortColumn === 'images') return (a._count.images - b._count.images) * dir
                                             return a.url.localeCompare(b.url) * dir
                                         })
-                                        .slice((pagesCurrentPage - 1) * ITEMS_PER_PAGE, pagesCurrentPage * ITEMS_PER_PAGE)
                                         .map((page) => {
-                                            const blocked = isPathBlocked(page.url)
+                                            const blocked = applyRobotsFilter && isPathBlocked(page.url)
                                             return (
                                                 <tr key={page.id} className={`hover:bg-slate-50 ${blocked ? 'opacity-50' : ''}`}>
                                                     <td className="p-3">
@@ -904,25 +933,33 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                             </table>
                         </div>
                         {/* Pagination */}
-                        {pages.length > ITEMS_PER_PAGE && (
+                        {pagesTotalPages > 1 && (
                             <div className="flex items-center justify-between p-3 border-t bg-slate-50">
                                 <span className="text-sm text-muted-foreground">
-                                    Showing {(pagesCurrentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(pagesCurrentPage * ITEMS_PER_PAGE, pages.length)} of {pages.length}
+                                    Page {pagesCurrentPage} of {pagesTotalPages}
                                 </span>
                                 <div className="flex gap-2">
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setPagesCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={pagesCurrentPage === 1}
+                                        onClick={() => {
+                                            const newPage = Math.max(1, pagesCurrentPage - 1)
+                                            setPagesCurrentPage(newPage)
+                                            fetchPages(newPage, statusFilter, urlTypeFilter)
+                                        }}
+                                        disabled={pagesCurrentPage === 1 || pagesLoading}
                                     >
                                         Previous
                                     </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setPagesCurrentPage(p => Math.min(Math.ceil(pages.length / ITEMS_PER_PAGE), p + 1))}
-                                        disabled={pagesCurrentPage >= Math.ceil(pages.length / ITEMS_PER_PAGE)}
+                                        onClick={() => {
+                                            const newPage = Math.min(pagesTotalPages, pagesCurrentPage + 1)
+                                            setPagesCurrentPage(newPage)
+                                            fetchPages(newPage, statusFilter, urlTypeFilter)
+                                        }}
+                                        disabled={pagesCurrentPage >= pagesTotalPages || pagesLoading}
                                     >
                                         Next
                                     </Button>
@@ -935,100 +972,123 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                 {/* Images Tab */}
                 <TabsContent value="images" className="mt-4">
                     <div className="space-y-4">
-                        {/* Image Filter */}
-                        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
-                            <span className="text-sm text-muted-foreground">Filter:</span>
-                            <div className="flex gap-1">
-                                <Button
-                                    variant={imageFilter === 'all' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setImageFilter('all')}
-                                >
-                                    All ({images.length})
-                                </Button>
-                                <Button
-                                    variant={imageFilter === 'missing-alt' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setImageFilter('missing-alt')}
-                                >
-                                    Missing Alt ({imageStats.missingAlt})
-                                </Button>
-                                <Button
-                                    variant={imageFilter === 'duplicates' ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setImageFilter('duplicates')}
-                                >
-                                    Duplicates ({images.filter(img => (duplicateFilenames.get(img.url.split('/').pop() || '') || 0) > 1).length})
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {images
-                                .filter(img => {
-                                    if (imageFilter === 'missing-alt') return !img.alt
-                                    if (imageFilter === 'duplicates') return (duplicateFilenames.get(img.url.split('/').pop() || '') || 0) > 1
-                                    return true
-                                })
-                                .slice((imagesCurrentPage - 1) * 24, imagesCurrentPage * 24)
-                                .map((img) => (
-                                    <div key={img.id} className="bg-white rounded-lg border overflow-hidden">
-                                        <div className="aspect-video bg-slate-100 relative">
-                                            <img
-                                                src={img.url}
-                                                alt={img.alt || ''}
-                                                className="w-full h-full object-cover"
-                                                loading="lazy"
-                                            />
-                                        </div>
-                                        <div className="p-3">
-                                            {!img.alt && (
-                                                <Badge variant="destructive" className="mb-2 text-xs mr-1">
-                                                    Missing Alt
-                                                </Badge>
-                                            )}
-                                            {duplicateFilenames.get(img.url.split('/').pop() || '') && (duplicateFilenames.get(img.url.split('/').pop() || '') || 0) > 1 && (
-                                                <Badge variant="outline" className="mb-2 text-xs text-purple-600">
-                                                    Duplicate
-                                                </Badge>
-                                            )}
-                                            <p className="text-xs text-muted-foreground truncate" title={img.url}>
-                                                {img.url.split('/').pop()}
-                                            </p>
-                                            {img.alt && (
-                                                <p className="text-xs mt-1 truncate" title={img.alt}>
-                                                    Alt: {img.alt}
-                                                </p>
-                                            )}
-                                        </div>
+                        {/* Image Filter + Stats */}
+                        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Filter:</span>
+                                    <div className="flex gap-1">
+                                        {[
+                                            { key: 'all', label: 'All', count: imageStats.uniqueImages },
+                                            { key: 'missing-alt', label: 'Missing Alt', count: imageStats.missingAlt },
+                                            { key: 'duplicates', label: 'Duplicates', count: imageStats.duplicates }
+                                        ].map(({ key, label, count }) => (
+                                            <Button
+                                                key={key}
+                                                variant={imageFilter === key ? 'default' : 'outline'}
+                                                size="sm"
+                                                onClick={() => {
+                                                    setImageFilter(key as any)
+                                                    setImagesCurrentPage(1)
+                                                    fetchImages(1, key as any)
+                                                }}
+                                            >
+                                                {label} ({count})
+                                            </Button>
+                                        ))}
                                     </div>
-                                ))}
-                        </div>
-                        {/* Pagination */}
-                        {images.length > 24 && (
-                            <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                                <span className="text-sm text-muted-foreground">
-                                    Showing {(imagesCurrentPage - 1) * 24 + 1}-{Math.min(imagesCurrentPage * 24, images.length)} of {images.length}
-                                </span>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setImagesCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={imagesCurrentPage === 1}
-                                    >
-                                        Previous
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setImagesCurrentPage(p => Math.min(Math.ceil(images.length / 24), p + 1))}
-                                        disabled={imagesCurrentPage >= Math.ceil(images.length / 24)}
-                                    >
-                                        Next
-                                    </Button>
+                                    {imagesLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                                 </div>
                             </div>
-                        )}
+                            <div className="text-sm text-muted-foreground">
+                                {imageStats.uniqueImages} unique / {imageStats.totalUsage} uses
+                            </div>
+                        </div>
+
+                        {/* Images Table */}
+                        <div className="bg-white rounded-xl border overflow-hidden">
+                            <div className="max-h-[600px] overflow-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 border-b sticky top-0">
+                                        <tr>
+                                            <th className="text-left p-3 font-medium w-16">Preview</th>
+                                            <th className="text-left p-3 font-medium">URL</th>
+                                            <th className="text-left p-3 font-medium w-32">Alt Text</th>
+                                            <th className="text-left p-3 font-medium w-48">Found on Page</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {images.map((img) => (
+                                            <tr key={img.id} className="hover:bg-slate-50">
+                                                <td className="p-3">
+                                                    <img
+                                                        src={img.url}
+                                                        alt={img.alt || ''}
+                                                        className="w-12 h-12 object-cover rounded"
+                                                        loading="lazy"
+                                                    />
+                                                </td>
+                                                <td className="p-3">
+                                                    <a
+                                                        href={img.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:underline truncate block max-w-xs"
+                                                        title={img.url}
+                                                    >
+                                                        {img.url.split('/').pop()}
+                                                    </a>
+                                                </td>
+                                                <td className="p-3">
+                                                    {img.alt ? (
+                                                        <span className="text-xs truncate block max-w-32" title={img.alt}>{img.alt}</span>
+                                                    ) : (
+                                                        <Badge variant="destructive" className="text-xs">Missing</Badge>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 text-xs text-muted-foreground truncate max-w-48" title={img.page?.url}>
+                                                    {img.page?.url?.replace(/^https?:\/\/[^/]+/, '')}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination */}
+                            {imagesTotalPages > 1 && (
+                                <div className="flex items-center justify-between p-3 border-t bg-slate-50">
+                                    <span className="text-sm text-muted-foreground">
+                                        Page {imagesCurrentPage} of {imagesTotalPages}
+                                    </span>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const newPage = Math.max(1, imagesCurrentPage - 1)
+                                                setImagesCurrentPage(newPage)
+                                                fetchImages(newPage, imageFilter)
+                                            }}
+                                            disabled={imagesCurrentPage === 1 || imagesLoading}
+                                        >
+                                            Previous
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const newPage = Math.min(imagesTotalPages, imagesCurrentPage + 1)
+                                                setImagesCurrentPage(newPage)
+                                                fetchImages(newPage, imageFilter)
+                                            }}
+                                            disabled={imagesCurrentPage >= imagesTotalPages || imagesLoading}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </TabsContent>
 

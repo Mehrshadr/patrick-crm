@@ -50,14 +50,19 @@ export async function GET(
             } else if (urlType === 'blog') {
                 where.OR = [
                     { url: { contains: '/blog' } },
+                    { url: { contains: '/Blog' } },
+                    { url: { contains: '/BLOG' } },
                     { url: { contains: '/post' } },
+                    { url: { contains: '/Post' } },
                     { url: { contains: '/article' } },
                     { url: { contains: '/news' } }
                 ]
             } else if (urlType === 'category') {
                 where.OR = [
                     { url: { contains: '/category' } },
-                    { url: { contains: '/collection' } }
+                    { url: { contains: '/Category' } },
+                    { url: { contains: '/collection' } },
+                    { url: { contains: '/Collection' } }
                 ]
             }
         }
@@ -91,7 +96,12 @@ export async function GET(
                 where: {
                     jobId, OR: [
                         { url: { contains: '/blog' } },
-                        { url: { contains: '/post' } }
+                        { url: { contains: '/Blog' } },
+                        { url: { contains: '/BLOG' } },
+                        { url: { contains: '/post' } },
+                        { url: { contains: '/Post' } },
+                        { url: { contains: '/article' } },
+                        { url: { contains: '/news' } }
                     ]
                 }
             }),
@@ -99,7 +109,9 @@ export async function GET(
                 where: {
                     jobId, OR: [
                         { url: { contains: '/category' } },
-                        { url: { contains: '/collection' } }
+                        { url: { contains: '/Category' } },
+                        { url: { contains: '/collection' } },
+                        { url: { contains: '/Collection' } }
                     ]
                 }
             })

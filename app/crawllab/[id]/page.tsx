@@ -760,57 +760,67 @@ export default function CrawlJobPage({ params }: { params: Promise<{ id: string 
                     {/* Pages Tab */}
                     <TabsContent value="pages" className="mt-4">
                         {/* Filter Toolbar */}
-                        <div className="flex flex-col gap-3 mb-4 p-3 bg-slate-50 rounded-lg">
-                            {/* Status Filter Row */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground w-16">Status:</span>
-                                <div className="flex gap-1">
-                                    {['all', '200', '404', 'error'].map((key) => (
-                                        <Button
-                                            key={key}
-                                            variant={statusFilter === key ? 'default' : 'outline'}
-                                            size="sm"
-                                            disabled={pagesLoading}
-                                            onClick={() => {
-                                                setStatusFilter(key as any)
-                                                setPagesCurrentPage(1)
-                                                fetchPages(1, key as any, urlTypeFilter)
-                                            }}
-                                        >
-                                            {key === 'all' ? 'All' : key === '200' ? '200 OK' : key === '404' ? '404' : 'Errors'}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </div>
-                            {/* Type Filter Row */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-muted-foreground w-16">Type:</span>
-                                    <div className="flex gap-1">
-                                        {[
-                                            { key: 'all', label: 'All' },
-                                            { key: 'product', label: 'Products' },
-                                            { key: 'blog', label: 'Blog' },
-                                            { key: 'category', label: 'Categories' }
-                                        ].map(({ key, label }) => (
-                                            <Button
-                                                key={key}
-                                                variant={urlTypeFilter === key ? 'default' : 'outline'}
-                                                size="sm"
-                                                disabled={pagesLoading}
-                                                onClick={() => {
-                                                    setUrlTypeFilter(key as any)
-                                                    setPagesCurrentPage(1)
-                                                    fetchPages(1, statusFilter, key as any)
-                                                }}
-                                            >
-                                                {label}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <Button onClick={exportToScreamingFrog} variant="outline" size="sm">
-                                    <Download className="h-4 w-4 mr-2" /> Export CSV
+                        <div className="flex flex-wrap items-center gap-2 mb-4 px-1">
+                            {/* Status Group */}
+                            {['all', '200', '404', 'error'].map((key) => {
+                                const count = key === 'all' ? pageCounts.all : key === '200' ? pageCounts.ok : key === '404' ? pageCounts.notFound : pageCounts.errors
+                                const isSelected = statusFilter === key
+                                let colorClass = isSelected ? "bg-slate-100 text-slate-900 border-slate-200" : "text-muted-foreground hover:bg-slate-50 border-transparent bg-transparent"
+
+                                if (isSelected) {
+                                    if (key === '200') colorClass = "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    if (key === '404') colorClass = "bg-rose-50 text-rose-700 border-rose-200"
+                                    if (key === 'error') colorClass = "bg-red-50 text-red-700 border-red-200"
+                                }
+
+                                return (
+                                    <Button
+                                        key={key}
+                                        variant="outline"
+                                        size="sm"
+                                        className={`h-7 rounded-md border text-xs shadow-none ${colorClass}`}
+                                        disabled={pagesLoading}
+                                        onClick={() => {
+                                            setStatusFilter(key as any)
+                                            setPagesCurrentPage(1)
+                                            fetchPages(1, key as any, urlTypeFilter)
+                                        }}
+                                    >
+                                        {key === 'all' ? 'All' : key === '200' ? '200 OK' : key === '404' ? '404' : 'Errors'}
+                                        <span className="ml-1.5 opacity-60">({count})</span>
+                                    </Button>
+                                )
+                            })}
+
+                            <div className="h-4 w-px bg-slate-200 mx-1" />
+
+                            {/* Type Group */}
+                            {[
+                                { key: 'all', label: 'All Types', count: pageCounts.all },
+                                { key: 'product', label: 'Products', count: pageCounts.products },
+                                { key: 'blog', label: 'Blog', count: pageCounts.blog },
+                                { key: 'category', label: 'Categories', count: pageCounts.categories }
+                            ].map(({ key, label, count }) => (
+                                <Button
+                                    key={key}
+                                    variant={urlTypeFilter === key ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className={`h-7 rounded-md text-xs ${urlTypeFilter === key ? 'bg-slate-100 text-slate-900' : 'text-muted-foreground hover:bg-slate-50'}`}
+                                    disabled={pagesLoading}
+                                    onClick={() => {
+                                        setUrlTypeFilter(key as any)
+                                        setPagesCurrentPage(1)
+                                        fetchPages(1, statusFilter, key as any)
+                                    }}
+                                >
+                                    {label}
+                                    {key !== 'all' && <span className="ml-1.5 opacity-60">({count})</span>}
+                                </Button>
+                            ))}
+
+                            <div className="ml-auto">
+                                <Button onClick={exportToScreamingFrog} variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground">
+                                    <Download className="h-3 w-3 mr-1.5" /> Export
                                 </Button>
                             </div>
                         </div>
